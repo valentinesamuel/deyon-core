@@ -1,0 +1,18 @@
+$kind: http-request
+name: MFA Setup Confirm
+method: POST
+url: '{{baseUrl}}/staff/auth/mfa/setup/confirm'
+order: 10000
+description: |-
+  Confirm MFA setup by verifying TOTP code from authenticator app.
+  Completes the MFA enrollment process.
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "setupToken": "hex-setup-token",
+      "totpCode": "123456"
+    }

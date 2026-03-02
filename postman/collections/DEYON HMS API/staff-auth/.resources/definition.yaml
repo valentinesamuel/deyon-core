@@ -1,0 +1,17 @@
+$kind: collection
+name: Staff Auth
+description: |-
+  Staff authentication endpoints including login, MFA verification, token management, invitations, and password reset.
+  
+  ## Login Flow
+  1. POST /staff/auth/login - Submit credentials, receive mfaToken
+  2. POST /staff/auth/login/mfa-verify - Submit TOTP code with mfaToken, receive access/refresh tokens
+  
+  ## Alternative MFA
+  - POST /staff/auth/login/mfa-backup - Use backup code instead of TOTP
+  
+  ## Invite Flow
+  1. POST /staff/auth/invite - Admin invites new staff (requires auth)
+  2. POST /staff/auth/invite/accept - New staff accepts invite and sets up account
+  3. POST /staff/auth/mfa/setup - Initialize MFA setup
+  4. POST /staff/auth/mfa/setup/confirm - Confirm MFA with TOTP code

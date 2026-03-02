@@ -1,0 +1,3 @@
+- cleanup files and names
+- arrange tests
+- arrange advanced filtering

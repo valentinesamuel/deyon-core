@@ -1,0 +1,11 @@
+$kind: http-request
+name: Refresh Token
+method: POST
+url: '{{baseUrl}}/staff/auth/refresh'
+order: 4000
+description: |-
+  Refresh access token using refresh token from cookies.
+  Call when access token expires to get new tokens.
+headers:
+  - key: Content-Type
+    value: application/json

@@ -1,0 +1,8 @@
+$kind: http-request
+name: Check Health
+method: GET
+url: http://localhost:5200/health
+order: 1000
+headers:
+  Content-Type: application/json
+examples: ./.resources/check health.resources/examples

@@ -1,0 +1,9 @@
+name: DEYON_BE_LOCAL
+values:
+  - key: baseUrl
+    value: http://localhost:5200/api/v1/
+    enabled: true
+  - key: token
+    value: ''
+    enabled: true
+    description: JWT access token obtained after MFA verification

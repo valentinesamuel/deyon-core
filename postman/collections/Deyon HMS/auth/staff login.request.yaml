@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{baseUrl}}staff/auth"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "email": "{{$randomEmail}}",
+        "password": "{{$randomPassword}}"
+    }
+order: 1000

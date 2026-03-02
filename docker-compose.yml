@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16.3-alpine3.20
+    container_name: deyon_postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DATABASE_DB}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - '${DATABASE_PORT}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: deyon_redis
+    ports:
+      - "6377:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # localstack:
+  #   image: localstack/localstack
+  #   container_name: localstack
+  #   ports:
+  #     - "4566:4566"
+  #     - "4510-4559:4510-4559"
+  #   volumes:
+  #     - localstack_data:/var/lib/localstack
+  #     - ./infra/docker/localstack:/etc/localstack/init/ready.d
+  #   environment:
+  #     - PERSISTENCE=1
+  #     - LAMBDA_PERSISTENCE=1
+  #     - LOCALSTACK_PERSISTENCE=1
+  #     - LOCALSTACK_HOST=127.0.0.1
+  #     - LAMBDA_DOCKER_NETWORK=bridge
+  #   restart: unless-stopped
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   volumes:
+  #     - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+
+  # grafana:
+  #   image: grafana/grafana-oss:latest
+  #   ports:
+  #     - "3300:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana-storage:/var/lib/grafana
+  #     - ./infra/grafana/provisioning:/etc/grafana/provisioning
+  #     - ./infra/grafana/dashboards:/var/lib/grafana/dashboards
+  #   depends_on:
+  #     - prometheus
+
+networks:
+  deyon_default:
+
+volumes:
+  postgres_data:
+  redis_data:
+  # localstack_data:
+  # grafana-storage:

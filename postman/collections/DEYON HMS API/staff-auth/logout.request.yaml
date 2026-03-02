@@ -1,0 +1,11 @@
+$kind: http-request
+name: Logout
+method: POST
+url: '{{baseUrl}}/staff/auth/logout'
+order: 5000
+description: Logout current session. Requires authentication.
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{token}}'

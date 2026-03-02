@@ -1,0 +1,18 @@
+$kind: http-request
+name: MFA Backup Verify
+method: POST
+url: '{{baseUrl}}/staff/auth/login/mfa-backup'
+order: 3000
+description: |-
+  Verify using backup code instead of TOTP. Requires mfaToken from login response.
+  Use when authenticator app is unavailable.
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mfaToken": "hex-mfa-token",
+      "backupCode": "ABCDE12345"
+    }

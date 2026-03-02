@@ -1,0 +1,11 @@
+$kind: http-request
+name: Logout All Sessions
+method: POST
+url: '{{baseUrl}}/staff/auth/logout-all'
+order: 6000
+description: Logout from all sessions/devices. Requires authentication.
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{token}}'
