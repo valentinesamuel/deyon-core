@@ -3,9 +3,9 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { StaffLoginDto } from '../dto/staffLogin.dto';
 import { AuthService } from '../services/auth.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 
 export interface LoginStaffResult {
   requiresMfa: boolean;
@@ -18,7 +18,7 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
 
   constructor(
     private readonly authService: AuthService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly staffRepository: StaffRepository,
   ) {
     super();
@@ -50,8 +50,9 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
 
     if (!staff) {
       // Always same error to prevent email enumeration
-      await this.auditService.log({
-        event: AuthEventType.LOGIN_FAILED,
+      await this.eventLogService.log({
+        event: EventType.LOGIN_FAILED,
+        module: EventModule.AUTH,
         ipAddress,
         userAgent,
         metadata: { reason: 'staff_not_found' },
@@ -68,9 +69,10 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
 
     if (!isPasswordValid) {
       await this.authService.recordFailedAttempt(email, staff.id);
-      await this.auditService.log({
-        staffId: staff.id,
-        event: AuthEventType.LOGIN_FAILED,
+      await this.eventLogService.log({
+        actorId: staff.id,
+        event: EventType.LOGIN_FAILED,
+        module: EventModule.AUTH,
         ipAddress,
         userAgent,
         metadata: { reason: 'invalid_password' },
@@ -85,9 +87,10 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
     // 6. Issue ephemeral MFA token (no cookies yet — step 1 of 2)
     const mfaToken = await this.authService.issueEphemeralMfaToken(staff.id);
 
-    await this.auditService.log({
-      staffId: staff.id,
-      event: AuthEventType.LOGIN_SUCCESS,
+    await this.eventLogService.log({
+      actorId: staff.id,
+      event: EventType.LOGIN_SUCCESS,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
       metadata: { step: 'credentials_verified' },

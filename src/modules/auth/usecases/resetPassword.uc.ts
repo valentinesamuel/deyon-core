@@ -5,11 +5,11 @@ import { ResetPasswordDto } from '../dto/resetPassword.dto';
 import { AuthService } from '../services/auth.service';
 import { SessionService } from '../services/session.service';
 import { TokenService } from '../services/token.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys } from '@shared/redis/redis.constants';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 
 @Injectable()
 export class ResetPasswordUsecase extends Usecase<{ message: string }> {
@@ -17,7 +17,7 @@ export class ResetPasswordUsecase extends Usecase<{ message: string }> {
     private readonly authService: AuthService,
     private readonly sessionService: SessionService,
     private readonly tokenService: TokenService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly staffRepository: StaffRepository,
     private readonly redisService: RedisService,
   ) {
@@ -50,9 +50,10 @@ export class ResetPasswordUsecase extends Usecase<{ message: string }> {
     // Delete the reset token
     await this.redisService.del(RedisKeys.pwReset(tokenHash));
 
-    await this.auditService.log({
-      staffId: data.staffId,
-      event: AuthEventType.PASSWORD_RESET_COMPLETED,
+    await this.eventLogService.log({
+      actorId: data.staffId,
+      event: EventType.PASSWORD_RESET_COMPLETED,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
     });

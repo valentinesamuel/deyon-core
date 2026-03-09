@@ -1,14 +1,11 @@
 $kind: http-request
 name: Accept Invite
 method: POST
-url: '{{baseUrl}}/staff/auth/invite/accept'
+url: "{{baseUrl}}staff/auth/invite/accept"
 order: 8000
 description: |-
   Accept staff invitation and complete account setup.
   Public endpoint - no authentication required.
-headers:
-  - key: Content-Type
-    value: application/json
 body:
   type: json
   content: |-

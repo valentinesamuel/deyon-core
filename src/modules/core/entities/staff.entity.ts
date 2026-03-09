@@ -4,7 +4,6 @@ import { Department } from './department.entity';
 import { Role } from './role.entity';
 import { RefreshToken } from '@modules/core/entities/refreshToken.entity';
 import { MfaConfig } from '@modules/core/entities/mfaConfig.entity';
-import { AuthAuditLog } from '@modules/core/entities/authAuditLog.entity';
 
 @Entity()
 export class Staff extends BaseEntity {
@@ -73,7 +72,4 @@ export class Staff extends BaseEntity {
 
   @OneToOne(() => MfaConfig, (mfa) => mfa.staff)
   mfaConfig: MfaConfig;
-
-  @OneToMany(() => AuthAuditLog, (log) => log.staffId)
-  auditLogs: AuthAuditLog[];
 }

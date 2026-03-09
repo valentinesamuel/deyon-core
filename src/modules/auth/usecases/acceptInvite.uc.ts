@@ -5,9 +5,9 @@ import { AcceptInviteDto } from '../dto/acceptInvite.dto';
 import { InviteTokenRepository } from '@adapters/repositories/inviteToken.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { AuthService } from '../services/auth.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { TokenService } from '../services/token.service';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys } from '@shared/redis/redis.constants';
 
@@ -23,7 +23,7 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     private readonly inviteTokenRepository: InviteTokenRepository,
     private readonly staffRepository: StaffRepository,
     private readonly authService: AuthService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly tokenService: TokenService,
     private readonly redisService: RedisService,
   ) {
@@ -99,9 +99,10 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     // Issue MFA setup token
     const setupToken = await this.authService.issueEphemeralSetupToken(staff.id);
 
-    await this.auditService.log({
-      staffId: staff.id,
-      event: AuthEventType.INVITE_ACCEPTED,
+    await this.eventLogService.log({
+      actorId: staff.id,
+      event: EventType.INVITE_ACCEPTED,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
     });

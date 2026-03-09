@@ -9,7 +9,7 @@ import { Permission } from '@modules/core/entities/permission.entity';
 import { RefreshToken } from '../core/entities/refreshToken.entity';
 import { MfaConfig } from '../core/entities/mfaConfig.entity';
 import { InviteToken } from '../core/entities/inviteToken.entity';
-import { AuthAuditLog } from '../core/entities/authAuditLog.entity';
+import { EventLog } from '../core/entities/eventLog.entity';
 
 // Controller
 import { StaffAuthController } from './controller/staffAuth.controller';
@@ -18,7 +18,7 @@ import { StaffAuthController } from './controller/staffAuth.controller';
 import { AuthService } from './services/auth.service';
 import { TokenService } from './services/token.service';
 import { MfaService } from './services/mfa.service';
-import { AuditService } from './services/audit.service';
+import { EventLogService } from './services/eventLog.service';
 import { SessionService } from './services/session.service';
 
 // Repositories
@@ -26,7 +26,6 @@ import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { InviteTokenRepository } from '@adapters/repositories/inviteToken.repository';
-import { AuthAuditLogRepository } from '@adapters/repositories/authAuditLog.repository';
 import { PermissionRepository } from '@adapters/repositories/permission.repository';
 
 // Use Cases
@@ -49,17 +48,11 @@ import { EmailModule } from '@adapters/email/email.module';
 
 // Shared utilities
 import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility';
+import { EventLogRepository } from '@adapters/repositories/eventLog.repository';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Staff,
-      Permission,
-      RefreshToken,
-      MfaConfig,
-      InviteToken,
-      AuthAuditLog,
-    ]),
+    TypeOrmModule.forFeature([Staff, Permission, RefreshToken, MfaConfig, InviteToken, EventLog]),
     JwtModule.register({}),
     CoreModule,
     EmailModule,
@@ -70,7 +63,7 @@ import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility
     AuthService,
     TokenService,
     MfaService,
-    AuditService,
+    EventLogService,
     SessionService,
     EncryptionUtility,
 
@@ -79,7 +72,7 @@ import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility
     RefreshTokenRepository,
     MfaConfigRepository,
     InviteTokenRepository,
-    AuthAuditLogRepository,
+    EventLogRepository,
     PermissionRepository,
 
     // Use Cases
@@ -97,6 +90,6 @@ import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility
     ForgotPasswordUsecase,
     ResetPasswordUsecase,
   ],
-  exports: [TokenService, AuthService, StaffRepository],
+  exports: [TokenService, AuthService, EventLogService, StaffRepository],
 })
 export class AuthModule {}

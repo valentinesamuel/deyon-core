@@ -4,8 +4,8 @@ import { EntityManager } from 'typeorm';
 import { StaffInviteDto } from '../dto/staffInvite.dto';
 import { InviteTokenRepository } from '@adapters/repositories/inviteToken.repository';
 import { TokenService } from '../services/token.service';
-import { AuditService } from '../services/audit.service';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventLogService } from '../services/eventLog.service';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
 
@@ -19,7 +19,7 @@ export class CreateInviteUsecase extends Usecase<CreateInviteResult> {
   constructor(
     private readonly inviteTokenRepository: InviteTokenRepository,
     private readonly tokenService: TokenService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly redisService: RedisService,
   ) {
     super();
@@ -52,9 +52,10 @@ export class CreateInviteUsecase extends Usecase<CreateInviteResult> {
       RedisTTL.invite,
     );
 
-    await this.auditService.log({
-      staffId: invitedById,
-      event: AuthEventType.INVITE_SENT,
+    await this.eventLogService.log({
+      actorId: invitedById,
+      event: EventType.INVITE_SENT,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
       metadata: { email },

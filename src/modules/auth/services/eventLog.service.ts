@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuthAuditLog, AuthEventType } from '@modules/core/entities/authAuditLog.entity';
+import { EventLog, EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 
-export interface AuditLogParams {
-  staffId?: string;
-  event: AuthEventType;
+export interface EventLogParams {
+  actorId?: string;
+  event: EventType;
+  module?: EventModule;
   ipAddress?: string;
   userAgent?: string;
   metadata?: Record<string, unknown>;
@@ -13,25 +14,26 @@ export interface AuditLogParams {
 }
 
 @Injectable()
-export class AuditService {
-  private readonly logger = new Logger(AuditService.name);
+export class EventLogService {
+  private readonly logger = new Logger(EventLogService.name);
 
   constructor(
-    @InjectRepository(AuthAuditLog)
-    private readonly auditLogRepository: Repository<AuthAuditLog>,
+    @InjectRepository(EventLog)
+    private readonly eventLogRepository: Repository<EventLog>,
   ) {}
 
-  async log(params: AuditLogParams): Promise<void> {
+  async log(params: EventLogParams): Promise<void> {
     try {
-      const entry = this.auditLogRepository.create({
-        staffId: params.staffId ?? null,
+      const entry = this.eventLogRepository.create({
+        actorId: params.actorId ?? null,
         event: params.event,
+        module: params.module ?? null,
         ipAddress: params.ipAddress,
         userAgent: params.userAgent,
         metadata: params.metadata,
         success: params.success ?? true,
       });
-      await this.auditLogRepository.save(entry);
+      await this.eventLogRepository.save(entry);
     } catch (err) {
       // Audit must never break auth flow
       this.logger.error(

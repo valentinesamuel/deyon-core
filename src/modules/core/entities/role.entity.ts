@@ -11,6 +11,9 @@ export class Role extends BaseEntity {
   @Column({ type: 'varchar' })
   alias: string;
 
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
   @OneToMany(() => Staff, (staff) => staff.role)
   staffs: Staff[];
 

@@ -4,18 +4,18 @@ import { EntityManager } from 'typeorm';
 import { Request, Response } from 'express';
 import { TokenService } from '../services/token.service';
 import { SessionService } from '../services/session.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys } from '@shared/redis/redis.constants';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 
 @Injectable()
 export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
   constructor(
     private readonly tokenService: TokenService,
     private readonly sessionService: SessionService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly redisService: RedisService,
   ) {
@@ -61,9 +61,10 @@ export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
 
     this.tokenService.clearAuthCookies(res);
 
-    await this.auditService.log({
-      staffId,
-      event: AuthEventType.LOGOUT,
+    await this.eventLogService.log({
+      actorId: staffId,
+      event: EventType.LOGOUT,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
     });

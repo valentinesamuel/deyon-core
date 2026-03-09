@@ -6,13 +6,13 @@ import { MfaVerifyDto } from '../dto/mfaVerify.dto';
 import { MfaService } from '../services/mfa.service';
 import { TokenService } from '../services/token.service';
 import { SessionService } from '../services/session.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 
@@ -31,7 +31,7 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     private readonly mfaService: MfaService,
     private readonly tokenService: TokenService,
     private readonly sessionService: SessionService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly mfaConfigRepository: MfaConfigRepository,
     private readonly staffRepository: StaffRepository,
@@ -74,9 +74,10 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     // 4. Verify TOTP
     const valid = await this.mfaService.verifyTotp(mfaConfig.encryptedSecret, totpCode);
     if (!valid) {
-      await this.auditService.log({
-        staffId: mfaStaffId,
-        event: AuthEventType.MFA_FAILED,
+      await this.eventLogService.log({
+        actorId: mfaStaffId,
+        event: EventType.MFA_FAILED,
+        module: EventModule.AUTH,
         ipAddress,
         userAgent,
         success: false,
@@ -120,9 +121,10 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     // 9. Update lastLogin
     await this.staffRepository.update(mfaStaffId, { lastLogin: new Date() });
 
-    await this.auditService.log({
-      staffId: mfaStaffId,
-      event: AuthEventType.MFA_VERIFIED,
+    await this.eventLogService.log({
+      actorId: mfaStaffId,
+      event: EventType.MFA_VERIFIED,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
     });

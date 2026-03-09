@@ -3,11 +3,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { ForgotPasswordDto } from '../dto/forgotPassword.dto';
 import { TokenService } from '../services/token.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 import { IEmailProvider, EMAIL_PROVIDER_TOKEN } from '@adapters/email/email.interface';
 import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -22,7 +22,7 @@ export class ForgotPasswordUsecase extends Usecase<{ message: string }> {
   constructor(
     private readonly staffRepository: StaffRepository,
     private readonly tokenService: TokenService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly redisService: RedisService,
     @Inject(EMAIL_PROVIDER_TOKEN)
     private readonly emailProvider: IEmailProvider,
@@ -72,9 +72,10 @@ export class ForgotPasswordUsecase extends Usecase<{ message: string }> {
       );
     }
 
-    await this.auditService.log({
-      staffId: staff.id,
-      event: AuthEventType.PASSWORD_RESET_REQUESTED,
+    await this.eventLogService.log({
+      actorId: staff.id,
+      event: EventType.PASSWORD_RESET_REQUESTED,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
     });

@@ -40,9 +40,9 @@ export class Broker {
    * // Batch 2: [UsecaseC] → No transaction
    * // Batch 3: [UsecaseD] → New transaction
    */
-  async runUsecases(
-    usecases: Usecase[],
-    initialArguments: Record<string, any> = {},
+  async runUsecases<P extends Record<string, any>>(
+    usecases: [Usecase<any, P>, ...Usecase[]],
+    initialArguments: P,
     timeoutMs = this.DEFAULT_TIMEOUT,
     isolationLevel = this.DEFAULT_ISOLATION,
   ): Promise<UsecaseResult> {

@@ -48,7 +48,7 @@ export interface UsecaseConfig {
  *   }
  * }
  */
-export abstract class Usecase<T = any> {
+export abstract class Usecase<T = any, P extends Record<string, any> = Record<string, any>> {
   /**
    * Configuration for this usecase.
    * Override in subclass to change transaction behavior.
@@ -71,7 +71,7 @@ export abstract class Usecase<T = any> {
    * @param params - Accumulated results from previous usecases + initial arguments
    * @returns The result to be merged with accumulated results
    */
-  abstract execute(entityManager: EntityManager, params: any): Promise<T>;
+  abstract execute(entityManager: EntityManager, params: P): Promise<T>;
 }
 
 /**

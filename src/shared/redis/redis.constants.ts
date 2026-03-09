@@ -12,6 +12,7 @@ export const RedisKeys = {
   pwResetRate: (email: string) => `auth:pwreset:rate:${email}`,
   invite: (tokenHash: string) => `auth:invite:${tokenHash}`,
   profile: (staffId: string) => `auth:profile:${staffId}`,
+  role: (roleId: string) => `auth:role:${roleId}`,
 } as const;
 
 export const RedisTTL = {

@@ -1,11 +1,8 @@
 $kind: http-request
 name: Login
 method: POST
-url: '{{baseUrl}}/staff/auth/login'
+url: "{{baseUrl}}staff/auth/login"
 order: 1000
-headers:
-  - key: Content-Type
-    value: application/json
 body:
   type: json
   content: |-

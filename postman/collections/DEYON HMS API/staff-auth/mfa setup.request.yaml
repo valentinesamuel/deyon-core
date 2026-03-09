@@ -1,14 +1,11 @@
 $kind: http-request
 name: MFA Setup
 method: POST
-url: '{{baseUrl}}/staff/auth/mfa/setup'
+url: "{{baseUrl}}staff/auth/mfa/setup"
 order: 9000
 description: |-
   Initialize MFA setup after accepting invite.
   Requires MFA setup token. Returns QR code/secret for authenticator app.
-headers:
-  - key: Content-Type
-    value: application/json
 body:
   type: json
   content: |-

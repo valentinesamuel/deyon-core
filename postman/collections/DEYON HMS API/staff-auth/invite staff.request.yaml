@@ -1,16 +1,13 @@
 $kind: http-request
 name: Invite Staff
 method: POST
-url: '{{baseUrl}}/staff/auth/invite'
+url: "{{baseUrl}}staff/auth/invite"
 order: 7000
 description: |-
   Admin endpoint to invite new staff member.
   Requires authentication and appropriate permissions.
 headers:
-  - key: Content-Type
-    value: application/json
-  - key: Authorization
-    value: 'Bearer {{token}}'
+  Authorization: Bearer {{token}}
 body:
   type: json
   content: |-

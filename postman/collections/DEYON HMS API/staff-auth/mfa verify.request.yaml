@@ -1,14 +1,11 @@
 $kind: http-request
 name: MFA Verify
 method: POST
-url: '{{baseUrl}}/staff/auth/login/mfa-verify'
+url: "{{baseUrl}}staff/auth/login/mfa-verify"
 order: 2000
 description: |-
   Verify TOTP code after login. Requires mfaToken from login response.
   Returns access and refresh tokens on success.
-headers:
-  - key: Content-Type
-    value: application/json
 body:
   type: json
   content: |-

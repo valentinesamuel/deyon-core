@@ -1,8 +1,7 @@
-import { Entity, Column, Index, ManyToOne } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
-import { Staff } from './staff.entity';
 
-export enum AuthEventType {
+export enum EventType {
   LOGIN_SUCCESS = 'LOGIN_SUCCESS',
   LOGIN_FAILED = 'LOGIN_FAILED',
   LOGIN_LOCKED = 'LOGIN_LOCKED',
@@ -18,19 +17,24 @@ export enum AuthEventType {
   PASSWORD_RESET_COMPLETED = 'PASSWORD_RESET_COMPLETED',
   INVITE_SENT = 'INVITE_SENT',
   INVITE_ACCEPTED = 'INVITE_ACCEPTED',
+  ROLE_CREATED = 'ROLE_CREATED',
+}
+
+export enum EventModule {
+  AUTH = 'permissions',
 }
 
 @Entity()
-export class AuthAuditLog extends BaseEntity {
+export class EventLog extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   @Index()
-  staffId: string;
+  actorId: string;
 
-  @ManyToOne(() => Staff, (staff) => staff.auditLogs)
-  staffs: Staff[];
+  @Column({ type: 'varchar' })
+  event: EventType;
 
-  @Column({ type: 'varchar', enum: AuthEventType })
-  event: AuthEventType;
+  @Column({ type: 'varchar', nullable: true })
+  module: EventModule;
 
   @Column({ type: 'varchar', nullable: true })
   ipAddress: string;

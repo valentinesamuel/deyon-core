@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '@shared/guards/jwtAuth.guard';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from '@modules/auth/auth.module';
+import { RoleModule } from '@modules/role/role.module';
 import { RedisModule } from '@shared/redis/redis.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { RedisModule } from '@shared/redis/redis.module';
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     RedisModule,
     AuthModule,
+    RoleModule,
   ],
   controllers: [AppController],
   providers: [

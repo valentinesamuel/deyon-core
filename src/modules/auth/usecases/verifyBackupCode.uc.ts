@@ -8,11 +8,11 @@ import { MfaBackupVerifyDto } from '../dto/mfaBackupVerify.dto';
 import { MfaService } from '../services/mfa.service';
 import { TokenService } from '../services/token.service';
 import { SessionService } from '../services/session.service';
-import { AuditService } from '../services/audit.service';
+import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { AuthEventType } from '../../core/entities/authAuditLog.entity';
+import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 
 @Injectable()
 export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
@@ -22,7 +22,7 @@ export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
     private readonly mfaService: MfaService,
     private readonly tokenService: TokenService,
     private readonly sessionService: SessionService,
-    private readonly auditService: AuditService,
+    private readonly eventLogService: EventLogService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly mfaConfigRepository: MfaConfigRepository,
     private readonly staffRepository: StaffRepository,
@@ -60,9 +60,10 @@ export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
 
     const matchIndex = await this.mfaService.verifyBackupCode(backupCode, hashedCodes);
     if (matchIndex === -1 || usedIndexes.includes(matchIndex)) {
-      await this.auditService.log({
-        staffId: mfaStaffId,
-        event: AuthEventType.MFA_FAILED,
+      await this.eventLogService.log({
+        actorId: mfaStaffId,
+        event: EventType.MFA_FAILED,
+        module: EventModule.AUTH,
         ipAddress,
         userAgent,
         metadata: { reason: 'invalid_backup_code' },
@@ -105,9 +106,10 @@ export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
     this.tokenService.setAuthCookies(res, accessToken, opaqueToken);
     await this.staffRepository.update(mfaStaffId, { lastLogin: new Date() });
 
-    await this.auditService.log({
-      staffId: mfaStaffId,
-      event: AuthEventType.MFA_BACKUP_USED,
+    await this.eventLogService.log({
+      actorId: mfaStaffId,
+      event: EventType.MFA_BACKUP_USED,
+      module: EventModule.AUTH,
       ipAddress,
       userAgent,
     });

@@ -1,0 +1,14 @@
+$kind: http-request
+name: Create role
+url: "{{baseUrl}}role"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "name": "operations manager",
+      "permissions": [
+        "create_user"
+      ]
+    }
+order: 1772993331187

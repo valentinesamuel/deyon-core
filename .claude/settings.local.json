@@ -7,7 +7,10 @@
       "Bash(docker ps:*)",
       "Bash(pnpm add:*)",
       "Bash(npx tsc:*)",
-      "Bash(pnpm run:*)"
+      "Bash(pnpm run:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm start:dev:*)",
+      "Bash(pkill:*)"
     ]
   }
 }
