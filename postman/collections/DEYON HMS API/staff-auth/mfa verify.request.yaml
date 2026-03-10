@@ -8,8 +8,9 @@ description: |-
   Returns access and refresh tokens on success.
 body:
   type: json
-  content: |-
+  content: >-
     {
-      "mfaToken": "hex-mfa-token",
-      "totpCode": "123456"
+      "mfaToken": "2e4bdeea72673496bdef6909d765225ccb6ee96d881adff13f5faf0285c9a23a",
+      "totpCode": "359654"
     }
+examples: ./.resources/mfa verify.resources/examples

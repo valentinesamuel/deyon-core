@@ -10,3 +10,4 @@ body:
       "email": "exekiel@doctor.com",
       "password": "@strin24,/25"
     }
+examples: ./.resources/login.resources/examples

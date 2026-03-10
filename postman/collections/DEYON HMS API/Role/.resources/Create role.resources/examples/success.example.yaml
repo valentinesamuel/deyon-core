@@ -1,0 +1,77 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}role"
+  method: POST
+  headers:
+    - key: Authorization
+      value: Bearer {{token}}
+  body:
+    type: json
+    content: |-
+      {
+        "name": "Doctor",
+        "permissions": [
+          "patient:read",
+          "patient:write",
+          "appointment:create"
+        ]
+      }
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    - key: content-security-policy
+      value: "default-src 'self';frame-ancestors 'none';base-uri 'self';font-src
+        'self' https: data:;form-action 'self';img-src 'self' data:;object-src
+        'none';script-src 'self';script-src-attr 'none';style-src 'self' https:
+        'unsafe-inline';upgrade-insecure-requests"
+    - key: cross-origin-opener-policy
+      value: same-origin
+    - key: cross-origin-resource-policy
+      value: same-origin
+    - key: origin-agent-cluster
+      value: ?1
+    - key: referrer-policy
+      value: no-referrer
+    - key: strict-transport-security
+      value: max-age=31536000; includeSubDomains; preload
+    - key: x-content-type-options
+      value: nosniff
+    - key: x-dns-prefetch-control
+      value: off
+    - key: x-download-options
+      value: noopen
+    - key: x-frame-options
+      value: SAMEORIGIN
+    - key: x-permitted-cross-domain-policies
+      value: none
+    - key: x-xss-protection
+      value: "0"
+    - key: vary
+      value: Origin
+    - key: access-control-allow-credentials
+      value: "true"
+    - key: x-ratelimit-limit
+      value: "10"
+    - key: x-ratelimit-remaining
+      value: "9"
+    - key: x-ratelimit-reset
+      value: "30"
+    - key: content-type
+      value: application/json; charset=utf-8
+    - key: content-length
+      value: "382"
+    - key: etag
+      value: W/"17e-zvmXi6ciUd0RdFFtnnmwYPs2geU"
+    - key: date
+      value: Tue, 10 Mar 2026 23:43:09 GMT
+    - key: connection
+      value: keep-alive
+    - key: keep-alive
+      value: timeout=5
+  body:
+    type: json
+    content: '{"statusCode":201,"success":true,"message":"Request
+      successful","result":{"name":"Doctor","alias":"doctor","permissions":[{"code":"patient:read","description":"patient:read","isActive":true},{"code":"patient:write","description":"patient:write","isActive":true},{"code":"appointment:create","description":"appointment:create","isActive":true}]},"path":"/api/v1/role","duration":102}'
+order: 1773186194979
+name: success

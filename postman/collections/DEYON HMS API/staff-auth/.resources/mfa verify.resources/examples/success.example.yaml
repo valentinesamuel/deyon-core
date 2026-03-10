@@ -1,0 +1,81 @@
+$kind: http-example
+description: |-
+  Verify TOTP code after login. Requires mfaToken from login response.
+  Returns access and refresh tokens on success.
+request:
+  url: "{{baseUrl}}staff/auth/login/mfa-verify"
+  method: POST
+  body:
+    type: json
+    content: >-
+      {
+        "mfaToken": "2e4bdeea72673496bdef6909d765225ccb6ee96d881adff13f5faf0285c9a23a",
+        "totpCode": "359654"
+      }
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    - key: content-security-policy
+      value: "default-src 'self';frame-ancestors 'none';base-uri 'self';font-src
+        'self' https: data:;form-action 'self';img-src 'self' data:;object-src
+        'none';script-src 'self';script-src-attr 'none';style-src 'self' https:
+        'unsafe-inline';upgrade-insecure-requests"
+    - key: cross-origin-opener-policy
+      value: same-origin
+    - key: cross-origin-resource-policy
+      value: same-origin
+    - key: origin-agent-cluster
+      value: ?1
+    - key: referrer-policy
+      value: no-referrer
+    - key: strict-transport-security
+      value: max-age=31536000; includeSubDomains; preload
+    - key: x-content-type-options
+      value: nosniff
+    - key: x-dns-prefetch-control
+      value: off
+    - key: x-download-options
+      value: noopen
+    - key: x-frame-options
+      value: SAMEORIGIN
+    - key: x-permitted-cross-domain-policies
+      value: none
+    - key: x-xss-protection
+      value: "0"
+    - key: vary
+      value: Origin
+    - key: access-control-allow-credentials
+      value: "true"
+    - key: x-ratelimit-limit
+      value: "10"
+    - key: x-ratelimit-remaining
+      value: "9"
+    - key: x-ratelimit-reset
+      value: "30"
+    - key: set-cookie
+      value: access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNDhmZmQ5Mi05MDE4LTQ1MjYtYjQ5OC0yZWY1ZWUxZWE3M2EiLCJqdGkiOiI5YTZjNTZmNi02ZGMyLTQ4MWQtODEwMS0xMmE0YTliZjIxODAiLCJyb2xlIjoiIiwiaWF0IjoxNzczMTg1NTQxLCJleHAiOjE3NzMxODY0NDF9.VeDkadCDUVIf0_4nw3vqRROPVzwZnajJO_C1eC3ayXw;
+        Max-Age=900; Path=/; Expires=Tue, 10 Mar 2026 23:47:21 GMT; HttpOnly;
+        Secure; SameSite=Strict
+    - key: set-cookie
+      value: refresh_token=e7c3efc5afe64562f7a2de022fcccdf804d458c0ff517887576d9b8dd2d26172;
+        Max-Age=604800; Path=/staff/auth/refresh; Expires=Tue, 17 Mar 2026
+        23:32:21 GMT; HttpOnly; Secure; SameSite=Strict
+    - key: content-type
+      value: application/json; charset=utf-8
+    - key: content-length
+      value: "235"
+    - key: etag
+      value: W/"eb-dqrHK0pLMwcbAjgKNYPDvEnBRb4"
+    - key: date
+      value: Tue, 10 Mar 2026 23:32:21 GMT
+    - key: connection
+      value: keep-alive
+    - key: keep-alive
+      value: timeout=5
+  body:
+    type: json
+    content: '{"statusCode":201,"success":true,"message":"Request
+      successful","result":{"staffId":"c48ffd92-9018-4526-b498-2ef5ee1ea73a","role":"","firstName":"Raegan","lastName":"Collier"},"path":"/api/v1/staff/auth/login/mfa-verify","duration":76}'
+order: 1773185545842
+name: success

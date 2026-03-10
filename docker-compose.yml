@@ -29,6 +29,14 @@ services:
       retries: 5
     restart: unless-stopped
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: deyon_mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    restart: unless-stopped
+
   # localstack:
   #   image: localstack/localstack
   #   container_name: localstack

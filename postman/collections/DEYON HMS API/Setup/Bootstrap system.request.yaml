@@ -1,33 +1,14 @@
 $kind: http-request
 name: Bootstrap system
 method: POST
-url: '{{baseUrl}}setup/bootstrap'
+url: "{{baseUrl}}setup/bootstrap"
 order: 3000
 headers:
-  - key: Authorization
-    value: 'Bearer {{token}}'
+  Authorization: Bearer {{token}}
 body:
   type: json
   content: |-
     {
-      "departments": [
-        {
-          "name": "Emergency",
-          "description": "Emergency Department"
-        },
-        {
-          "name": "Cardiology",
-          "description": "Heart and cardiovascular care"
-        }
-      ],
-      "defaultRoles": [
-        {
-          "name": "Doctor",
-          "permissions": ["patient:read", "patient:write", "appointment:create"]
-        },
-        {
-          "name": "Nurse",
-          "permissions": ["patient:read", "appointment:read"]
-        }
-      ]
+        "totpCode": "740117"
     }
+examples: ./.resources/Bootstrap system.resources/examples

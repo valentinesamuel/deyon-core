@@ -3,3 +3,4 @@ name: Get setup status
 method: GET
 url: '{{baseUrl}}setup/status'
 order: 1000
+examples: ./.resources/Get setup status.resources/examples

@@ -14,3 +14,4 @@ body:
       "hospitalName": "General Hospital",
       "hospitalAddress": "123 Medical Center Drive"
     }
+examples: ./.resources/Register CMO.resources/examples

@@ -7,7 +7,6 @@ export default registerAs('common', () => ({
   appName: process.env.APP_NAME,
   appHostName: process.env.APP_HOSTNAME,
   nodeEnv: process.env.NODE_ENV,
-  tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY,
   isDevelopment: process.env.NODE_ENV === NODE_ENVIRONMENTS['development'],
   swaggerApiRoot: process.env.SWAGGER_API_ROOT,
   frontendUrl: process.env.FRONTEND_URL,
