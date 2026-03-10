@@ -7,7 +7,8 @@ description: |-
   Admin endpoint to invite new staff member.
   Requires authentication and appropriate permissions.
 headers:
-  Authorization: Bearer {{token}}
+  - key: Authorization
+    value: 'Bearer {{token}}'
 body:
   type: json
   content: |-

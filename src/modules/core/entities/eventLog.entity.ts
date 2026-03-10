@@ -18,10 +18,13 @@ export enum EventType {
   INVITE_SENT = 'INVITE_SENT',
   INVITE_ACCEPTED = 'INVITE_ACCEPTED',
   ROLE_CREATED = 'ROLE_CREATED',
+  CMO_REGISTERED = 'CMO_REGISTERED',
+  SETUP_COMPLETED = 'SETUP_COMPLETED',
 }
 
 export enum EventModule {
   AUTH = 'permissions',
+  SETUP = 'setup',
 }
 
 @Entity()

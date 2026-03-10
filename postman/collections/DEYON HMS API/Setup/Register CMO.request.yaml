@@ -1,0 +1,16 @@
+$kind: http-request
+name: Register CMO
+method: POST
+url: '{{baseUrl}}setup/register'
+order: 2000
+body:
+  type: json
+  content: |-
+    {
+      "email": "cmo@hospital.com",
+      "password": "SecurePassword123!",
+      "firstName": "John",
+      "lastName": "Doe",
+      "hospitalName": "General Hospital",
+      "hospitalAddress": "123 Medical Center Drive"
+    }

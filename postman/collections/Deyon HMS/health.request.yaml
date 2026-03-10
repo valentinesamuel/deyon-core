@@ -1,4 +1,0 @@
-$kind: http-request
-url: http://localhost:5200/health
-method: GET
-order: 2000

@@ -1,14 +1,19 @@
 $kind: http-request
 name: Create role
-url: "{{baseUrl}}role"
+url: '{{baseUrl}}role'
 method: POST
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
 body:
   type: json
   content: |-
     {
-      "name": "operations manager",
+      "name": "Doctor",
       "permissions": [
-        "create_user"
+        "patient:read",
+        "patient:write",
+        "appointment:create"
       ]
     }
-order: 1772993331187

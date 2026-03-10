@@ -5,4 +5,5 @@ url: "{{baseUrl}}staff/auth/logout"
 order: 5000
 description: Logout current session. Requires authentication.
 headers:
-  Authorization: Bearer {{token}}
+  - key: Authorization
+    value: 'Bearer {{token}}'

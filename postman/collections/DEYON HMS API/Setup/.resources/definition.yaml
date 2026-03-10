@@ -1,0 +1,4 @@
+$kind: collection
+name: Setup
+description: Setup endpoints for system initialization
+order: 4000

@@ -5,4 +5,5 @@ url: "{{baseUrl}}staff/auth/logout-all"
 order: 6000
 description: Logout from all sessions/devices. Requires authentication.
 headers:
-  Authorization: Bearer {{token}}
+  - key: Authorization
+    value: 'Bearer {{token}}'

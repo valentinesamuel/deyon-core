@@ -10,7 +10,8 @@
       "Bash(pnpm run:*)",
       "Bash(pnpm build:*)",
       "Bash(pnpm start:dev:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(pnpm tsc:*)"
     ]
   }
 }
