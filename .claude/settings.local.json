@@ -20,7 +20,10 @@
       "Bash(find /Users/valentinesamuel/Desktop/deyon_be/src -name \"*.spec.ts\" 2>/dev/null | sort)",
       "Bash(find /Users/valentinesamuel/Desktop/deyon_be/test -name \"*.ts\" 2>/dev/null | sort)",
       "Bash(grep -rn \":\\\\s*any\\\\|as\\\\s*any\" /Users/valentinesamuel/Desktop/deyon_be/test --include=\"*.ts\" 2>/dev/null | head -100)",
-      "Bash(grep -rn \":\\\\s*any\\\\|as\\\\s*any\" /Users/valentinesamuel/Desktop/deyon_be/test --include=\"*.ts\" 2>/dev/null | wc -l)"
+      "Bash(grep -rn \":\\\\s*any\\\\|as\\\\s*any\" /Users/valentinesamuel/Desktop/deyon_be/test --include=\"*.ts\" 2>/dev/null | wc -l)",
+      "Bash(grep -rn \"plainSecret\\\\|mfaConfig\\\\.fixture\\\\|buildMfaConfig\" /Users/valentinesamuel/Desktop/deyon_be/test/ --include=\"*.ts\" 2>/dev/null | grep -v \"setup.bootstrap\" | grep -v \"e2e-helper\")",
+      "Bash(grep -r \"import.*express\" /Users/valentinesamuel/Desktop/deyon_be/src/shared/guards/*.ts 2>/dev/null)",
+      "Bash(grep -r \"controller\\\\|Controller\" /Users/valentinesamuel/Desktop/deyon_be/src/**/*.spec.ts 2>/dev/null | grep \"import\" | head -5)"
     ]
   }
 }

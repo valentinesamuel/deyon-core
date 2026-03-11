@@ -15,6 +15,8 @@ export default defineConfig({
       '@config': '/Users/valentinesamuel/Desktop/deyon_be/src/configs',
       '@modules': '/Users/valentinesamuel/Desktop/deyon_be/src/modules',
       '@shared': '/Users/valentinesamuel/Desktop/deyon_be/src/shared',
+      express:
+        '/Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm/express@5.2.1/node_modules/express/index.js',
     },
   },
   test: {
@@ -26,6 +28,15 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reportsDirectory: 'coverage/unit',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.spec.ts', 'src/main.ts', 'src/migrations/**', 'src/**/*.module.ts'],
+      all: true,
+      thresholds: {
+        lines: 75,
+        branches: 70,
+        functions: 75,
+        statements: 75,
+      },
     },
   },
 });

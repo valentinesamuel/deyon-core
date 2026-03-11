@@ -18,5 +18,5 @@ export function buildStaffFixture(overrides: Partial<Staff> = {}): Staff {
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as Staff;
+  } satisfies Partial<Staff> as Staff;
 }

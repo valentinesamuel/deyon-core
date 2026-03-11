@@ -5,11 +5,13 @@ export function buildRoleFixture(overrides: Partial<Role> = {}): Role {
   return {
     id: faker.string.uuid(),
     name: faker.word.noun(),
-    description: faker.lorem.sentence(),
+    alias: faker.word.noun(),
     isActive: true,
+    isSystemRole: false,
+    staffs: [],
     permissions: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as Role;
+  } satisfies Partial<Role> as Role;
 }

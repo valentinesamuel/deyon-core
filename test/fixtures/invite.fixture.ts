@@ -14,5 +14,5 @@ export function buildInviteFixture(overrides: Partial<InviteToken> = {}): Invite
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as InviteToken;
+  } satisfies Partial<InviteToken> as InviteToken;
 }

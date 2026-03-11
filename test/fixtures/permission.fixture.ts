@@ -7,11 +7,11 @@ export function buildPermissionFixture(overrides: Partial<Permission> = {}): Per
   return {
     id: faker.string.uuid(),
     code: `${module}:${action}`,
-    name: `${module} ${action}`,
     description: faker.lorem.sentence(),
     isActive: true,
+    roles: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as Permission;
+  } satisfies Partial<Permission> as Permission;
 }

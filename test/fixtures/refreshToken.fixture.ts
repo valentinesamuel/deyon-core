@@ -13,5 +13,5 @@ export function buildRefreshTokenFixture(overrides: Partial<RefreshToken> = {}):
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as RefreshToken;
+  } satisfies Partial<RefreshToken> as RefreshToken;
 }
