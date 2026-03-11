@@ -14,11 +14,7 @@ import { Broker } from '@broker/broker';
 import { RequestContextService } from '@shared/context/requestContext.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Role, Permission, EventLog]),
-    ClsModule,
-    AuthModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Role, Permission, EventLog]), ClsModule, AuthModule],
   controllers: [RoleController],
   providers: [
     RoleService,

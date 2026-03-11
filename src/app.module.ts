@@ -26,7 +26,7 @@ import { RedisModule } from '@shared/redis/redis.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => configService.get('typeorm'),
+      useFactory: async (configService: ConfigService) => configService.get('typeorm')!,
     }),
     ClsModule.forRoot({ middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),

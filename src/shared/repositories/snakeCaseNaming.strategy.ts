@@ -26,7 +26,7 @@ export class SnakeNamingStrategy extends DefaultNamingStrategy implements Naming
     firstTableName: string,
     secondTableName: string,
     firstPropertyName: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     _secondPropertyName: string,
   ): string {
     return snakeCase(

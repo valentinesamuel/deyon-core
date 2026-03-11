@@ -27,7 +27,7 @@ export class MemoryGuard implements CanActivate {
   constructor(private readonly configService: ConfigService) {
     this.heapLimitMB = getHeapLimitMB();
     this.thresholdMB = this.heapLimitMB * this.MEMORY_THRESHOLD_PERCENT;
-    this.INTER_SERVICE_PASS = this.configService.get<string>('common.auth.serviceAccessName');
+    this.INTER_SERVICE_PASS = this.configService.get<string>('common.auth.serviceAccessName')!;
 
     this.logger.log(
       `MemoryGuard initialized: heap limit=${this.heapLimitMB.toFixed(0)}MB, threshold=${this.thresholdMB.toFixed(0)}MB (${this.MEMORY_THRESHOLD_PERCENT * 100}%)`,

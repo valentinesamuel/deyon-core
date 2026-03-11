@@ -12,6 +12,17 @@ import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
+import { Role } from '@modules/core/entities/role.entity';
+
+interface StaffProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  isApproved: boolean;
+  role: Role | null;
+}
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -53,7 +64,7 @@ export class JwtAuthGuard implements CanActivate {
 
     // Load staff profile from Redis cache or DB
     const profileCacheKey = RedisKeys.profile(payload.sub);
-    let staffProfile = await this.redisService.getJson<any>(profileCacheKey);
+    let staffProfile = await this.redisService.getJson<StaffProfile>(profileCacheKey);
 
     if (!staffProfile) {
       const staff = await this.staffRepository.findOne({

@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 
 import { IS_PUBLIC_KEY } from '@shared/decorators/isPublic.decorator';
+import { RequestUser } from '@shared/context/requestContext.type';
 import {
   PermissionCheckMode,
   REQUIRED_PERMISSIONS_KEY,
@@ -102,7 +103,7 @@ export class PermissionGuard {
    * Extract permission codes from user's roles
    * User object should contain roles with permissions (set by JWT strategy)
    */
-  private extractUserPermissions(user: any): string[] {
+  private extractUserPermissions(user: RequestUser): string[] {
     if (!user.roles || !Array.isArray(user.roles)) {
       return [];
     }

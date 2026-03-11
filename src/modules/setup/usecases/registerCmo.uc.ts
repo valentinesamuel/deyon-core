@@ -60,7 +60,7 @@ export class RegisterCmoUsecase extends Usecase<RegisterCmoResult> {
       isActive: true,
       isApproved: true,
       mfaEnabled: false,
-      roleId: null,
+      roleId: undefined,
     });
 
     // 5. Issue MFA setup token

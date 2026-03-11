@@ -39,10 +39,7 @@ export class SetupController {
 
   @UseGuards(SetupNotCompleteGuard)
   @Post('bootstrap')
-  bootstrap(
-    @Body() dto: BootstrapSystemDto,
-    @Req() req: Request & { user: { publicId: string } },
-  ) {
+  bootstrap(@Body() dto: BootstrapSystemDto, @Req() req: Request & { user: { publicId: string } }) {
     return this.serviceBroker.runUsecases([this.bootstrapSystemUc], {
       ...dto,
       staffId: req.user.publicId,

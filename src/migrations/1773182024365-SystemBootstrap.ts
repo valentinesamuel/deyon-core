@@ -7,9 +7,7 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
     // ── DDL ─────────────────────────────────────────────────────────────────
 
     // 1. Add missing columns to role table
-    await queryRunner.query(
-      `ALTER TABLE "role" ADD "is_active" boolean NOT NULL DEFAULT true`,
-    );
+    await queryRunner.query(`ALTER TABLE "role" ADD "is_active" boolean NOT NULL DEFAULT true`);
     await queryRunner.query(
       `ALTER TABLE "role" ADD "is_system_role" boolean NOT NULL DEFAULT false`,
     );
@@ -98,9 +96,7 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
     // ── Reverse DML ──────────────────────────────────────────────────────────
 
     // 8. Remove setup_complete config row
-    await queryRunner.query(
-      `DELETE FROM "system_config" WHERE "key" = 'setup_complete'`,
-    );
+    await queryRunner.query(`DELETE FROM "system_config" WHERE "key" = 'setup_complete'`);
 
     // 7. Remove seeded departments
     await queryRunner.query(`
@@ -131,9 +127,7 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
     // ── Reverse DDL ──────────────────────────────────────────────────────────
 
     // 3. Remove UNIQUE constraint on department.alias
-    await queryRunner.query(
-      `ALTER TABLE "department" DROP CONSTRAINT "UQ_department_alias"`,
-    );
+    await queryRunner.query(`ALTER TABLE "department" DROP CONSTRAINT "UQ_department_alias"`);
 
     // 2. Drop system_config table
     await queryRunner.query(`DROP TABLE "system_config"`);

@@ -16,10 +16,7 @@ import { SetupController } from './controller/setup.controller';
 import { Broker } from '@broker/broker';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([SystemConfig, MfaConfig, Role]),
-    AuthModule,
-  ],
+  imports: [TypeOrmModule.forFeature([SystemConfig, MfaConfig, Role]), AuthModule],
   controllers: [SetupController],
   providers: [
     Broker,

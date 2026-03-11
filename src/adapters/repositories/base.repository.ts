@@ -3,6 +3,7 @@ import {
   FindOptionsRelations,
   FindOptionsSelect,
   FindOptionsWhere,
+  ObjectLiteral,
   Repository,
 } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
@@ -13,7 +14,7 @@ export type FindResourceOptions<T> = {
   relations?: FindOptionsRelations<T>;
 };
 
-export abstract class BaseRepository<T> extends Repository<T> {
+export abstract class BaseRepository<T extends ObjectLiteral> extends Repository<T> {
   private repo(entityManager?: EntityManager): Repository<T> {
     return entityManager ? entityManager.getRepository(this.target) : this;
   }

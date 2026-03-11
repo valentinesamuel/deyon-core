@@ -12,13 +12,13 @@ export class SendGridEmailProvider implements IEmailProvider {
   private readonly logger = new Logger(SendGridEmailProvider.name);
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('common.email.sendgrid.apiKey');
+    const apiKey = this.configService.get<string>('common.email.sendgrid.apiKey')!;
     sgMail.setApiKey(apiKey);
   }
 
   async sendInviteEmail({ to, inviteLink }: SendInviteEmailParams): Promise<void> {
-    const from = this.configService.get<string>('common.email.sendgrid.from');
-    const templateId = this.configService.get<string>('common.email.sendgrid.templateInvite');
+    const from = this.configService.get<string>('common.email.sendgrid.from')!;
+    const templateId = this.configService.get<string>('common.email.sendgrid.templateInvite')!;
 
     await sgMail.send({
       to,
@@ -31,10 +31,10 @@ export class SendGridEmailProvider implements IEmailProvider {
   }
 
   async sendPasswordResetEmail({ to, resetLink }: SendPasswordResetEmailParams): Promise<void> {
-    const from = this.configService.get<string>('common.email.sendgrid.from');
+    const from = this.configService.get<string>('common.email.sendgrid.from')!;
     const templateId = this.configService.get<string>(
       'common.email.sendgrid.templatePasswordReset',
-    );
+    )!;
 
     await sgMail.send({
       to,

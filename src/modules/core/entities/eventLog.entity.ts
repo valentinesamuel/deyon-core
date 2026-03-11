@@ -31,13 +31,13 @@ export enum EventModule {
 export class EventLog extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   @Index()
-  actorId: string;
+  actorId: string | null;
 
   @Column({ type: 'varchar' })
   event: EventType;
 
   @Column({ type: 'varchar', nullable: true })
-  module: EventModule;
+  module: EventModule | null;
 
   @Column({ type: 'varchar', nullable: true })
   ipAddress: string;

@@ -21,6 +21,11 @@ export type TResponse<T> = {
   duration: number;
 };
 
+interface ValidationErrorItem {
+  property: string;
+  constraints: Record<string, string>;
+}
+
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> {
   private readonly logger = new Logger(ResponseInterceptor.name);
@@ -37,10 +42,10 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
   }
 
   // Handles success response
-  responseHandler(res: any, context: ExecutionContext, startTime: number) {
+  responseHandler(res: unknown, context: ExecutionContext, startTime: number) {
     const ctx = context.switchToHttp();
-    const response = ctx.getResponse();
-    const request = ctx.getRequest();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
     const statusCode = response.statusCode;
 
     const duration = Date.now() - startTime;
@@ -50,26 +55,30 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
       statusCode,
       success: true,
       message: 'Request successful',
-      result: res,
+      result: res as T,
       path: request.url,
       duration: Date.now() - startTime,
     };
   }
 
   // Handles error response
-  errorHandler(exception: any, context: ExecutionContext, startTime: number) {
+  errorHandler(exception: HttpException | Error, context: ExecutionContext, startTime: number) {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
-    const message = exception?.getResponse ? exception?.getResponse().message : exception.message;
+    const rawResponse = exception instanceof HttpException ? exception.getResponse() : null;
+    const message =
+      rawResponse && typeof rawResponse === 'object' && 'message' in rawResponse
+        ? (rawResponse as { message: string | ValidationErrorItem[] }).message
+        : (exception as Error).message;
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (exception instanceof BadRequestException) {
-      if (typeof message === 'object') {
-        const responseMsr = message.map((data: any) => {
-          const errors = [];
+      if (Array.isArray(message)) {
+        const responseMsr = (message as ValidationErrorItem[]).map((data) => {
+          const errors: string[] = [];
           for (const key of Object.keys(data.constraints)) {
             errors.push(data.constraints[key]);
           }
@@ -114,7 +123,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
     // Send to Slack for 500+ errors
     // if (status >= 500) {
     //   this.slackService.sendErrorNotification(exception, request, response).catch((error) => {
-    //     this.logger.error('❌ Failed to send Slack notification:', error);
+    //     this.logger.error('Failed to send Slack notification:', error);
     //   });
     // }
 

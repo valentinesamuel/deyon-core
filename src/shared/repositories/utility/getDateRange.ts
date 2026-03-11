@@ -1,4 +1,4 @@
-export const getDateRange = (filter: string): { startDate: Date; endDate: Date } => {
+export const getDateRange = (filter: string): { startDate: Date | null; endDate: Date | null } => {
   const now = new Date();
   const startOfToday = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0),

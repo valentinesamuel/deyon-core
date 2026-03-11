@@ -22,7 +22,7 @@ type TNestApp = NestExpressApplication<Server<typeof IncomingMessage, typeof Ser
 function setUpCORS(app: TNestApp, configService: ConfigService) {
   // Determine the allowed origins
   const whitelist = configService
-    .get<string>('CORS_WHITELIST')
+    .get<string>('CORS_WHITELIST')!
     .split(',')
     .map((pattern) => new RegExp(pattern));
 
@@ -60,7 +60,7 @@ function buildAPIDocumentation(app: TNestApp, configService: ConfigService) {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerOptions);
-  SwaggerModule.setup(configService.get('common.swaggerApiRoot'), app, document);
+  SwaggerModule.setup(configService.get<string>('common.swaggerApiRoot')!, app, document);
 }
 
 async function bootstrap() {
@@ -118,14 +118,14 @@ async function bootstrap() {
   buildAPIDocumentation(app, configService);
 
   // Start HTTP Service
-  await app.listen(configService.get('common.port'));
+  await app.listen(configService.get<number>('common.port')!);
 
   Logger.log(
     `${PRODUCT_NAME} running on port ${configService.get('common.port')}: visit http://localhost:${configService.get('common.port')}/${configService.get('common.swaggerApiRoot')}`,
   );
 }
 
-bootstrap().catch((error: any) => {
+bootstrap().catch((error: Error) => {
   Logger.error('Unhandled startup error', { error });
   process.exit(1);
 });
