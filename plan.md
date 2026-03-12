@@ -1,472 +1,265 @@
-# Production-Grade Query Engine — Implementation Plan
+# Blog Post Series Plan: Query Engine
 
 ## Context
 
-The Deyon BE project currently has a basic `findAndPaginate` utility (offset-pagination, simple AND/OR filters, ILIKE search). The goal is to replace this with a **production-grade query engine** that supports complex boolean expressions, relation traversal, cursor pagination, hybrid search, aggregations, query cost limits, Redis caching, and observability — designed to scale to 100M+ rows and 2000 RPS with p95 < 400ms.
+The `QueryEngineModule` in `src/query-engine/` is a production-grade NestJS query compilation
+pipeline built to replace a basic `findAndPaginate` utility that couldn't scale beyond simple
+use cases. The engine covers: lexing/parsing filter DSL strings into an AST, validation with
+whitelist enforcement, complexity scoring, join planning, SQL building via TypeORM, hybrid
+text search, cursor pagination, Redis caching, and structured analytics.
 
-The engine will live at `src/query-engine/` as a self-contained NestJS module integrated into the existing stack (TypeORM 0.3.27, PostgreSQL, ioredis, NestJS 11).
+This plan covers 13 blog posts derived from that implementation. Posts will be published to
+a personal blog first, then cross-posted to Hashnode and Dev.to.
+
+**Global style rules across all posts:**
+
+- Titles must be accessible — no raw jargon (no "AST", "DSL", "predicate pushdown", "trigram",
+  "FTS" in titles)
+- Heavy use of images and illustrations; every major concept should have a visual analogy
+  simple enough for a non-developer to grasp
+- **All illustrations must be written in Markdown** — use ASCII art, Unicode box-drawing
+  characters, Mermaid diagrams (```mermaid blocks), comparison tables, and annotated code
+  blocks. No external image files or image embeds.
+- Code: simplified/illustrative snippets or conceptual diagrams only (not raw source files)
+- No AI-sounding openers or section headers ("In this article we will explore...")
 
 ---
 
-## Confirmed Design Decisions
+## Post List
 
-| Decision | Choice |
-|----------|--------|
-| File naming | **camelCase** (`joinPlanner.ts`, `filterBuilder.ts`, `queryEngine.module.ts`) |
-| Filter syntax | **Both**: `where=(DSL)` AND `filter[field][op]=value` bracket style — both compile to same AST |
-| HAVING syntax | **Separate** `having=count(appointments)>5` parameter (not in `where=`) |
-| Soft delete on JOINs | **All tables**: `deleted_at IS NULL` added to root AND every joined table |
+### Junior — Tutorial-first, simplified examples
 
 ---
 
-## Final Folder Structure
+**Post J1**
+**Title:** `Why your "next page" button gets slower the deeper you go`
+**One-liner:** A plain-English walkthrough of why OFFSET pagination quietly breaks on large
+tables — and how cursor-based pagination fixes it with a real-world analogy and code you can
+follow.
+**Audience:** Junior backend developers
+**Tone:** Tutorial-first, friendly
+**Illustrations needed:**
+
+- A bookshelf analogy: OFFSET = counting from page 1 every time vs cursor = bookmark
+- A diagram showing Postgres scanning 50,000 rows just to return 20
+- Side-by-side SQL showing OFFSET vs cursor WHERE clause
+
+---
+
+**Post J2**
+**Title:** `Your API probably lets users search columns you never intended. Here's the fix.`
+**One-liner:** A beginner-friendly look at why passing raw filter params straight to your
+database is a real security problem — and how a simple whitelist configuration closes the door.
+**Audience:** Junior backend developers
+**Tone:** Tutorial-first, light narrative
+**Illustrations needed:**
+
+- A bouncer analogy: whitelist = bouncer with a guest list
+- Diagram: request params → whitelist check → DB vs request params → DB (no check)
+- Example config object showing allowedFilters
+
+---
+
+**Post J3**
+**Title:** `From .find() to real queries: how to ask your database smarter questions`
+**One-liner:** If you've only ever used `.findOne()` and `.findAndCount()`, this is a
+step-by-step intro to TypeORM's query builder — what it is, why it exists, and when you
+actually need it.
+**Audience:** Junior backend developers
+**Tone:** Tutorial-first, step-by-step
+**Illustrations needed:**
+
+- Analogy: `.find()` is ordering from a fixed menu vs query builder is telling the chef exactly what you want
+- Progression diagram: entity → repository → query builder → SQL
+
+---
+
+### Mid-level — Concept + illustrative code snippets
+
+---
+
+**Post M1**
+**Title:** `How we let users write filter expressions in a URL — and turned them into real database queries`
+**One-liner:** Breaking down how a hand-written scanner and parser turn
+`where=(role='admin' OR status='active')` into a structured tree your backend can safely
+validate, optimize, and execute.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- The "words → grammar → meaning" analogy for lexer/parser
+- Visual of token stream → AST tree diagram
+- Side-by-side: bracket params vs DSL string → same AST
+
+---
+
+**Post M2**
+**Title:** `How we built a speed bump for database queries before they get out of hand`
+**One-liner:** A scoring system that assigns costs to joins, filters, and text search — and
+rejects any query over budget before it even touches the database.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- Analogy: taxi meter — each filter/join adds to the fare; over budget = no ride
+- Score breakdown table (filter=1, join=3, search=5, aggregation=6)
+- Flow diagram: query → scorer → gate → DB (or rejection)
+
+---
+
+**Post M3**
+**Title:** `How we made sure the same search always hits the cache, even when the URL params are shuffled`
+**One-liner:** The trick behind deterministic Redis cache keys: stable JSON serialization +
+SHA-256 hashing, so `?status=active&role=admin` and `?role=admin&status=active` are treated
+as the same query.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- Analogy: two people ordering "burger with fries, no pickles" vs "no pickles, fries, burger" — same order
+- Diagram: params object → sort keys → serialize → hash → Redis key
+- TTL invalidation flow diagram
+
+---
+
+**Post M4**
+**Title:** `The deleted-data bug that appears when you start joining tables`
+**One-liner:** Adding `deleted_at IS NULL` to your root query is not enough. Here's what
+slips through when you forget the same check on your JOIN conditions — and how to automate it.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- Venn diagram: soft-deleted staff appearing via unguarded JOIN
+- Before/after SQL showing JOIN ON with and without deletedAt check
+- Illustration of "ghost rows" sneaking through a join
+
+---
+
+**Post M5**
+**Title:** `PostgreSQL has two ways to search text. Here's when to use each — and how to use both at once.`
+**One-liner:** Full-text search and fuzzy/similarity search solve different problems. This
+post shows how to pick the right one per field and wire them together in a single query.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- "Library card catalog" (FTS) vs "autocomplete with typos" (trigram) illustration
+- Side-by-side: what each approach returns for a misspelled search term
+- Config snippet showing per-field search type selection
+
+---
+
+**Post M6**
+**Title:** `How we make sure "next page" never skips a row, no matter how many columns you sort by`
+**One-liner:** A step-by-step look at the WHERE clause expansion that makes multi-column cursor
+pagination stable — and why missing a single tiebreaker causes silent data gaps.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- "Bookmark in a book sorted by two criteria" analogy
+- Visual expansion of OR+AND SQL pattern for 2-column and 3-column cursors
+- Diagram: last row values → encoded cursor → next page WHERE clause
+
+---
+
+**Post M7**
+**Title:** `When joining a table just to filter it is secretly more work than it needs to be`
+**One-liner:** When a JOIN contributes no columns to the SELECT list, rewriting it as a
+subquery check often runs faster — here's how to spot those cases and what the difference
+looks like.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- Analogy: asking a colleague to attend a meeting just to answer one yes/no question vs
+  sending them a quick message instead
+- SQL side-by-side: LEFT JOIN vs EXISTS subquery
+- Diagram: filter-only join detection logic
+
+---
+
+**Post M8**
+**Title:** `How we let users build complex filters without letting them break the database`
+**One-liner:** Supporting AND/OR boolean logic in API filters is only safe if you also enforce
+field whitelists, depth limits, join caps, and a total complexity budget — here's how all of
+those work together.
+**Audience:** Mid-level backend developers
+**Tone:** Concept + simplified code
+**Illustrations needed:**
+
+- Analogy: a form with guardrails vs an open text field
+- Layered defense diagram: whitelist → depth check → join cap → complexity gate
+- Error response shape with structured `code` + `details`
+
+---
+
+### Senior — Story-driven + deep dive / essay
+
+---
+
+**Post S1**
+**Title:** `We outgrew our findAndPaginate helper. Replacing it took six layers and a lot of second-guessing.`
+**One-liner:** The full story of designing a production query engine in NestJS — the
+architectural decisions across every layer, the trade-offs we wrestled with, and the parts
+we'd revisit if we started today.
+**Audience:** Senior backend developers
+**Tone:** Story-driven, candid, architectural
+**Illustrations needed:**
+
+- Timeline: old utility → pain points → design phases → final architecture
+- Full pipeline diagram (same as the blog post's ASCII — but as a real illustration)
+- Decision matrix for key architectural choices (AST vs direct QB, cursor vs offset, etc.)
+
+---
+
+**Post S2**
+**Title:** `The three query tricks we built into our optimizer — and two we wish we'd added from day one`
+**One-liner:** Selectivity reordering, filter-only join detection, and condition pushdown:
+what each optimization does, when it actually helps, and an honest look at what we left out.
+**Audience:** Senior backend developers
+**Tone:** Deep-dive essay, opinionated, retrospective
+**Illustrations needed:**
+
+- Analogy for selectivity: filtering a crowd — check ID first, then coat color
+- Before/after query plan diff (conceptual, not raw EXPLAIN output)
+- "Future iterations" section with illustrated wishlist (prepared statement cache, auto-invalidation)
+
+---
+
+## Illustration Format (applies to every post)
+
+All visuals must be pure Markdown — no image embeds, no external assets. Allowed forms:
+
+- **ASCII / Unicode diagrams** — flow diagrams, before/after comparisons, pipeline stages
+- **Mermaid diagrams** — ```mermaid flowchart, sequenceDiagram, or graph blocks
+- **Comparison tables** — `| Option A | Option B |` with clear headers
+- **Annotated code blocks** — fenced code with inline comments explaining each line
+
+Example of an acceptable ASCII diagram:
 
 ```
-src/query-engine/
-├── index.ts                        # Public API barrel
-├── queryEngine.module.ts           # NestJS module
-├── queryEngine.service.ts          # Main orchestrator — execute()
-│
-├── types/
-│   ├── ast.types.ts                # AST node interfaces
-│   ├── query.types.ts              # QueryInput, ParsedQuery, SortDir, Operator
-│   ├── result.types.ts             # QueryResult, CursorPage, CursorMeta
-│   └── modelConfig.types.ts        # ModelQueryConfig (whitelists, limits)
-│
-├── lexer/
-│   └── lexer.ts                    # Tokenizer for where=/having= strings
-│
-├── ast/
-│   └── astNodes.ts                 # LogicalNode, ConditionNode, AggregateConditionNode, SearchNode
-│
-├── parser/
-│   ├── parser.ts                   # Token[] → AST (recursive descent)
-│   └── bracketParser.ts            # filter[field][op]=value → AST
-│
-├── validation/
-│   ├── queryValidator.ts           # Whitelist enforcement, depth/join/filter limits
-│   └── complexityScorer.ts         # Cost scoring (filter=1, join=3, search=5, agg=6)
-│
-├── planner/
-│   ├── joinPlanner.ts              # Relation path → JoinSpec[] via TypeORM metadata
-│   ├── filterPlanner.ts            # AST → FilterPlan (resolves alias+column per condition)
-│   └── selectPlanner.ts            # fields[entity]=col1,col2 → per-alias column lists
-│
-├── sqlBuilder/
-│   ├── queryBuilder.ts             # Main QB orchestrator (SelectQueryBuilder)
-│   ├── filterBuilder.ts            # AST → QB .where/.andWhere/.orWhere (Brackets)
-│   └── sortBuilder.ts              # sort= → QB .orderBy per alias
-│
-├── pagination/
-│   └── cursorPagination.ts         # Encode/decode multi-column cursor + WHERE clause gen
-│
-├── search/
-│   └── hybridSearch.ts             # FTS (to_tsvector) + Trigram (pg_trgm %) builders
-│
-├── aggregation/
-│   └── aggregationBuilder.ts       # groupBy=, aggregate[fn]=, HAVING via having= param
-│
-├── optimizer/
-│   └── queryOptimizer.ts           # Predicate pushdown, selectivity ordering, cost gate
-│
-├── cache/
-│   └── queryCache.ts               # Redis cache, key = sha256(entity + stable query JSON)
-│
-└── analytics/
-    └── queryAnalytics.ts           # Structured log: execTimeMs, joins, filters, rows, cacheHit
-```
-
----
-
-## Stack Integration Points
-
-- **TypeORM**: `DataSource` injected into query-engine module. Use `em.getRepository(Entity).createQueryBuilder(alias)` for all queries.
-- **SnakeCaseNamingStrategy**: DB columns are snake_case; entity props are camelCase. JoinPlanner must resolve via TypeORM metadata (`EntityMetadata.columns`, `RelationMetadata`).
-- **Redis**: Inject existing `RedisService` from `src/shared/redis/redis.service.ts`. Use `setJson`/`getJson` for cache.
-- **NestJS DI**: `QueryEngineModule` injects `DataSource` via `@InjectDataSource()`.
-- **Soft deletes (all tables)**: QB must add `AND alias.deleted_at IS NULL` to every LEFT JOIN ON clause AND the root WHERE, unless `withDeleted=true` in the query options.
-
----
-
-## Implementation Phases
-
----
-
-### Phase 1 — Types + Lexer + AST Nodes + Parser
-**Goal**: Turn both `where=` DSL strings and `filter[field][op]=value` bracket params into a unified typed AST.
-
-#### Files to create:
-- `src/query-engine/types/ast.types.ts`
-- `src/query-engine/types/query.types.ts`
-- `src/query-engine/types/result.types.ts`
-- `src/query-engine/types/modelConfig.types.ts`
-- `src/query-engine/lexer/lexer.ts`
-- `src/query-engine/ast/astNodes.ts`
-- `src/query-engine/parser/parser.ts`
-- `src/query-engine/parser/bracketParser.ts`
-
-#### Key Decisions:
-- **Lexer tokens**: `LPAREN`, `RPAREN`, `AND`, `OR`, `IDENT` (dotted field), `OP`, `VALUE` (string/number/list), `EOF`.
-- **Parser**: Recursive-descent. `parseExpression()` → OR → `parseTerm()` → AND → `parseFactor()` → `parseCondition()` or grouped `( expr )`.
-- **BracketParser**: Accepts `Record<string, Record<string, string>>` (from parsed query string). Converts `{ status: { eq: 'active' }, age: { gte: '18' } }` into a flat `AND` `LogicalNode`. Merges with DSL AST if both present.
-- **AST node types**:
-  ```typescript
-  type ASTNode = LogicalNode | ConditionNode | AggregateConditionNode;
-
-  interface LogicalNode {
-    type: 'AND' | 'OR';
-    children: ASTNode[];
-  }
-  interface ConditionNode {
-    type: 'CONDITION';
-    field: string;         // dotted path: 'doctor.department.name'
-    op: Operator;          // eq|ne|gt|gte|lt|lte|in|nin|between|like|ilike|isNull|notNull
-    value: QueryValue;     // string | number | string[] | null
-  }
-  interface AggregateConditionNode {
-    type: 'AGGREGATE';
-    fn: 'count' | 'sum' | 'avg' | 'min' | 'max';
-    field: string;
-    op: Operator;
-    value: number;
-  }
-  ```
-- **Grammar** (from `query_engine_docs/04_query_grammar.md`):
-  ```
-  expression ::= term (OR term)*
-  term       ::= factor (AND factor)*
-  factor     ::= condition | "(" expression ")"
-  condition  ::= field operator value
-  field      ::= identifier ("." identifier)*
-  ```
-- **`ModelQueryConfig`**:
-  ```typescript
-  interface ModelQueryConfig {
-    allowedFilters: string[];
-    allowedSort: string[];
-    allowedSearch: { field: string; type: 'fts' | 'tri' }[];
-    allowedRelations: string[];
-    allowedFields: string[];
-    maxFilters?: number;             // default: 30
-    maxJoins?: number;               // default: 8
-    maxRelationDepth?: number;       // default: 4
-    maxComplexityScore?: number;     // default: 50
-    cacheTtlSeconds?: number;        // default: 60
-  }
-  ```
-
-#### Checkpoint 1:
-```bash
-pnpm test:unit --reporter=verbose -- src/query-engine
-```
-Tests: DSL parsing `(a=1 AND b=2) OR c=3`, nested relations `doctor.department.name='rad'`, IN list, IS NULL, bracket style `filter[age][gte]=18`, malformed input → `ParseError`, empty `where=` → null AST.
-
----
-
-### Phase 2 — Validation + Complexity Scoring
-**Goal**: Reject invalid/dangerous queries before any DB access.
-
-#### Files to create:
-- `src/query-engine/validation/queryValidator.ts`
-- `src/query-engine/validation/complexityScorer.ts`
-
-#### Key Decisions:
-- Validator **walks the AST**, extracts all unique field paths, checks every path against `allowedFilters`. Counts unique relation prefixes as join count. Rejects with `QueryValidationError extends BadRequestException` → `{ code: 'QUERY_VALIDATION_ERROR', message, details }`.
-- **Complexity scoring**:
-  | Operation   | Cost |
-  |-------------|------|
-  | filter      | 1    |
-  | join        | 3    |
-  | search      | 5    |
-  | aggregation | 6    |
-- Scorer sums costs across the entire query (where + search + groupBy + aggregates). If total > `maxComplexityScore`, throws `QueryTooComplexError`.
-- Sort and include fields also validated against `allowedSort` and `allowedRelations`.
-
-#### Checkpoint 2:
-```bash
-pnpm test:unit -- src/query-engine/validation
-```
-Tests: whitelist rejection, max filter count, depth limit (relation path segments > `maxRelationDepth`), complexity ceiling rejection, valid query passes through cleanly.
-
----
-
-### Phase 3 — Join Planner + Filter Planner + Select Planner
-**Goal**: Produce a deterministic, deduplicated join plan from all relation paths in the query.
-
-#### Files to create:
-- `src/query-engine/planner/joinPlanner.ts`
-- `src/query-engine/planner/filterPlanner.ts`
-- `src/query-engine/planner/selectPlanner.ts`
-
-#### Key Decisions:
-- **JoinPlanner** uses `DataSource.getMetadata(EntityClass).relations` to validate each relation segment, resolve join column, assign alias. Output: deduplicated `JoinSpec[]`.
-  ```typescript
-  interface JoinSpec {
-    type: 'LEFT';
-    parentAlias: string;
-    relationProperty: string;  // TypeORM entity property name (camelCase)
-    alias: string;             // 'root_doctor_department'
-    depth: number;
-    hasDeletedAt: boolean;     // whether to add AND alias.deleted_at IS NULL on JOIN
-  }
-  ```
-  Alias strategy: `root` → `root_${relation1}` → `root_${relation1}_${relation2}` (all lowercase, `_`-joined).
-- **FilterPlanner** walks AST, for each `ConditionNode` splits `field` path into `[...relations, column]`, registers joins in JoinPlanner, resolves the final `{ alias, column }` for each condition.
-- **SelectPlanner** processes `fields[entityAlias]=col1,col2` into `{ alias → string[] }` map. Always ensures FK columns included for join integrity.
-- **`include=`** parameter: parsed as explicit relation paths to LEFT JOIN and select all columns (not filtered).
-
-#### Checkpoint 3:
-```bash
-pnpm test:unit -- src/query-engine/planner
-```
-Tests: single-level join, 4-level deep join, shared prefix deduplication (`doctor.name` + `doctor.department.id` → single `root_doctor` join), join limit rejection (> `maxJoins`).
-
----
-
-### Phase 4 — SQL Builder + QueryEngineService + NestJS Module
-**Goal**: Wire AST + Plans into TypeORM `SelectQueryBuilder`. First end-to-end query execution.
-
-#### Files to create:
-- `src/query-engine/sqlBuilder/queryBuilder.ts`
-- `src/query-engine/sqlBuilder/filterBuilder.ts`
-- `src/query-engine/sqlBuilder/sortBuilder.ts`
-- `src/query-engine/queryEngine.service.ts`
-- `src/query-engine/queryEngine.module.ts`
-- `src/query-engine/index.ts`
-
-#### Key Decisions:
-- **FilterBuilder** visits AST recursively, emits `Brackets()` with `.andWhere` / `.orWhere` chains. Named params: `:qe_p0`, `:qe_p1`, ... (prefixed to avoid collision). Operator mapping:
-  - `eq` → `alias.col = :p`
-  - `in` → `alias.col IN (:...p)`
-  - `nin` → `alias.col NOT IN (:...p)`
-  - `between` → `alias.col BETWEEN :p0 AND :p1`
-  - `isNull` → `alias.col IS NULL`
-  - `notNull` → `alias.col IS NOT NULL`
-  - `like`/`ilike` → `alias.col LIKE :p` / `ILIKE :p`
-- **JOIN soft-delete**: Each `JoinSpec` with `hasDeletedAt=true` gets `AND alias.deleted_at IS NULL` appended to the LEFT JOIN ON condition.
-- **Root soft-delete**: Always `.andWhere('root.deleted_at IS NULL')` unless `withDeleted=true`.
-- **SortBuilder**: `sort=-date,doctor.name` → `{ alias: 'root', col: 'date', dir: 'DESC' }`, `{ alias: 'root_doctor', col: 'name', dir: 'ASC' }`. Applied via `.orderBy()` + `.addOrderBy()`.
-- **`queryEngine.service.ts`**: `execute<T>(EntityClass, queryInput, config, entityManager?)` → `QueryResult<T>`.
-- **`QueryEngineModule`**: Global-scoped, imports nothing from feature modules, injects `DataSource` and `RedisService`.
-
-#### Checkpoint 4 (Integration):
-```bash
-pnpm test:integration -- src/query-engine
-```
-Real PostgreSQL via Testcontainers. Tests: simple equality filter, nested relation filter with auto-join, multi-column sort, field selection, soft-delete exclusion on root + joined tables.
-
----
-
-### Phase 5 — Cursor Pagination
-**Goal**: Stable, multi-column cursor-based pagination replacing offset pagination.
-
-#### Files to create:
-- `src/query-engine/pagination/cursorPagination.ts`
-
-#### Key Decisions:
-- **Cursor**: `base64url(JSON.stringify({ [sortField]: value, ... }))`. Always includes `id` as final tiebreaker if not already in sort list.
-- **Direction logic** for `sort=-date,id` (DESC date, ASC id):
-  ```sql
-  (root.date < :cur_date)
-  OR (root.date = :cur_date AND root.id > :cur_id)
-  ```
-  "Less than" for DESC fields, "Greater than" for ASC fields. For multi-column: nested OR+AND pattern expanding per column.
-- **Response**:
-  ```typescript
-  interface CursorPage<T> {
-    data: T[];
-    meta: {
-      nextCursor: string | null;
-      prevCursor: string | null;
-      hasMore: boolean;
-      limit: number;
-      total?: number;  // optional — requires COUNT(*) query
-    }
-  }
-  ```
-- Fetch `limit + 1` rows; if count = `limit + 1`, `hasMore = true`, drop the last row from `data`.
-
-#### Checkpoint 5:
-```bash
-pnpm test:unit -- src/query-engine/pagination
-```
-Tests: encode/decode round-trip, single DESC col cursor WHERE, multi-col mixed-direction WHERE, `id` tiebreaker auto-injection, `hasMore` detection.
-
----
-
-### Phase 6 — Hybrid Search
-**Goal**: Full-text and trigram search support per column.
-
-#### Files to create:
-- `src/query-engine/search/hybridSearch.ts`
-
-#### Key Decisions:
-- Input: `search[doctor.name][fts]=john`, `search[notes][tri]=fever`.
-- **FTS**: `to_tsvector('english', root_doctor.first_name) @@ plainto_tsquery('english', :q_fts_0)` via QB `.andWhere()`.
-- **Trigram**: `root.notes % :q_tri_0` (requires `CREATE EXTENSION IF NOT EXISTS pg_trgm`). Configurable similarity threshold via `ModelQueryConfig.trigramThreshold` (default `0.3`).
-- Both search conditions are ANDed with each other and with the main `where=` filter.
-- `ModelQueryConfig.allowedSearch` is `{ field: string; type: 'fts' | 'tri' }[]` — strict per-field whitelist.
-- **Index recommendation** added as a comment in code (engine does not create indexes; migrations handle that).
-
-#### Checkpoint 6 (Integration):
-```bash
-pnpm test:integration -- src/query-engine/search
-```
-Tests: FTS match on text column, trigram fuzzy match, combined search + filter, unallowed search field rejection.
-
----
-
-### Phase 7 — Aggregations
-**Goal**: GROUP BY, aggregate functions (COUNT/SUM/AVG/MIN/MAX), HAVING clauses.
-
-#### Files to create:
-- `src/query-engine/aggregation/aggregationBuilder.ts`
-
-#### Key Decisions:
-- Input params: `groupBy=doctor.department.id`, `aggregate[count]=id`, `aggregate[avg]=salary`.
-- `having=` is parsed by the **same Lexer + Parser** as `where=`, but with `AggregateConditionNode` support (`count(appointments)>5`). Parser detects `fn(field)` pattern in condition position.
-- QB mapping:
-  - `.select('root_doctor_department.id')` + `.addSelect('COUNT(root.id)', 'count_id')`.
-  - `.groupBy('root_doctor_department.id')`.
-  - `.having('COUNT(root.id) > :hv_0', { hv_0: 5 })`.
-- Aggregation joins are registered in JoinPlanner the same way as filter joins.
-
-#### Checkpoint 7 (Integration):
-```bash
-pnpm test:integration -- src/query-engine/aggregation
-```
-Tests: GROUP BY single col, GROUP BY nested relation col, COUNT + HAVING, multiple aggregates in same query.
-
----
-
-### Phase 8 — Query Optimizer
-**Goal**: Improve query plan quality before execution.
-
-#### Files to create:
-- `src/query-engine/optimizer/queryOptimizer.ts`
-
-#### Key Decisions:
-- **Predicate pushdown**: Filter conditions on a joined table → move to JOIN ON clause (converts LEFT JOIN + WHERE to INNER JOIN WHERE possible, reducing result set size).
-- **Selectivity ordering**: Reorder AND-children by estimated selectivity: `eq > in > gte/lte > like > ilike`. Applied recursively on `LogicalNode` children.
-- **EXISTS optimization**: When a filter condition traverses a relation that has no selected columns (join exists only for filtering), emit `EXISTS (SELECT 1 FROM ...)` instead of a JOIN.
-- **Final cost gate**: After full query plan is assembled, run `complexityScorer` again on the resolved plan. Reject if over `maxComplexityScore`.
-- Optimizer is a pure function: `optimize(QueryPlan): QueryPlan` — no side effects, easy to unit test.
-
-#### Checkpoint 8:
-```bash
-pnpm test:unit -- src/query-engine/optimizer
-```
-Tests: predicate reorder (eq moves before ilike), EXISTS detection, no-op for already-optimal plans, cost gate rejection.
-
----
-
-### Phase 9 — Observability + Redis Caching
-**Goal**: Cache query results in Redis and log structured analytics per execution.
-
-#### Files to create:
-- `src/query-engine/analytics/queryAnalytics.ts`
-- `src/query-engine/cache/queryCache.ts`
-
-#### Key Decisions:
-- **Cache key**: `qe:cache:${sha256(entityName + stableStringify(parsedQuery))}`. Uses `JSON.stringify` with sorted keys for determinism.
-- **TTL**: `ModelQueryConfig.cacheTtlSeconds` (default 60s). Cached via `RedisService.setJson` / `getJson`.
-- **Cache invalidation**: `QueryEngineService.invalidateCache(entityName)` uses `RedisService` SCAN to find and delete all keys matching `qe:cache:${entityName}:*`.
-- **Analytics log** (NestJS `Logger` with `verbose` level):
-  ```typescript
-  {
-    entity: string;
-    execTimeMs: number;
-    joinsUsed: number;
-    filtersUsed: number;
-    searchUsed: boolean;
-    aggregationsUsed: boolean;
-    rowsReturned: number;
-    cacheHit: boolean;
-    queryCost: number;
-  }
-  ```
-- Analytics emitted on every execution (cache hit or miss). Cache hit skips DB query entirely.
-- Inject existing `RedisService` from `src/shared/redis/redis.service.ts`.
-
-#### Checkpoint 9:
-```bash
-pnpm test:unit -- src/query-engine/cache
-pnpm test:unit -- src/query-engine/analytics
-```
-Tests: cache hit returns stored result without DB call, cache miss stores result with TTL, key determinism (same query → same key), analytics fields present on every execution.
-
----
-
-### Phase 10 — Full Integration Wiring
-**Goal**: Wire `QueryEngineModule` into the app. Run full test suite.
-
-#### Files to modify:
-- `src/app.module.ts` — add `QueryEngineModule` import
-- `src/query-engine/index.ts` — export `QueryEngineService`, `ModelQueryConfig`, `QueryResult`, `CursorPage`
-
-#### Checkpoint 10 (Full Suite):
-```bash
-pnpm test:unit
-pnpm test:integration
+ User request
+      │
+      ▼
+ ┌──────────┐     ┌──────────┐
+ │ Whitelist│────▶│ DB Query │
+ │  Check   │     │          │
+ └──────────┘     └──────────┘
+      │
+   Blocked ❌
 ```
 
 ---
 
-### Phase 11 — Blog Post + Feature Guide
-**Goal**: Generate two output documents.
+## Verification
 
-#### Files to create:
-- `query_engine_docs/BLOG_POST.md` — Long-form technical portfolio post. Covers: problem statement, architecture decisions (lexer/parser/AST rationale, why cursor over offset, EXISTS pushdown, hybrid search strategy), implementation challenges, performance characteristics, code samples, benchmark goals.
-- `query_engine_docs/FEATURE_GUIDE.md` — Exhaustive feature reference. Covers: all query params, all filter operators with examples, DSL grammar cheatsheet, bracket filter syntax, sort syntax, cursor pagination, FTS + trigram search, aggregation + HAVING, field selection, include=, model config setup, index recommendations, error codes, example `curl` queries.
+Once posts are drafted:
 
----
-
-## Critical Files to Reference During Implementation
-
-| File | Purpose |
-|------|---------|
-| `src/shared/redis/redis.service.ts` | Inject for caching (`setJson`, `getJson`, SCAN) |
-| `src/shared/repositories/base.entity.ts` | Soft-delete field (`deletedAt`), base UUID id |
-| `src/shared/repositories/snakeCaseNaming.strategy.ts` | Column name mapping reference |
-| `src/shared/repositories/utility/findAndPaginate.ts` | Existing utility — do NOT break |
-| `src/configs/typeorm.config.ts` | DataSource configuration |
-| `src/modules/core/entities/` | Entity definitions for integration tests (Staff, Role, Dept, Permission) |
-| `test/helpers/global-setup.ts` | Testcontainers: PostgreSQL 16 + Redis 7 |
-| `test/helpers/database.helper.ts` | `truncateAllTables()` for test isolation |
-| `vitest.unit.config.ts` | Unit test runner config |
-| `vitest.integration.config.ts` | Integration test runner config |
-| `query_engine_docs/04_query_grammar.md` | Formal grammar BNF |
-| `query_engine_docs/05_ast_schema.md` | AST JSON shape reference |
-| `query_engine_docs/06_join_planner.md` | Join algorithm reference |
-| `query_engine_docs/07_cursor_pagination.md` | Cursor SQL pattern reference |
-| `query_engine_docs/08_hybrid_search.md` | FTS + trigram SQL reference |
-
----
-
-## Verification Strategy
-
-Each phase ends with a checkpoint test command. After Phase 10:
-
-```bash
-# Full unit suite
-pnpm test:unit
-
-# Full integration suite (real PostgreSQL + Redis via Testcontainers)
-pnpm test:integration
-
-# Manual smoke test
-curl "http://localhost:3000/staff?where=(role.name='admin')&sort=-createdAt&limit=10"
-curl "http://localhost:3000/staff?filter[isActive][eq]=true&search[firstName][fts]=john&limit=5"
-```
-
----
-
-## Conventions to Follow
-
-- **File naming**: camelCase (`joinPlanner.ts`, `queryEngine.module.ts`, `filterBuilder.ts`)
-- **Error format**: `{ code: 'QUERY_VALIDATION_ERROR', message: string, details: object }` — all errors extend `BadRequestException`
-- **Zero SQL injection**: Parameterized queries only (`:qe_p0` style). No string interpolation in SQL.
-- **TypeScript strict**: No untyped `any`. Use `unknown` + narrowing where dynamic.
-- **Mocking**: `mock<T>()` from `vitest-mock-extended` in unit tests
-- **Integration tests**: Use `DataSource` injected from Testcontainers global context via `inject('pgConnectionString')`
-- **Package manager**: pnpm
+1. Read each post aloud — if it sounds like a press release, rewrite the opener
+2. Every concept section should have at least one Markdown illustration (ASCII, Mermaid, or table)
+3. Junior posts: a non-developer should be able to follow the analogy without reading the code
+4. Mid-level posts: a developer who hasn't seen the codebase should understand the "why" before the "how"
+5. Senior posts: the retrospective/candid sections should feel like a real engineer talking, not a tutorial
+6. Cross-check titles: no raw jargon (AST, DSL, trigram, FTS, predicate pushdown) in any final title
