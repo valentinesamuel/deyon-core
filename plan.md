@@ -92,7 +92,7 @@ src/query-engine/
 
 ---
 
-### Phase 1 — Types + Lexer + AST Nodes + Parser
+### Phase 1 — Types + Lexer + AST Nodes + Parser ✅ DONE
 **Goal**: Turn both `where=` DSL strings and `filter[field][op]=value` bracket params into a unified typed AST.
 
 #### Files to create:
@@ -163,7 +163,7 @@ Tests: DSL parsing `(a=1 AND b=2) OR c=3`, nested relations `doctor.department.n
 
 ---
 
-### Phase 2 — Validation + Complexity Scoring
+### Phase 2 — Validation + Complexity Scoring ✅ DONE
 **Goal**: Reject invalid/dangerous queries before any DB access.
 
 #### Files to create:
@@ -190,7 +190,7 @@ Tests: whitelist rejection, max filter count, depth limit (relation path segment
 
 ---
 
-### Phase 3 — Join Planner + Filter Planner + Select Planner
+### Phase 3 — Join Planner + Filter Planner + Select Planner ✅ DONE
 **Goal**: Produce a deterministic, deduplicated join plan from all relation paths in the query.
 
 #### Files to create:
@@ -223,7 +223,7 @@ Tests: single-level join, 4-level deep join, shared prefix deduplication (`docto
 
 ---
 
-### Phase 4 — SQL Builder + QueryEngineService + NestJS Module
+### Phase 4 — SQL Builder + QueryEngineService + NestJS Module ✅ DONE
 **Goal**: Wire AST + Plans into TypeORM `SelectQueryBuilder`. First end-to-end query execution.
 
 #### Files to create:
@@ -257,7 +257,7 @@ Real PostgreSQL via Testcontainers. Tests: simple equality filter, nested relati
 
 ---
 
-### Phase 5 — Cursor Pagination
+### Phase 5 — Cursor Pagination ✅ DONE
 **Goal**: Stable, multi-column cursor-based pagination replacing offset pagination.
 
 #### Files to create:
@@ -294,7 +294,7 @@ Tests: encode/decode round-trip, single DESC col cursor WHERE, multi-col mixed-d
 
 ---
 
-### Phase 6 — Hybrid Search
+### Phase 6 — Hybrid Search ✅ DONE
 **Goal**: Full-text and trigram search support per column.
 
 #### Files to create:
@@ -316,7 +316,7 @@ Tests: FTS match on text column, trigram fuzzy match, combined search + filter, 
 
 ---
 
-### Phase 7 — Aggregations
+### Phase 7 — Aggregations ✅ DONE
 **Goal**: GROUP BY, aggregate functions (COUNT/SUM/AVG/MIN/MAX), HAVING clauses.
 
 #### Files to create:
@@ -339,7 +339,7 @@ Tests: GROUP BY single col, GROUP BY nested relation col, COUNT + HAVING, multip
 
 ---
 
-### Phase 8 — Query Optimizer
+### Phase 8 — Query Optimizer ✅ DONE
 **Goal**: Improve query plan quality before execution.
 
 #### Files to create:
@@ -360,7 +360,7 @@ Tests: predicate reorder (eq moves before ilike), EXISTS detection, no-op for al
 
 ---
 
-### Phase 9 — Observability + Redis Caching
+### Phase 9 — Observability + Redis Caching ✅ DONE
 **Goal**: Cache query results in Redis and log structured analytics per execution.
 
 #### Files to create:
@@ -397,7 +397,7 @@ Tests: cache hit returns stored result without DB call, cache miss stores result
 
 ---
 
-### Phase 10 — Full Integration Wiring
+### Phase 10 — Full Integration Wiring ✅ DONE
 **Goal**: Wire `QueryEngineModule` into the app. Run full test suite.
 
 #### Files to modify:
@@ -412,7 +412,7 @@ pnpm test:integration
 
 ---
 
-### Phase 11 — Blog Post + Feature Guide
+### Phase 11 — Blog Post + Feature Guide ✅ DONE
 **Goal**: Generate two output documents.
 
 #### Files to create:
