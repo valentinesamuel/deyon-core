@@ -26,7 +26,9 @@
       "Bash(grep -r \"controller\\\\|Controller\" /Users/valentinesamuel/Desktop/deyon_be/src/**/*.spec.ts 2>/dev/null | grep \"import\" | head -5)",
       "Bash(find /Users/valentinesamuel/Desktop/deyon_be/vitest*.config.ts -type f)",
       "Bash(grep -r \"type: 'CONDITION'\" /Users/valentinesamuel/Desktop/deyon_be/src/query-engine --include=\"*.ts\" -n -B 3 -A 3)",
-      "Bash(find /Users/valentinesamuel/Desktop/deyon_be -maxdepth 2 -name \".eslintrc*\" -type f 2>/dev/null | grep -v node_modules)"
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be -maxdepth 2 -name \".eslintrc*\" -type f 2>/dev/null | grep -v node_modules)",
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/src/modules -name \"*.uc.ts\" -type f | xargs grep -l \"find.*\\\\[\\\\]\" 2>/dev/null | head -3)",
+      "Bash(ls -la /Users/valentinesamuel/Desktop/deyon_be/src/modules/*/usecases/ 2>/dev/null | grep -E \"\\\\.uc\\\\.ts$\" | head -10)"
     ]
   }
 }

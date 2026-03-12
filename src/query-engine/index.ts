@@ -3,6 +3,8 @@ export { QueryEngineModule } from './queryEngine.module';
 
 // Types
 export type { ModelQueryConfig } from './types/modelConfig.types';
+export type { EntityQueryConfig, DeepKeyOf, TypedSearchField } from './types/entityConfig.types';
+export { GetAllQueryDto } from './dto/getAllQuery.dto';
 export type { QueryResult, CursorPage, CursorMeta } from './types/result.types';
 export type { QueryInput, ParsedQuery, SortField, SearchInput } from './types/query.types';
 export type {

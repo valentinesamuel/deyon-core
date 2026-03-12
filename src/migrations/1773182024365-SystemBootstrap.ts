@@ -44,6 +44,7 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
         ('role:delete',       'Delete roles'),
         ('staff:invite',      'Invite staff'),
         ('staff:read',        'Read staff'),
+        ('staff:list',        'List staff'),
         ('staff:update',      'Update staff'),
         ('staff:deactivate',  'Deactivate staff'),
         ('department:create', 'Create departments'),
@@ -118,7 +119,7 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
     await queryRunner.query(`
       DELETE FROM "permission" WHERE "code" IN (
         '*:*', 'role:create', 'role:read', 'role:update', 'role:delete',
-        'staff:invite', 'staff:read', 'staff:update', 'staff:deactivate',
+        'staff:invite', 'staff:read', 'staff:list', 'staff:update', 'staff:deactivate',
         'department:create', 'department:read', 'department:update', 'department:delete',
         'permission:read'
       )
