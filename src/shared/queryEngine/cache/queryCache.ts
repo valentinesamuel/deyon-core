@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { createHash } from 'crypto';
-import { RedisService } from '../../shared/redis/redis.service';
+import { createHash } from 'node:crypto';
 import { ParsedQuery } from '../types/query.types';
+import { RedisService } from '@shared/redis/redis.service';
 
 const CACHE_PREFIX = 'qe:cache';
 const DEFAULT_TTL = 60;

@@ -18,7 +18,7 @@ import { RoleModule } from '@modules/role/role.module';
 import { SetupModule } from '@modules/setup/setup.module';
 import { StaffModule } from '@modules/staff/staff.module';
 import { RedisModule } from '@shared/redis/redis.module';
-import { QueryEngineModule } from './query-engine/queryEngine.module';
+import { QueryEngineModule } from '@shared/queryEngine';
 
 @Module({
   imports: [

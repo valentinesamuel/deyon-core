@@ -1,0 +1,35 @@
+$kind: http-example
+name: 200 OK
+request:
+  url: '{{baseUrl}}staff/1'
+  method: GET
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "success": true,
+        "message": "Staff retrieved successfully",
+        "data": {
+          "id": "1",
+          "firstName": "John",
+          "lastName": "Doe",
+          "email": "john.doe@hospital.com",
+          "phone": "+1234567890",
+          "role": {
+            "id": "1",
+            "name": "Doctor",
+            "permissions": ["STAFF.READ", "STAFF.LIST", "PATIENT.READ", "PATIENT.WRITE"]
+          },
+          "department": "Cardiology",
+          "isActive": true,
+          "lastLogin": "2024-01-20T14:30:00Z",
+          "createdAt": "2024-01-15T10:30:00Z",
+          "updatedAt": "2024-01-20T14:30:00Z"
+        }
+      }

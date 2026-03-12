@@ -1,0 +1,12 @@
+$kind: http-request
+name: fetch one staff
+method: GET
+url: '{{baseUrl}}staff/:id'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+pathVariables:
+  - key: id
+    value: '1'
+examples: ./.resources/fetch one staff.resources/examples

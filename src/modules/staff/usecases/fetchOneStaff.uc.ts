@@ -3,19 +3,19 @@ import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { Staff } from '@modules/core/entities/staff.entity';
 import { STAFF_QUERY_CONFIG } from '../staff.constants';
-import { CursorPage, QueryEngineService, QueryInput } from '@shared/queryEngine';
+import { GetOneQueryDto, QueryEngineService } from '@shared/queryEngine';
 
-type FetchAllStaffParams = { query: QueryInput };
+type FetchOneStaffParams = { id: string; query: GetOneQueryDto };
 
 @Injectable()
-export class FetchAllStaffUsecase extends Usecase<CursorPage<Staff>, FetchAllStaffParams> {
+export class FetchOneStaffUsecase extends Usecase<Staff, FetchOneStaffParams> {
   readonly config = { requiresTransaction: false };
 
   constructor(private readonly queryEngine: QueryEngineService) {
     super();
   }
 
-  async execute(_em: EntityManager, params: FetchAllStaffParams): Promise<CursorPage<Staff>> {
-    return this.queryEngine.execute(Staff, params.query, STAFF_QUERY_CONFIG);
+  async execute(_em: EntityManager, params: FetchOneStaffParams): Promise<Staff> {
+    return this.queryEngine.executeOne(Staff, params.id, params.query, STAFF_QUERY_CONFIG);
   }
 }

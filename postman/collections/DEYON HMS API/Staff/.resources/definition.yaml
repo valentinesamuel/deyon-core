@@ -1,0 +1,3 @@
+$kind: collection
+name: Staff
+description: Staff management endpoints for fetching staff information

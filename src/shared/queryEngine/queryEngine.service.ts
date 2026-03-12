@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource, EntityManager, ObjectLiteral } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { QueryInput, ParsedQuery, SortField } from './types/query.types';
@@ -13,6 +13,9 @@ import { SortBuilder } from './sqlBuilder/sortBuilder';
 import { buildCursorPage } from './pagination/cursorPagination';
 import { QueryCache } from './cache/queryCache';
 import { QueryAnalytics } from './analytics/queryAnalytics';
+import { GetOneQueryDto } from './dto/getOneQuery.dto';
+import { QueryValidationError } from './validation/queryValidator';
+import { MODEL_QUERY_CONFIG_DEFAULTS } from './types/modelConfig.types';
 
 @Injectable()
 export class QueryEngineService {
@@ -107,6 +110,121 @@ export class QueryEngineService {
    */
   async invalidateCache(entityName: string): Promise<void> {
     await this.queryCache.invalidate(entityName);
+  }
+
+  async executeOne<T extends ObjectLiteral>(
+    entityClass: new () => T,
+    id: string,
+    queryInput: GetOneQueryDto,
+    config: ModelQueryConfig,
+    entityManager?: EntityManager,
+  ): Promise<T> {
+    const { fieldsByAlias, includeRels } = this.parseSingleEntityInput(queryInput);
+    this.validateSingleEntityInput(fieldsByAlias, includeRels, config);
+
+    const repo = (entityManager ?? this.dataSource.manager).getRepository(entityClass);
+    const qb = repo.createQueryBuilder('entity').where('entity.id = :id', { id });
+
+    // Root fields
+    const rootFields = fieldsByAlias['root'];
+    if (rootFields) {
+      const safeCols = ['id', ...rootFields].filter((f) => config.allowedFields.includes(f));
+      qb.select(safeCols.map((f) => `entity.${f}`));
+    }
+
+    // Relations
+    const allRels = new Set([
+      ...Object.keys(fieldsByAlias).filter((k) => k !== 'root'),
+      ...includeRels,
+    ]);
+    for (const rel of allRels) {
+      const safeColsForRel = config.allowedFields
+        .filter((f) => f.startsWith(`${rel}.`))
+        .map((f) => f.slice(rel.length + 1));
+
+      const requestedCols = fieldsByAlias[rel];
+      const cols = requestedCols
+        ? ['id', ...requestedCols].filter((c) => safeColsForRel.includes(c))
+        : ['id', ...safeColsForRel];
+
+      qb.leftJoin(`entity.${rel}`, rel).addSelect(cols.map((c) => `${rel}.${c}`));
+    }
+
+    const result = await qb.getOne();
+    if (!result) {
+      throw new BadRequestException(`${entityClass.name} not found`);
+    }
+    return result;
+  }
+
+  private parseSingleEntityInput(input: GetOneQueryDto): {
+    fieldsByAlias: Record<string, string[]>;
+    includeRels: string[];
+  } {
+    const fieldsByAlias: Record<string, string[]> = {};
+
+    if (input.fields) {
+      for (const token of input.fields
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)) {
+        const dotIdx = token.indexOf('.');
+        if (dotIdx === -1) {
+          (fieldsByAlias['root'] ??= []).push(token);
+        } else {
+          const rel = token.slice(0, dotIdx);
+          const col = token.slice(dotIdx + 1);
+          (fieldsByAlias[rel] ??= []).push(col);
+        }
+      }
+    }
+
+    const includeRels = input.include
+      ? input.include
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    return { fieldsByAlias, includeRels };
+  }
+
+  private validateSingleEntityInput(
+    fieldsByAlias: Record<string, string[]>,
+    includeRels: string[],
+    config: ModelQueryConfig,
+  ): void {
+    const maxJoins = config.maxJoins ?? MODEL_QUERY_CONFIG_DEFAULTS.maxJoins;
+    const maxRelationDepth =
+      config.maxRelationDepth ?? MODEL_QUERY_CONFIG_DEFAULTS.maxRelationDepth;
+
+    const allRels = new Set([
+      ...Object.keys(fieldsByAlias).filter((k) => k !== 'root'),
+      ...includeRels,
+    ]);
+
+    if (allRels.size > maxJoins) {
+      throw new QueryValidationError(
+        `Too many joins: ${allRels.size} exceeds maximum ${maxJoins}`,
+        { joinCount: allRels.size, maxJoins },
+      );
+    }
+
+    for (const rel of allRels) {
+      const depth = rel.split('.').length;
+      if (depth > maxRelationDepth) {
+        throw new QueryValidationError(
+          `Relation "${rel}" exceeds maximum relation depth ${maxRelationDepth}`,
+          { relation: rel, depth, maxRelationDepth },
+        );
+      }
+      if (!config.allowedRelations.includes(rel)) {
+        throw new QueryValidationError(`Relation "${rel}" is not allowed for include`, {
+          relation: rel,
+          allowedRelations: config.allowedRelations,
+        });
+      }
+    }
   }
 
   private parseQueryInput(input: QueryInput): ParsedQuery {

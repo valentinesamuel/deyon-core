@@ -1,0 +1,9 @@
+$kind: http-request
+name: fetch all staff
+method: GET
+url: '{{baseUrl}}staff'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+examples: ./.resources/fetch all staff.resources/examples
