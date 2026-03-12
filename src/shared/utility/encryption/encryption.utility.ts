@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'node:crypto';
+import type { CipherGCM, DecipherGCM } from 'node:crypto';
 import { EncryptionUtilInterface } from './encryption.interface';
 import { ConfigService } from '@nestjs/config';
 
@@ -12,13 +13,13 @@ export class EncryptionUtility implements EncryptionUtilInterface {
 
   constructor(private readonly configService: ConfigService) {
     // Generate a random key (or load it from a secure location)
-    this.algorithm = this.configService.get<string>('common.encryption.algorithm');
-    this.key = Buffer.from(this.configService.get<string>('common.encryption.key'));
+    this.algorithm = this.configService.get<string>('common.encryption.algorithm')!;
+    this.key = Buffer.from(this.configService.get<string>('common.encryption.key')!);
   }
 
   encrypt(plaintext: string): string {
     const iv = crypto.randomBytes(this.ivLength); // Generate a random IV
-    const cipher: any = crypto.createCipheriv(this.algorithm, this.key, iv);
+    const cipher = crypto.createCipheriv(this.algorithm, this.key, iv) as CipherGCM;
 
     let encrypted = cipher.update(plaintext, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -29,7 +30,11 @@ export class EncryptionUtility implements EncryptionUtilInterface {
 
   decrypt(text: string): string {
     const [encryptedData, authTag, iv] = text.split(':rn');
-    const decipher: any = crypto.createDecipheriv(this.algorithm, this.key, Buffer.from(iv, 'hex'));
+    const decipher = crypto.createDecipheriv(
+      this.algorithm,
+      this.key,
+      Buffer.from(iv, 'hex'),
+    ) as DecipherGCM;
     decipher.setAuthTag(Buffer.from(authTag, 'hex'));
 
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');

@@ -21,13 +21,13 @@ export class RequestTrackerInterceptor implements NestInterceptor {
     const debuggerKey = this.configService.get<string>('common.debug.debuggerKey');
 
     // Skip tracking for debug requests but still process the request
-    if (request.headers[debuggerName] === debuggerKey) {
+    if (debuggerName && request.headers[debuggerName] === debuggerKey) {
       return next.handle();
     }
 
     const serviceAccessName = this.configService.get<string>('common.auth.serviceAccessName');
     // Skip tracking for internal service requests but still process the request
-    if (request.headers[serviceAccessName] === 'false') {
+    if (serviceAccessName && request.headers[serviceAccessName] === 'false') {
       return next.handle();
     }
 

@@ -17,6 +17,7 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { RoleModule } from '@modules/role/role.module';
 import { SetupModule } from '@modules/setup/setup.module';
 import { RedisModule } from '@shared/redis/redis.module';
+import { QueryEngineModule } from './query-engine/queryEngine.module';
 
 @Module({
   imports: [
@@ -26,11 +27,12 @@ import { RedisModule } from '@shared/redis/redis.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => configService.get('typeorm'),
+      useFactory: async (configService: ConfigService) => configService.get('typeorm')!,
     }),
     ClsModule.forRoot({ middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     RedisModule,
+    QueryEngineModule,
     AuthModule,
     RoleModule,
     SetupModule,

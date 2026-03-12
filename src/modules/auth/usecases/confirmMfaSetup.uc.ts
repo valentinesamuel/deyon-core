@@ -17,7 +17,10 @@ import { RedisKeys } from '@shared/redis/redis.constants';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 
 @Injectable()
-export class ConfirmMfaSetupUsecase extends Usecase<{ accessGranted: boolean }> {
+export class ConfirmMfaSetupUsecase extends Usecase<{
+  accessGranted: boolean;
+  backupCodes: string[];
+}> {
   constructor(
     private readonly mfaService: MfaService,
     private readonly tokenService: TokenService,
@@ -40,7 +43,7 @@ export class ConfirmMfaSetupUsecase extends Usecase<{ accessGranted: boolean }> 
       ipAddress?: string;
       userAgent?: string;
     },
-  ): Promise<{ accessGranted: boolean }> {
+  ): Promise<{ accessGranted: boolean; backupCodes: string[] }> {
     const { mfaStaffId, totpCode, res, ipAddress, userAgent } = params;
 
     const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId);
@@ -79,7 +82,7 @@ export class ConfirmMfaSetupUsecase extends Usecase<{ accessGranted: boolean }> 
     const opaqueToken = this.tokenService.generateOpaqueToken();
     const tokenHash = this.tokenService.sha256(opaqueToken);
     const familyId = crypto.randomUUID();
-    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry');
+    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
     await this.refreshTokenRepository.createToken({
       tokenHash,
@@ -102,6 +105,6 @@ export class ConfirmMfaSetupUsecase extends Usecase<{ accessGranted: boolean }> 
     });
 
     // Return backup codes (only shown once)
-    return { accessGranted: true, backupCodes: plainCodes } as any;
+    return { accessGranted: true, backupCodes: plainCodes };
   }
 }

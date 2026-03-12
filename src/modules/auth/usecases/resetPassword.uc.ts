@@ -41,7 +41,7 @@ export class ResetPasswordUsecase extends Usecase<{ message: string }> {
       passwordHash,
       lastPasswordChange: new Date(),
       failedLoginAttempts: 0,
-      lockedUntil: null,
+      lockedUntil: null as unknown as Date,
     });
 
     // Revoke all sessions

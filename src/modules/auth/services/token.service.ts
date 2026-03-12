@@ -8,6 +8,7 @@ export interface AccessTokenPayload {
   sub: string;
   jti: string;
   role: string;
+  exp?: number;
 }
 
 @Injectable()
@@ -56,13 +57,13 @@ export class TokenService {
       path: '/',
     };
 
-    const accessExpiry = this.configService.get<number>('common.jwt.accessExpiry');
+    const accessExpiry = this.configService.get<number>('common.jwt.accessExpiry')!;
     res.cookie('access_token', accessToken, {
       ...cookieBase,
       maxAge: accessExpiry * 1000,
     });
 
-    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry');
+    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
     res.cookie('refresh_token', refreshToken, {
       ...cookieBase,
       path: '/staff/auth/refresh',

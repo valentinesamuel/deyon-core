@@ -32,7 +32,7 @@ export interface UsecaseConfig {
  * @example
  * // Transactional usecase (default) - for DB operations
  * class CreateOrderUsecase extends Usecase<Order> {
- *   async execute(entityManager: EntityManager, params: any): Promise<Order> {
+ *   async execute(entityManager: EntityManager, params: P): Promise<Order> {
  *     return entityManager.save(Order, params);
  *   }
  * }
@@ -42,13 +42,14 @@ export interface UsecaseConfig {
  * class FetchInventoryUsecase extends Usecase<InventoryData> {
  *   readonly config: UsecaseConfig = { requiresTransaction: false };
  *
- *   async execute(entityManager: EntityManager, params: any): Promise<InventoryData> {
+ *   async execute(entityManager: EntityManager, params: P): Promise<InventoryData> {
  *     // External API call - no transaction needed, won't cause timeout
  *     return this.inventoryClient.getInventory(params.productIds);
  *   }
  * }
  */
-export abstract class Usecase<T = any, P extends Record<string, any> = Record<string, any>> {
+
+export abstract class Usecase<T = unknown, P extends Record<string, any> = Record<string, any>> {
   /**
    * Configuration for this usecase.
    * Override in subclass to change transaction behavior.

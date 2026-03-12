@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class EventLogReddesign1772992583763 implements MigrationInterface {
   name = 'EventLogReddesign1772992583763';
@@ -11,15 +11,15 @@ export class EventLogReddesign1772992583763 implements MigrationInterface {
       await queryRunner.query(
         `ALTER TABLE "event_log" DROP CONSTRAINT "FK_4a7c347a4e01b25cc26d779870a"`,
       );
-    } catch (e) {}
+    } catch (_e) {}
     // Drop staffs_id column if exists
     try {
       await queryRunner.query(`ALTER TABLE "event_log" DROP COLUMN "staffs_id"`);
-    } catch (e) {}
+    } catch (_e) {}
     // Drop old index if exists
     try {
       await queryRunner.query(`DROP INDEX "IDX_8adbb41537a4c04ef0364bdb24"`);
-    } catch (e) {}
+    } catch (_e) {}
     await queryRunner.query(`CREATE INDEX "IDX_event_log_actor_id" ON "event_log" ("actor_id")`);
     await queryRunner.query(`ALTER TABLE "event_log" ADD "module" character varying`);
   }

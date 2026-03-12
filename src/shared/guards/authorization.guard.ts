@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthorizationGuard implements CanActivate {
@@ -24,7 +25,7 @@ export class AuthorizationGuard implements CanActivate {
     const debuggerName = this.configService.get<string>('common.debug.debuggerName');
     const debuggerKey = this.configService.get<string>('common.debug.debuggerKey');
 
-    if (req.headers[debuggerName] === debuggerKey) {
+    if (debuggerName && req.headers[debuggerName] === debuggerKey) {
       this.logger.log('⛔️⛔️ Request is authorized for debugging mode', {
         ip: req.ip,
         'x-debug-access': req.headers['x-debug-access'],
@@ -35,7 +36,7 @@ export class AuthorizationGuard implements CanActivate {
     }
 
     // Get the token from the request headers
-    const accessKey = req?.headers[this.configService.get<string>('common.auth.authName')];
+    const accessKey = req?.headers[this.configService.get<string>('common.auth.authName')!];
 
     if (!accessKey) {
       this.logger.error('❌ ERR_DYN_1: Request is forbidden');
@@ -51,12 +52,12 @@ export class AuthorizationGuard implements CanActivate {
     return true;
   }
 
-  private validateHealthCredentials(req: any) {
+  private validateHealthCredentials(req: Request): boolean | undefined {
     if (req.originalUrl === '/health') {
       const healthHeaderName = this.configService.get<string>('common.metrics.healthName');
       const healthHeaderKey = this.configService.get<string>('common.metrics.healthKey');
 
-      if (req.headers[healthHeaderName] === healthHeaderKey) {
+      if (healthHeaderName && req.headers[healthHeaderName] === healthHeaderKey) {
         this.logger.log('📊 Request is authorized for health check', {
           ip: req.ip,
         });

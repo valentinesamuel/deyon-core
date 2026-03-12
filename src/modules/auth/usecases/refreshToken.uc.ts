@@ -82,7 +82,7 @@ export class RefreshTokenUsecase extends Usecase<{ refreshed: boolean }> {
 
     const newOpaqueToken = this.tokenService.generateOpaqueToken();
     const newTokenHash = this.tokenService.sha256(newOpaqueToken);
-    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry');
+    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
     await this.refreshTokenRepository.createToken({
       tokenHash: newTokenHash,

@@ -102,7 +102,7 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     const opaqueToken = this.tokenService.generateOpaqueToken();
     const tokenHash = this.tokenService.sha256(opaqueToken);
     const familyId = crypto.randomUUID();
-    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry');
+    const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
     await this.refreshTokenRepository.createToken({
       tokenHash,

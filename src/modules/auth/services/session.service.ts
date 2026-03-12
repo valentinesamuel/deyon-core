@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '@shared/redis/redis.service';
 import { RedisKeys } from '@shared/redis/redis.constants';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { RefreshToken } from '@modules/core/entities/refreshToken.entity';
 
 const MAX_SESSIONS = 2;
@@ -46,7 +46,13 @@ export class SessionService {
       const sessions = await this.getActiveSessions(staffId);
       // Find oldest token family in DB
       const oldest = await this.refreshTokenRepository.findOne({
-        where: sessions.map((fid) => ({ staffId, familyId: fid, isRevoked: false })) as any,
+        where: sessions.map(
+          (fid): FindOptionsWhere<RefreshToken> => ({
+            staffId,
+            familyId: fid,
+            isRevoked: false,
+          }),
+        ),
         order: { createdAt: 'ASC' },
       });
       if (oldest) {

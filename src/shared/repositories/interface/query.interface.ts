@@ -1,12 +1,12 @@
-export type IOrder<T = any> = {
+export type IOrder<T = unknown> = {
   [K in keyof T]?: 'asc' | 'desc' | 'ASC' | 'DESC';
 };
 
 export interface IQuery {
   limit?: number;
   page?: number;
-  filterAnd?: Record<string, any>;
-  filterOr?: Record<string, any>;
-  search?: Record<string, any>;
+  filterAnd?: Record<string, unknown>;
+  filterOr?: Record<string, unknown>;
+  search?: Record<string, unknown>;
   order?: IOrder;
 }

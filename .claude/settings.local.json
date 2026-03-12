@@ -11,7 +11,22 @@
       "Bash(pnpm build:*)",
       "Bash(pnpm start:dev:*)",
       "Bash(pkill:*)",
-      "Bash(pnpm tsc:*)"
+      "Bash(pnpm tsc:*)",
+      "WebSearch",
+      "Bash(pnpm:*)",
+      "Bash(npx:*)",
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/src -name \"*.spec.ts\" 2>/dev/null | sort)",
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/test -name \"*.ts\" 2>/dev/null | sort)",
+      "Bash(grep -rn \":\\\\s*any\\\\|as\\\\s*any\" /Users/valentinesamuel/Desktop/deyon_be/test --include=\"*.ts\" 2>/dev/null | head -100)",
+      "Bash(grep -rn \":\\\\s*any\\\\|as\\\\s*any\" /Users/valentinesamuel/Desktop/deyon_be/test --include=\"*.ts\" 2>/dev/null | wc -l)",
+      "Bash(grep -rn \"plainSecret\\\\|mfaConfig\\\\.fixture\\\\|buildMfaConfig\" /Users/valentinesamuel/Desktop/deyon_be/test/ --include=\"*.ts\" 2>/dev/null | grep -v \"setup.bootstrap\" | grep -v \"e2e-helper\")",
+      "Bash(grep -r \"import.*express\" /Users/valentinesamuel/Desktop/deyon_be/src/shared/guards/*.ts 2>/dev/null)",
+      "Bash(grep -r \"controller\\\\|Controller\" /Users/valentinesamuel/Desktop/deyon_be/src/**/*.spec.ts 2>/dev/null | grep \"import\" | head -5)",
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/vitest*.config.ts -type f)",
+      "Bash(grep -r \"type: 'CONDITION'\" /Users/valentinesamuel/Desktop/deyon_be/src/query-engine --include=\"*.ts\" -n -B 3 -A 3)",
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be -maxdepth 2 -name \".eslintrc*\" -type f 2>/dev/null | grep -v node_modules)"
     ]
   }
 }
