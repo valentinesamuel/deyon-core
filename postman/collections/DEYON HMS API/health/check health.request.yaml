@@ -1,7 +1,10 @@
 $kind: http-request
 name: Check Health
 method: GET
-url: http://localhost:5200/health
+url: http://localhost:5200/health?filter=tert&wef=wef
+queryParams:
+  filter: tert
+  wef: wef
 order: 1000
 headers:
   Content-Type: application/json

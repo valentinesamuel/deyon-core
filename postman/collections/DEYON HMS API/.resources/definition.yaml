@@ -2,6 +2,7 @@ $kind: collection
 name: DEYON HMS API
 variables:
   x-api-token: ""
+  baseUrl: ""
 auth:
   - id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76
     type: apikey

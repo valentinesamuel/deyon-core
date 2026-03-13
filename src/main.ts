@@ -65,6 +65,10 @@ function buildAPIDocumentation(app: TNestApp, configService: ConfigService) {
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Express 5.x defaults to 'simple' query parser (Node.js querystring module),
+  // which does not support bracket notation like filter[isActive][eq]=false.
+  // Switch to 'extended' (qs) so nested bracket params are parsed as objects.
+  app.set('query parser', 'extended');
   app.setGlobalPrefix('/api/v1', { exclude: ['health'] });
   const configService = app.get(ConfigService);
   const requestContextService = app.get(RequestContextService);

@@ -78,3 +78,4 @@ response:
     content: '{"statusCode":201,"success":true,"message":"Request
       successful","result":{"staffId":"c48ffd92-9018-4526-b498-2ef5ee1ea73a","role":"super_admin","firstName":"Raegan","lastName":"Collier"},"path":"/api/v1/staff/auth/login/mfa-verify","duration":155}'
 order: 1018029084973763
+name: success with role

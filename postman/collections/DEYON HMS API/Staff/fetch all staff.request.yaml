@@ -6,4 +6,58 @@ order: 1000
 headers:
   - key: Authorization
     value: 'Bearer {{token}}'
-examples: ./.resources/fetch all staff.resources/examples
+queryParams:
+  - key: where
+    value: 'isActive:eq:true AND roleId:eq:uuid'
+    description: DSL filter expression
+    disabled: true
+  - key: sort
+    value: 'firstName:asc,createdAt:desc'
+    description: |-
+      Comma-separated field:direction. Allowed fields: firstName lastName, email, createdAt, updatedAt, isActive, isApproved
+    disabled: true
+  - key: limit
+    value: '20'
+    description: Page size (1–1000, default 20)
+    disabled: true
+  - key: cursor
+    value: ''
+    description: Opaque cursor from previous page's meta.nextCursor
+    disabled: true
+  - key: include
+    value: 'role,department'
+    description: |-
+      Comma-separated relations to join. Allowed: role, department
+    disabled: true
+  - key: groupBy
+    value: 'roleId'
+    description: Comma-separated fields to group by
+    disabled: true
+  - key: having
+    value: 'count:gt:5'
+    description: DSL aggregate filter (requires groupBy)
+    disabled: true
+  - key: withDeleted
+    value: 'false'
+    description: Include soft-deleted records
+    disabled: true
+  - key: 'filter[isActive][eq]'
+    value: 'true'
+    description: Bracket-style filter on isActive field
+    disabled: true
+  - key: 'filter[roleId][eq]'
+    value: '{{roleId}}'
+    description: Bracket-style filter on roleId field
+    disabled: true
+  - key: 'search[firstName][fts]'
+    value: 'John'
+    description: Full-text search on firstName
+    disabled: true
+  - key: 'search[email][tri]'
+    value: 'john@'
+    description: Trigram search on email
+    disabled: true
+  - key: 'aggregate[count]'
+    value: 'id'
+    description: Aggregate function (count) on field
+    disabled: true

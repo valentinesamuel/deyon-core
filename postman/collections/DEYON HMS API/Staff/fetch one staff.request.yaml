@@ -9,4 +9,14 @@ headers:
 pathVariables:
   - key: id
     value: '1'
-examples: ./.resources/fetch one staff.resources/examples
+queryParams:
+  - key: fields
+    value: 'firstName,email,role.name,department.alias'
+    description: |-
+      Flat dot-notation field list. Root fields and relation fields (rel.col) separated by commas. Allowed root fields: id, firstName, lastName, email, phoneNumber, licenseNumber, specialization, isApproved, isActive, lastLogin, roleId, departmentId, createdAt, updatedAt
+    disabled: true
+  - key: include
+    value: 'role,department'
+    description: |-
+      Comma-separated relations to join (all safe fields). Allowed: role, department
+    disabled: true

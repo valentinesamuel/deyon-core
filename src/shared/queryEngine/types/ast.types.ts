@@ -13,7 +13,7 @@ export type Operator =
   | 'isNull'
   | 'notNull';
 
-export type QueryValue = string | number | string[] | number[] | null;
+export type QueryValue = string | number | boolean | string[] | number[] | null;
 
 export type AggregateFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
 

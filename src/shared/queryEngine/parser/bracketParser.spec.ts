@@ -55,6 +55,25 @@ describe('BracketParser', () => {
     const ast = parseBracketFilter({ 'doctor.department.id': { eq: 'abc-123' } }) as ConditionNode;
     expect(ast).toMatchObject({ field: 'doctor.department.id', op: 'eq', value: 'abc-123' });
   });
+
+  it('coerces "false" string to boolean false', () => {
+    const ast = parseBracketFilter({ isActive: { eq: 'false' } }) as ConditionNode;
+    expect(ast).toMatchObject({ type: 'CONDITION', field: 'isActive', op: 'eq', value: false });
+    expect(typeof ast.value).toBe('boolean');
+  });
+
+  it('coerces "true" string to boolean true', () => {
+    const ast = parseBracketFilter({ isApproved: { eq: 'true' } }) as ConditionNode;
+    expect(ast).toMatchObject({ type: 'CONDITION', field: 'isApproved', op: 'eq', value: true });
+    expect(typeof ast.value).toBe('boolean');
+  });
+
+  it('does not coerce UUID strings', () => {
+    const uuid = '6d531e9b-9462-4525-870d-064059300896';
+    const ast = parseBracketFilter({ roleId: { eq: uuid } }) as ConditionNode;
+    expect(ast).toMatchObject({ value: uuid });
+    expect(typeof ast.value).toBe('string');
+  });
 });
 
 describe('mergeAsts', () => {

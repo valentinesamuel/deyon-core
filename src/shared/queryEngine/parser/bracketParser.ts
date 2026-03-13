@@ -42,6 +42,10 @@ function coerceValue(raw: string, op: Operator): QueryValue {
   }
 
   if (raw === 'null') return null;
+
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+
   const num = Number(raw);
   if (!isNaN(num) && raw.trim() !== '') return num;
   return raw;
