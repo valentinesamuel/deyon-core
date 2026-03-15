@@ -26,6 +26,7 @@ export interface QueryInput {
   include?: string;
   fields?: Record<string, string>;
   withDeleted?: boolean;
+  withTotal?: boolean;
 }
 
 export interface ParsedQuery {
@@ -40,4 +41,5 @@ export interface ParsedQuery {
   include: string[];
   fields: Record<string, string[]>;
   withDeleted: boolean;
+  withTotal: boolean;
 }

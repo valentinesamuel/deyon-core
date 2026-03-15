@@ -280,14 +280,14 @@ describe('buildCursorPage', () => {
     const rows = makeRows(1);
     const page = buildCursorPage(rows as Record<string, unknown>[], 10, sortFields, null, 42);
 
-    expect(page.meta.total).toBe(42);
+    expect(page.meta.totalRecords).toBe(42);
   });
 
   it('omits total from meta when not provided', () => {
     const rows = makeRows(1);
     const page = buildCursorPage(rows as Record<string, unknown>[], 10, sortFields);
 
-    expect('total' in page.meta).toBe(false);
+    expect('totalRecords' in page.meta).toBe(false);
   });
 
   it('sets limit in meta correctly', () => {

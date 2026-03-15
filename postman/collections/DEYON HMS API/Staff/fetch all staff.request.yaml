@@ -1,7 +1,7 @@
 $kind: http-request
 name: fetch all staff
 method: GET
-url: "{{baseUrl}}staff?filter[firstName][eq]=John"
+url: "{{baseUrl}}staff?filter[isActive][eq]=true&withTotal=true"
 order: 1000
 headers:
   Authorization: Bearer {{token}}
@@ -41,14 +41,14 @@ queryParams:
     description: Include soft-deleted records
   - key: filter[isActive][eq]
     value: "true"
-    disabled: true
     description: Bracket-style filter on isActive field
   - key: filter[roleId][eq]
     value: "{{roleId}}"
     disabled: true
     description: Bracket-style filter on roleId field
   - key: filter[firstName][eq]
-    value: John
+    value: Peter
+    disabled: true
     description: Full-text search on firstName
   - key: search[firstName][fts]
     value: John
@@ -61,3 +61,6 @@ queryParams:
   - key: aggregate[count]
     value: id
     disabled: true
+  - key: withTotal
+    value: "true"
+    description: Add total records

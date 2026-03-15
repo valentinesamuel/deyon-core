@@ -3,7 +3,7 @@ export interface CursorMeta {
   prevCursor: string | null;
   hasMore: boolean;
   limit: number;
-  total?: number;
+  totalRecords?: number;
 }
 
 export interface CursorPage<T> {

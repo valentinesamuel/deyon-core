@@ -85,18 +85,33 @@ export class QueryEngineService {
       const isAggregating =
         parsed.groupBy.length > 0 || parsed.aggregates.length > 0 || !!parsed.havingAst;
 
+      // 6. Optionally run a count query for totalRecords
+      let totalRecords: number | undefined;
+      if (parsed.withTotal && !isAggregating) {
+        const { qb: countQb } = this.qbOrchestrator.build(
+          entityClass,
+          { ...parsed, cursor: null },
+          config,
+          this.dataSource,
+          entityManager,
+        );
+        totalRecords = await countQb.getCount();
+      }
+
       let page: CursorPage<T>;
       if (isAggregating) {
-        // 6a. Aggregating: use getRawMany() to preserve aggregate column values
+        // 7a. Aggregating: use getRawMany() to preserve aggregate column values
         const rows = await qb.getRawMany<Record<string, unknown>>();
         page = buildRawPage(rows, parsed.limit) as unknown as CursorPage<T>;
       } else {
-        // 6b. Normal: use getMany() for hydrated entities
+        // 7b. Normal: use getMany() for hydrated entities
         const rows = await qb.getMany();
         page = buildCursorPage(
           rows as unknown as Record<string, unknown>[],
           parsed.limit,
           effectiveSortFields,
+          null,
+          totalRecords,
         ) as unknown as CursorPage<T>;
       }
 
@@ -348,6 +363,7 @@ export class QueryEngineService {
       include,
       fields,
       withDeleted: input.withDeleted ?? false,
+      withTotal: input.withTotal ?? false,
     };
   }
 }
