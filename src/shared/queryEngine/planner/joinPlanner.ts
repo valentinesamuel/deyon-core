@@ -14,6 +14,7 @@ export interface JoinSpec {
   alias: string; // e.g. 'root_doctor_department'
   depth: number;
   hasDeletedAt: boolean; // whether to add AND alias.deleted_at IS NULL on JOIN
+  isInclude: boolean; // whether this join was registered via include= (needs SELECT)
 }
 
 export class JoinPlanner {
@@ -31,7 +32,10 @@ export class JoinPlanner {
    * Internal: walk a chain of relation names, registering joins for each.
    * Returns the alias and metadata of the last registered relation.
    */
-  private registerRelationChain(parts: string[]): { alias: string; metadata: EntityMetadata } {
+  private registerRelationChain(
+    parts: string[],
+    isInclude: boolean = false,
+  ): { alias: string; metadata: EntityMetadata } {
     let currentMetadata = this.dataSource.getMetadata(this.rootEntityClass);
     let currentAlias = 'root';
 
@@ -62,6 +66,7 @@ export class JoinPlanner {
           alias: newAlias,
           depth: i + 1,
           hasDeletedAt,
+          isInclude,
         };
 
         this.joins.set(newAlias, joinSpec);
@@ -69,6 +74,11 @@ export class JoinPlanner {
         this.aliasToMetadata.set(newAlias, targetMetadata);
         currentMetadata = targetMetadata;
       } else {
+        // Join already registered — upgrade isInclude if this call is for an include= path
+        if (isInclude) {
+          const existing = this.joins.get(newAlias);
+          if (existing) existing.isInclude = true;
+        }
         currentMetadata = this.aliasToMetadata.get(newAlias)!;
       }
 
@@ -104,7 +114,7 @@ export class JoinPlanner {
    */
   registerInclude(path: string): string {
     const parts = path.split('.');
-    const { alias } = this.registerRelationChain(parts);
+    const { alias } = this.registerRelationChain(parts, true);
     return alias;
   }
 

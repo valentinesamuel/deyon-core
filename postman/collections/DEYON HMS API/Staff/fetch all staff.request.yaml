@@ -1,63 +1,63 @@
 $kind: http-request
 name: fetch all staff
 method: GET
-url: '{{baseUrl}}staff'
+url: "{{baseUrl}}staff?filter[firstName][eq]=John"
 order: 1000
 headers:
-  - key: Authorization
-    value: 'Bearer {{token}}'
+  Authorization: Bearer {{token}}
 queryParams:
   - key: where
-    value: 'isActive:eq:true AND roleId:eq:uuid'
+    value: department.name='Finance'
+    disabled: true
     description: DSL filter expression
-    disabled: true
-  - key: sort
-    value: 'firstName:asc,createdAt:desc'
-    description: |-
-      Comma-separated field:direction. Allowed fields: firstName lastName, email, createdAt, updatedAt, isActive, isApproved
-    disabled: true
   - key: limit
-    value: '20'
+    value: "3"
+    disabled: true
     description: Page size (1–1000, default 20)
+  - key: sort
+    value: -createdAt,lastName
     disabled: true
+    description: "Comma-separated field:direction. Allowed fields: firstName
+      lastName, email, createdAt, updatedAt, isActive, isApproved"
   - key: cursor
-    value: ''
+    value: ""
+    disabled: true
     description: Opaque cursor from previous page's meta.nextCursor
-    disabled: true
   - key: include
-    value: 'role,department'
-    description: |-
-      Comma-separated relations to join. Allowed: role, department
+    value: role,department
     disabled: true
+    description: "Comma-separated relations to join. Allowed: role, department"
   - key: groupBy
-    value: 'roleId'
+    value: roleId
+    disabled: true
     description: Comma-separated fields to group by
-    disabled: true
   - key: having
-    value: 'count:gt:5'
+    value: avg(version)>=2
+    disabled: true
     description: DSL aggregate filter (requires groupBy)
-    disabled: true
   - key: withDeleted
-    value: 'false'
+    value: "false"
+    disabled: true
     description: Include soft-deleted records
+  - key: filter[isActive][eq]
+    value: "true"
     disabled: true
-  - key: 'filter[isActive][eq]'
-    value: 'true'
     description: Bracket-style filter on isActive field
+  - key: filter[roleId][eq]
+    value: "{{roleId}}"
     disabled: true
-  - key: 'filter[roleId][eq]'
-    value: '{{roleId}}'
     description: Bracket-style filter on roleId field
-    disabled: true
-  - key: 'search[firstName][fts]'
-    value: 'John'
+  - key: filter[firstName][eq]
+    value: John
     description: Full-text search on firstName
+  - key: search[firstName][fts]
+    value: John
     disabled: true
-  - key: 'search[email][tri]'
-    value: 'john@'
     description: Trigram search on email
+  - key: search[email][tri]
+    value: john@
     disabled: true
-  - key: 'aggregate[count]'
-    value: 'id'
     description: Aggregate function (count) on field
+  - key: aggregate[count]
+    value: id
     disabled: true

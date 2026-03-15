@@ -33,8 +33,12 @@ export class QueryBuilderOrchestrator {
     const joinPlanner = new JoinPlanner(dataSource, entityClass, maxJoins);
     const filterPlanner = new FilterPlanner(joinPlanner);
 
-    // Compute effective sort fields (with id tiebreaker) for stable cursor pagination
-    const effectiveSortFields = getEffectiveSortFields(query.sort);
+    const isAggregating =
+      query.groupBy.length > 0 || query.aggregates.length > 0 || !!query.havingAst;
+
+    // Aggregating queries must not add an id tiebreaker — root.id is not in GROUP BY.
+    // For normal queries, always append id for stable cursor pagination.
+    const effectiveSortFields = isAggregating ? query.sort : getEffectiveSortFields(query.sort);
 
     // Plan filter joins — must happen before QB is created so joins are registered
     const filterPlan = filterPlanner.plan(query.whereAst);
@@ -54,6 +58,13 @@ export class QueryBuilderOrchestrator {
       const parts = gb.split('.');
       if (parts.length > 1) {
         joinPlanner.registerPath(gb);
+      }
+    }
+
+    // Register joins for relation aliases in fields= so fields[role]=name works without include=role
+    for (const alias of Object.keys(query.fields)) {
+      if (alias !== 'root') {
+        joinPlanner.registerInclude(alias);
       }
     }
 
@@ -104,19 +115,58 @@ export class QueryBuilderOrchestrator {
       const selections: string[] = [];
 
       for (const [alias, cols] of selectPlan.columns.entries()) {
+        const resolvedAlias =
+          alias === 'root' ? 'root' : (joinPlanner.getAliasForPath(alias) ?? alias);
         for (const col of cols) {
-          selections.push(`${alias}.${col}`);
+          selections.push(`${resolvedAlias}.${col}`);
         }
       }
 
       if (selections.length > 0) {
         qb.select(selections);
       }
+    } else if (isAggregating) {
+      // When aggregating without explicit fields, select only the GROUP BY columns.
+      // Aggregate expressions (COUNT, SUM, etc.) are already added via addSelect in AggregationBuilder.
+      // Without this, TypeORM defaults to SELECT * which violates GROUP BY in PostgreSQL.
+      const groupBySelections = query.groupBy.map((gb) => {
+        const parts = gb.split('.');
+        const column = parts[parts.length - 1];
+        const relationParts = parts.slice(0, -1);
+        if (relationParts.length === 0) {
+          return `root.${column}`;
+        }
+        const alias = joinPlanner.getAliasForPath(relationParts.join('.'));
+        return `${alias ?? 'root'}.${column}`;
+      });
+      if (groupBySelections.length > 0) {
+        qb.select(groupBySelections);
+      }
+    }
+
+    // Select all columns for include= joins not already covered by explicit fields.
+    // Skip when aggregation is active — included columns would violate GROUP BY rules.
+    if (!isAggregating) {
+      const coveredAliases = new Set(
+        Object.keys(query.fields).map((a) =>
+          a === 'root' ? 'root' : (joinPlanner.getAliasForPath(a) ?? a),
+        ),
+      );
+      for (const joinSpec of joinPlanner.getJoins()) {
+        if (joinSpec.isInclude && !coveredAliases.has(joinSpec.alias)) {
+          qb.addSelect(joinSpec.alias);
+        }
+      }
     }
 
     // Apply cursor pagination (sets limit+1 and cursor WHERE clause)
-    applyCursorPagination(qb, query.cursor, effectiveSortFields, query.limit, (field) =>
-      joinPlanner.registerPath(field),
+    applyCursorPagination(
+      qb,
+      query.cursor,
+      effectiveSortFields,
+      query.limit,
+      (field) => joinPlanner.registerPath(field),
+      isAggregating,
     );
 
     return { qb, effectiveSortFields };

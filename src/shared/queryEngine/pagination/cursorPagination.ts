@@ -115,9 +115,17 @@ export function applyCursorPagination<T extends ObjectLiteral>(
   sortFields: SortField[],
   limit: number,
   aliasResolver: (field: string) => { alias: string; column: string },
+  useRawLimit = false,
 ): void {
-  // Fetch one extra row to detect whether there is a next page
-  qb.take(limit + 1);
+  // Fetch one extra row to detect whether there is a next page.
+  // Use raw LIMIT when aggregating — TypeORM's take() wraps JOIN queries in a
+  // pagination subquery that references distinctAlias.root_id, which breaks
+  // when GROUP BY prevents root.id from being selected.
+  if (useRawLimit) {
+    qb.limit(limit + 1);
+  } else {
+    qb.take(limit + 1);
+  }
 
   if (!cursor) return;
 
@@ -156,6 +164,27 @@ export function extractCursorValues(
   }
 
   return values;
+}
+
+/**
+ * Builds a CursorPage<T> for aggregation results from getRawMany().
+ * Cursor encoding is not supported for raw/aggregated rows, so nextCursor is always null.
+ */
+export function buildRawPage<T extends Record<string, unknown>>(
+  rows: T[],
+  limit: number,
+): CursorPage<T> {
+  const hasMore = rows.length > limit;
+  const data = hasMore ? rows.slice(0, limit) : rows;
+  return {
+    data,
+    meta: {
+      nextCursor: null,
+      prevCursor: null,
+      hasMore,
+      limit,
+    },
+  };
 }
 
 /**

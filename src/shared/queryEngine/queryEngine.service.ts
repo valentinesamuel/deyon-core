@@ -1,26 +1,34 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  HttpException,
+} from '@nestjs/common';
 import { DataSource, EntityManager, ObjectLiteral } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { QueryInput, ParsedQuery, SortField } from './types/query.types';
 import { ModelQueryConfig } from './types/modelConfig.types';
 import { CursorPage } from './types/result.types';
-import { parseWhereClause } from './parser/parser';
-import { parseBracketFilter, mergeAsts } from './parser/bracketParser';
+import { parseWhereClause, ParseError } from './parser/parser';
+import { parseBracketFilter, mergeAsts, BracketParseError } from './parser/bracketParser';
 import { QueryValidator } from './validation/queryValidator';
 import { scoreComplexity } from './validation/complexityScorer';
 import { QueryBuilderOrchestrator } from './sqlBuilder/queryBuilder';
 import { SortBuilder } from './sqlBuilder/sortBuilder';
-import { buildCursorPage } from './pagination/cursorPagination';
+import { buildCursorPage, buildRawPage } from './pagination/cursorPagination';
 import { QueryCache } from './cache/queryCache';
 import { QueryAnalytics } from './analytics/queryAnalytics';
 import { GetOneQueryDto } from './dto/getOneQuery.dto';
 import { QueryValidationError } from './validation/queryValidator';
 import { MODEL_QUERY_CONFIG_DEFAULTS } from './types/modelConfig.types';
+import { JoinPlannerError } from './planner/joinPlanner';
 
 @Injectable()
 export class QueryEngineService {
   private readonly validator = new QueryValidator();
   private readonly qbOrchestrator = new QueryBuilderOrchestrator();
+  private readonly logger = new Logger(QueryEngineService.name);
 
   constructor(
     @InjectDataSource()
@@ -37,19 +45,68 @@ export class QueryEngineService {
   ): Promise<CursorPage<T>> {
     const start = Date.now();
 
-    // 1. Parse query input into a structured ParsedQuery
-    const parsed = this.parseQueryInput(queryInput);
+    try {
+      // 1. Parse query input into a structured ParsedQuery
+      const parsed = this.parseQueryInput(queryInput);
 
-    // 2. Validate parsed query against config
-    this.validator.validate(parsed, config);
+      // 2. Validate parsed query against config
+      this.validator.validate(parsed, config);
 
-    // 3. Compute complexity score
-    const { total: queryCost } = scoreComplexity(parsed);
+      // 3. Compute complexity score
+      const { total: queryCost } = scoreComplexity(parsed);
 
-    // 4. Check cache
-    const cached = await this.queryCache.get<CursorPage<T>>(entityClass.name, parsed);
-    if (cached) {
+      // 4. Check cache
+      const cached = await this.queryCache.get<CursorPage<T>>(entityClass.name, parsed);
+      if (cached) {
+        const execTimeMs = Date.now() - start;
+        this.queryAnalytics.log({
+          entity: entityClass.name,
+          execTimeMs,
+          joinsUsed: parsed.include.length,
+          filtersUsed: parsed.whereAst ? 1 : 0,
+          searchUsed: parsed.search.length > 0,
+          aggregationsUsed: parsed.aggregates.length > 0 || parsed.groupBy.length > 0,
+          rowsReturned: cached.data.length,
+          cacheHit: true,
+          queryCost,
+        });
+        return cached;
+      }
+
+      // 5. Build the query (returns QB + effective sort fields with id tiebreaker)
+      const { qb, effectiveSortFields } = this.qbOrchestrator.build(
+        entityClass,
+        parsed,
+        config,
+        this.dataSource,
+        entityManager,
+      );
+
+      const isAggregating =
+        parsed.groupBy.length > 0 || parsed.aggregates.length > 0 || !!parsed.havingAst;
+
+      let page: CursorPage<T>;
+      if (isAggregating) {
+        // 6a. Aggregating: use getRawMany() to preserve aggregate column values
+        const rows = await qb.getRawMany<Record<string, unknown>>();
+        page = buildRawPage(rows, parsed.limit) as unknown as CursorPage<T>;
+      } else {
+        // 6b. Normal: use getMany() for hydrated entities
+        const rows = await qb.getMany();
+        page = buildCursorPage(
+          rows as unknown as Record<string, unknown>[],
+          parsed.limit,
+          effectiveSortFields,
+        ) as unknown as CursorPage<T>;
+      }
+
       const execTimeMs = Date.now() - start;
+
+      // 7. Store in cache
+      const ttl = config.cacheTtlSeconds ?? 60;
+      await this.queryCache.set(entityClass.name, parsed, page, ttl);
+
+      // 8. Emit analytics
       this.queryAnalytics.log({
         entity: entityClass.name,
         execTimeMs,
@@ -57,51 +114,26 @@ export class QueryEngineService {
         filtersUsed: parsed.whereAst ? 1 : 0,
         searchUsed: parsed.search.length > 0,
         aggregationsUsed: parsed.aggregates.length > 0 || parsed.groupBy.length > 0,
-        rowsReturned: cached.data.length,
-        cacheHit: true,
+        rowsReturned: page.data.length,
+        cacheHit: false,
         queryCost,
       });
-      return cached;
+
+      return page;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (error instanceof ParseError || error instanceof BracketParseError) {
+        throw new BadRequestException(`Invalid query syntax: ${(error as Error).message}`);
+      }
+      if (error instanceof JoinPlannerError) {
+        throw new BadRequestException(`Invalid query: ${(error as Error).message}`);
+      }
+      this.logger.error(
+        'Query execution error',
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException('An error occurred while processing your request');
     }
-
-    // 5. Build the query (returns QB + effective sort fields with id tiebreaker)
-    const { qb, effectiveSortFields } = this.qbOrchestrator.build(
-      entityClass,
-      parsed,
-      config,
-      this.dataSource,
-      entityManager,
-    );
-
-    // 6. Execute: fetches limit+1 rows to detect hasMore
-    const rows = await qb.getMany();
-    const execTimeMs = Date.now() - start;
-
-    // 7. Build cursor page from fetched rows
-    const page = buildCursorPage(
-      rows as unknown as Record<string, unknown>[],
-      parsed.limit,
-      effectiveSortFields,
-    );
-
-    // 8. Store in cache
-    const ttl = config.cacheTtlSeconds ?? 60;
-    await this.queryCache.set(entityClass.name, parsed, page, ttl);
-
-    // 9. Emit analytics
-    this.queryAnalytics.log({
-      entity: entityClass.name,
-      execTimeMs,
-      joinsUsed: parsed.include.length,
-      filtersUsed: parsed.whereAst ? 1 : 0,
-      searchUsed: parsed.search.length > 0,
-      aggregationsUsed: parsed.aggregates.length > 0 || parsed.groupBy.length > 0,
-      rowsReturned: page.data.length,
-      cacheHit: false,
-      queryCost,
-    });
-
-    return page as unknown as CursorPage<T>;
   }
 
   /**
@@ -150,11 +182,23 @@ export class QueryEngineService {
       qb.leftJoin(`entity.${rel}`, rel).addSelect(cols.map((c) => `${rel}.${c}`));
     }
 
-    const result = await qb.getOne();
-    if (!result) {
-      throw new BadRequestException(`${entityClass.name} not found`);
+    try {
+      const result = await qb.getOne();
+      if (!result) {
+        throw new BadRequestException(`${entityClass.name} not found`);
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (error instanceof JoinPlannerError) {
+        throw new BadRequestException(`Invalid query: ${(error as Error).message}`);
+      }
+      this.logger.error(
+        'Query execution error',
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException('An error occurred while processing your request');
     }
-    return result;
   }
 
   private parseSingleEntityInput(input: GetOneQueryDto): {

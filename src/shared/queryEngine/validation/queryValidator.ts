@@ -171,7 +171,40 @@ export class QueryValidator {
       }
     }
 
-    // --- 8. Complexity score gate ---
+    // --- 8. Validate aggregate fields against allowedFilters ---
+    for (const agg of query.aggregates) {
+      if (!config.allowedFilters.includes(agg.field)) {
+        throw new QueryValidationError(`Aggregate field "${agg.field}" is not allowed`, {
+          field: agg.field,
+          allowedFilters: config.allowedFilters,
+        });
+      }
+    }
+
+    // --- 9. groupBy requires at least one aggregate ---
+    if (query.groupBy.length > 0 && query.aggregates.length === 0) {
+      throw new QueryValidationError(
+        'groupBy requires at least one aggregate function (e.g. aggregate[count]=id)',
+        { groupBy: query.groupBy },
+      );
+    }
+
+    // --- 10. having requires groupBy ---
+    if (query.havingAst && query.groupBy.length === 0) {
+      throw new QueryValidationError('having requires groupBy to be specified', {});
+    }
+
+    // --- 11. cursor not supported with aggregation ---
+    const isAggregating =
+      query.groupBy.length > 0 || query.aggregates.length > 0 || !!query.havingAst;
+    if (isAggregating && query.cursor) {
+      throw new QueryValidationError(
+        'cursor pagination is not supported with groupBy/aggregate queries',
+        {},
+      );
+    }
+
+    // --- 12. Complexity score gate ---
     const breakdown = scoreComplexity(query);
     if (breakdown.total > maxComplexityScore) {
       throw new QueryTooComplexError(breakdown.total, maxComplexityScore);

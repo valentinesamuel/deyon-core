@@ -224,6 +224,44 @@ describe('JoinPlanner', () => {
       expect(alias).toBe('root_doctor_department');
       expect(planner.getJoins()).toHaveLength(2);
     });
+
+    it('sets isInclude=true on joins registered via registerInclude()', () => {
+      const planner = new JoinPlanner(ds, RootEntity);
+      planner.registerInclude('role');
+
+      const joins = planner.getJoins();
+      expect(joins).toHaveLength(1);
+      expect(joins[0].isInclude).toBe(true);
+    });
+
+    it('sets isInclude=false on joins registered via registerPath()', () => {
+      const planner = new JoinPlanner(ds, RootEntity);
+      planner.registerPath('role.name');
+
+      const joins = planner.getJoins();
+      expect(joins).toHaveLength(1);
+      expect(joins[0].isInclude).toBe(false);
+    });
+
+    it('marks both segments isInclude=true for nested include=doctor.department', () => {
+      const planner = new JoinPlanner(ds, RootEntity);
+      planner.registerInclude('doctor.department');
+
+      const joins = planner.getJoins();
+      expect(joins).toHaveLength(2);
+      expect(joins[0]).toMatchObject({ alias: 'root_doctor', isInclude: true });
+      expect(joins[1]).toMatchObject({ alias: 'root_doctor_department', isInclude: true });
+    });
+
+    it('upgrades isInclude to true when registerInclude is called after registerPath for the same relation', () => {
+      const planner = new JoinPlanner(ds, RootEntity);
+      planner.registerPath('role.name'); // registers root_role with isInclude=false
+      planner.registerInclude('role'); // should upgrade root_role to isInclude=true
+
+      const joins = planner.getJoins();
+      expect(joins).toHaveLength(1);
+      expect(joins[0]).toMatchObject({ alias: 'root_role', isInclude: true });
+    });
   });
 
   describe('unknown relation', () => {
