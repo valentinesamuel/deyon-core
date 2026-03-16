@@ -1,22 +1,22 @@
 $kind: http-request
-name: fetch one staff
 method: GET
-url: '{{baseUrl}}staff/:id'
+url: "{{baseUrl}}staff/:id"
+examples: .resources/fetch one staff.resources/examples
 order: 2000
 headers:
-  - key: Authorization
-    value: 'Bearer {{token}}'
+  Authorization: Bearer {{token}}
 pathVariables:
-  - key: id
-    value: '1'
+  id: "1"
 queryParams:
   - key: fields
-    value: 'firstName,email,role.name,department.alias'
-    description: |-
-      Flat dot-notation field list. Root fields and relation fields (rel.col) separated by commas. Allowed root fields: id, firstName, lastName, email, phoneNumber, licenseNumber, specialization, isApproved, isActive, lastLogin, roleId, departmentId, createdAt, updatedAt
+    value: firstName,email,role.name,department.alias
     disabled: true
+    description: "Flat dot-notation field list. Root fields and relation fields
+      (rel.col) separated by commas. Allowed root fields: id, firstName,
+      lastName, email, phoneNumber, licenseNumber, specialization, isApproved,
+      isActive, lastLogin, roleId, departmentId, createdAt, updatedAt"
   - key: include
-    value: 'role,department'
-    description: |-
-      Comma-separated relations to join (all safe fields). Allowed: role, department
+    value: role,department
     disabled: true
+    description: "Comma-separated relations to join (all safe fields). Allowed:
+      role, department"

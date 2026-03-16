@@ -1,0 +1,81 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}staff/:id?fields=firstName,email,role.name,department.alias"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer {{token}}
+  queryParams:
+    - key: fields
+      value: firstName,email,role.name,department.alias
+      description: "Flat dot-notation field list. Root fields and relation fields
+        (rel.col) separated by commas. Allowed root fields: id, firstName,
+        lastName, email, phoneNumber, licenseNumber, specialization, isApproved,
+        isActive, lastLogin, roleId, departmentId, createdAt, updatedAt"
+    - key: include
+      value: role,department
+      description: "Comma-separated relations to join (all safe fields). Allowed:
+        role, department"
+      disabled: true
+  pathVariables:
+    - key: id
+      value: 05d02ddb-8ef4-4bfc-93ed-c558d545cb23
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    - key: content-security-policy
+      value: "default-src 'self';frame-ancestors 'none';base-uri 'self';font-src
+        'self' https: data:;form-action 'self';img-src 'self' data:;object-src
+        'none';script-src 'self';script-src-attr 'none';style-src 'self' https:
+        'unsafe-inline';upgrade-insecure-requests"
+    - key: cross-origin-opener-policy
+      value: same-origin
+    - key: cross-origin-resource-policy
+      value: same-origin
+    - key: origin-agent-cluster
+      value: ?1
+    - key: referrer-policy
+      value: no-referrer
+    - key: strict-transport-security
+      value: max-age=31536000; includeSubDomains; preload
+    - key: x-content-type-options
+      value: nosniff
+    - key: x-dns-prefetch-control
+      value: off
+    - key: x-download-options
+      value: noopen
+    - key: x-frame-options
+      value: SAMEORIGIN
+    - key: x-permitted-cross-domain-policies
+      value: none
+    - key: x-xss-protection
+      value: "0"
+    - key: vary
+      value: Origin
+    - key: access-control-allow-credentials
+      value: "true"
+    - key: x-ratelimit-limit
+      value: "10"
+    - key: x-ratelimit-remaining
+      value: "8"
+    - key: x-ratelimit-reset
+      value: "14"
+    - key: content-type
+      value: application/json; charset=utf-8
+    - key: content-length
+      value: "294"
+    - key: etag
+      value: W/"126-KnxOytzUhGY+6+Sxxc7Oy122GME"
+    - key: date
+      value: Mon, 16 Mar 2026 14:34:07 GMT
+    - key: connection
+      value: keep-alive
+    - key: keep-alive
+      value: timeout=5
+  body:
+    type: json
+    content: '{"statusCode":200,"success":true,"message":"Request
+      successful","result":{"firstName":"Janet","email":"janet.udo@hospital.com","role":{"name":"Nurse"},"department":null},"path":"/api/v1/staff/05d02ddb-8ef4-4bfc-93ed-c558d545cb23?fields=firstName,email,role.name,department.alias","duration":41}'
+order: 1773671650416
+name: success
