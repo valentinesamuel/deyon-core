@@ -36,7 +36,8 @@
       "Bash(find /Users/valentinesamuel/Desktop/deyon_be -type f -name \"*queryBuilder*\" | grep -E \"\\\\.\\(ts|spec\\\\.ts\\)$\")",
       "Bash(find /Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm -name \"parse.js\" -path \"*/qs/*\" 2>/dev/null | head -3)",
       "Bash(find /Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm -name \"application.js\" -path \"*/express-5*\" 2>/dev/null | head -3)",
-      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm -name \"application.js\" -path \"*/express*\" 2>/dev/null | head -3)"
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm -name \"application.js\" -path \"*/express*\" 2>/dev/null | head -3)",
+      "Bash(find /Users/valentinesamuel/Desktop/deyon_be/blog -type f -name \"*.md\" 2>/dev/null | sort)"
     ]
   }
 }
