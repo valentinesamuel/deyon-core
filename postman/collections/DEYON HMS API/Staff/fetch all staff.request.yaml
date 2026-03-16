@@ -1,11 +1,15 @@
 $kind: http-request
-name: fetch all staff
 method: GET
-url: "{{baseUrl}}staff?filter[isActive][eq]=true&withTotal=true"
+url: "{{baseUrl}}staff?withTotal=true&fields[root]=id,firstName&fields[role]=id\
+  ,name"
+examples: .resources/fetch all staff.resources/examples
 order: 1000
 headers:
   Authorization: Bearer {{token}}
 queryParams:
+  - key: withTotal
+    value: "true"
+    description: Add total records
   - key: where
     value: department.name='Finance'
     disabled: true
@@ -41,7 +45,11 @@ queryParams:
     description: Include soft-deleted records
   - key: filter[isActive][eq]
     value: "true"
+    disabled: true
     description: Bracket-style filter on isActive field
+  - key: filter[role.name][eq]
+    value: Doctor
+    disabled: true
   - key: filter[roleId][eq]
     value: "{{roleId}}"
     disabled: true
@@ -50,8 +58,8 @@ queryParams:
     value: Peter
     disabled: true
     description: Full-text search on firstName
-  - key: search[firstName][fts]
-    value: John
+  - key: search[firstName][tri]
+    value: Ada
     disabled: true
     description: Trigram search on email
   - key: search[email][tri]
@@ -59,8 +67,9 @@ queryParams:
     disabled: true
     description: Aggregate function (count) on field
   - key: aggregate[count]
-    value: id
+    value: roleId
     disabled: true
-  - key: withTotal
-    value: "true"
-    description: Add total records
+  - key: fields[root]
+    value: id,firstName
+  - key: fields[role]
+    value: id,name

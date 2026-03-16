@@ -1,0 +1,142 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}staff?withTotal=true&fields[root]=id,firstName&fields[role]=id\
+    ,name"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer {{token}}
+  queryParams:
+    - key: withTotal
+      value: "true"
+      description: Add total records
+    - key: where
+      value: department.name='Finance'
+      description: DSL filter expression
+      disabled: true
+    - key: limit
+      value: "3"
+      description: Page size (1–1000, default 20)
+      disabled: true
+    - key: sort
+      value: -createdAt,lastName
+      description: "Comma-separated field:direction. Allowed fields: firstName
+        lastName, email, createdAt, updatedAt, isActive, isApproved"
+      disabled: true
+    - key: cursor
+      value: ""
+      description: Opaque cursor from previous page's meta.nextCursor
+      disabled: true
+    - key: include
+      value: role,department
+      description: "Comma-separated relations to join. Allowed: role, department"
+      disabled: true
+    - key: groupBy
+      value: roleId
+      description: Comma-separated fields to group by
+      disabled: true
+    - key: having
+      value: avg(version)>=2
+      description: DSL aggregate filter (requires groupBy)
+      disabled: true
+    - key: withDeleted
+      value: "false"
+      description: Include soft-deleted records
+      disabled: true
+    - key: filter[isActive][eq]
+      value: "true"
+      description: Bracket-style filter on isActive field
+      disabled: true
+    - key: filter[role.name][eq]
+      value: Doctor
+      disabled: true
+    - key: filter[roleId][eq]
+      value: "{{roleId}}"
+      description: Bracket-style filter on roleId field
+      disabled: true
+    - key: filter[firstName][eq]
+      value: Peter
+      description: Full-text search on firstName
+      disabled: true
+    - key: search[firstName][tri]
+      value: Ada
+      description: Trigram search on email
+      disabled: true
+    - key: search[email][tri]
+      value: john@
+      description: Aggregate function (count) on field
+      disabled: true
+    - key: aggregate[count]
+      value: roleId
+      disabled: true
+    - key: fields[root]
+      value: id,firstName
+    - key: fields[role]
+      value: id,name
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    - key: content-security-policy
+      value: "default-src 'self';frame-ancestors 'none';base-uri 'self';font-src
+        'self' https: data:;form-action 'self';img-src 'self' data:;object-src
+        'none';script-src 'self';script-src-attr 'none';style-src 'self' https:
+        'unsafe-inline';upgrade-insecure-requests"
+    - key: cross-origin-opener-policy
+      value: same-origin
+    - key: cross-origin-resource-policy
+      value: same-origin
+    - key: origin-agent-cluster
+      value: ?1
+    - key: referrer-policy
+      value: no-referrer
+    - key: strict-transport-security
+      value: max-age=31536000; includeSubDomains; preload
+    - key: x-content-type-options
+      value: nosniff
+    - key: x-dns-prefetch-control
+      value: off
+    - key: x-download-options
+      value: noopen
+    - key: x-frame-options
+      value: SAMEORIGIN
+    - key: x-permitted-cross-domain-policies
+      value: none
+    - key: x-xss-protection
+      value: "0"
+    - key: vary
+      value: Origin
+    - key: access-control-allow-credentials
+      value: "true"
+    - key: x-ratelimit-limit
+      value: "10"
+    - key: x-ratelimit-remaining
+      value: "9"
+    - key: x-ratelimit-reset
+      value: "30"
+    - key: content-type
+      value: application/json; charset=utf-8
+    - key: content-length
+      value: "3141"
+    - key: etag
+      value: W/"c45-sDgIcKU7JYPvP1L4TMrBIGwYkTI"
+    - key: date
+      value: Mon, 16 Mar 2026 11:03:25 GMT
+    - key: connection
+      value: keep-alive
+    - key: keep-alive
+      value: timeout=5
+  body:
+    type: json
+    content: '{"statusCode":200,"success":true,"message":"Request
+      successful","result":{"data":[{"id":"05d02ddb-8ef4-4bfc-93ed-c558d545cb23","firstName":"Janet","role":{"id":"fff1cb03-1790-4baf-98e4-4fe8bd0b7e55","name":"Nurse"}},{"id":"09773e9a-d663-4615-87b1-17587c6b57be","firstName":"Halima","role":{"id":"a1b423d5-69cc-42e9-a9a0-63a1bbc57e82","name":"Security
+      Officer"}},{"id":"0e1ad13f-2721-475b-b729-1da19c4dd1ca","firstName":"Peter","role":{"id":"b2da8294-3a5c-497f-91ad-037648687e5e","name":"Doctor"}},{"id":"11911c40-1a2b-4574-8707-edfd4c38fce9","firstName":"Musa","role":{"id":"b2da8294-3a5c-497f-91ad-037648687e5e","name":"Doctor"}},{"id":"12d39503-726e-4cf9-866e-499e6ca412d0","firstName":"Kemi","role":{"id":"10d19482-e743-497e-b955-132ee332a461","name":"Billing
+      Officer"}},{"id":"14f7eb62-96a6-428e-85e0-7236153d959a","firstName":"Patience","role":{"id":"ddff1c87-92e2-4b4c-b8f3-7c1a349d12e2","name":"Receptionist"}},{"id":"14fa597d-ad59-4126-97d3-84e379a09f3f","firstName":"Kingsley","role":{"id":"eed66707-9432-41fe-b8c1-79cc23b204a2","name":"Surgeon"}},{"id":"2b864b4e-bc53-4eb9-86f2-57f14c6910e8","firstName":"Bola","role":{"id":"9aad3294-997b-489b-9b8e-a9cc97a7a0b9","name":"Laboratory
+      Technician"}},{"id":"325e0bd2-4365-4b51-b394-ee4434336a4a","firstName":"Chika","role":{"id":"f7e351ab-7bd4-4ac4-8ca7-895ee30dab2a","name":"Pharmacist"}},{"id":"44772888-8b0a-4027-ad53-4d605d4f8fd9","firstName":"Victor","role":{"id":"5161bc2e-cfdc-4e8a-b976-a85643f237bc","name":"IT
+      Support"}},{"id":"474dc82e-0869-42e4-8e69-b8b424ee673c","firstName":"Musa","role":{"id":"f7e351ab-7bd4-4ac4-8ca7-895ee30dab2a","name":"Pharmacist"}},{"id":"4afe9a45-a1b0-4cdb-a84e-ece480e6c2c3","firstName":"Sadiq","role":{"id":"9aad3294-997b-489b-9b8e-a9cc97a7a0b9","name":"Laboratory
+      Technician"}},{"id":"4c27206e-8830-42a7-abcc-0c9b90656495","firstName":"Daniel","role":{"id":"b2da8294-3a5c-497f-91ad-037648687e5e","name":"Doctor"}},{"id":"53f279c5-31ad-4041-80c1-dceee62101d8","firstName":"Hassan","role":{"id":"fff1cb03-1790-4baf-98e4-4fe8bd0b7e55","name":"Nurse"}},{"id":"5e8ae91a-05ff-4bbd-8875-ee6ea5c7daf7","firstName":"Paul","role":{"id":"fff1cb03-1790-4baf-98e4-4fe8bd0b7e55","name":"Nurse"}},{"id":"5fd66438-0666-4e3c-acdd-7a210d0922a8","firstName":"David","role":{"id":"9aad3294-997b-489b-9b8e-a9cc97a7a0b9","name":"Laboratory
+      Technician"}},{"id":"654d4c5f-5e0b-44f4-af77-731b0f91f87a","firstName":"Segun","role":{"id":"10d19482-e743-497e-b955-132ee332a461","name":"Billing
+      Officer"}},{"id":"67d7303a-c752-45eb-a076-32c4dbb05b42","firstName":"Ifeanyi","role":{"id":"fff1cb03-1790-4baf-98e4-4fe8bd0b7e55","name":"Nurse"}},{"id":"6d237933-f6fe-4353-826f-5307c3f49777","firstName":"Bassey","role":{"id":"6d531e9b-9462-4525-870d-064059300896","name":"Radiologist"}},{"id":"6e716b2b-e05c-4f7f-9048-97255b98f356","firstName":"Tunde","role":{"id":"10d19482-e743-497e-b955-132ee332a461","name":"Billing
+      Officer"}}],"meta":{"nextCursor":"eyJpZCI6IjZlNzE2YjJiLWUwNWMtNGY3Zi05MDQ4LTk3MjU1Yjk4ZjM1NiJ9","prevCursor":null,"hasMore":true,"limit":20,"totalRecords":57}},"path":"/api/v1/staff?withTotal=true&fields[root]=id,firstName&fields[role]=id,name","duration":272}'
+order: 1773659098491
+name: success

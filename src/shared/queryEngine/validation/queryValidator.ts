@@ -209,5 +209,22 @@ export class QueryValidator {
     if (breakdown.total > maxComplexityScore) {
       throw new QueryTooComplexError(breakdown.total, maxComplexityScore);
     }
+
+    // --- 13. Validate fields against allowedFields whitelist ---
+    if (config.allowedFields && config.allowedFields.length > 0) {
+      for (const [alias, cols] of Object.entries(query.fields)) {
+        for (const col of cols) {
+          // 'id' is always allowed for FK integrity
+          if (col === 'id') continue;
+          const fieldPath = alias === 'root' ? col : `${alias}.${col}`;
+          if (!config.allowedFields.includes(fieldPath)) {
+            throw new QueryValidationError(`Field "${fieldPath}" is not allowed`, {
+              field: fieldPath,
+              allowedFields: config.allowedFields,
+            });
+          }
+        }
+      }
+    }
   }
 }

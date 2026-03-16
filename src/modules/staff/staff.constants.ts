@@ -33,7 +33,9 @@ export const STAFF_QUERY_CONFIG: EntityQueryConfig<Staff> = {
   ],
   allowedSearch: [
     { field: 'firstName', type: 'fts' },
+    { field: 'firstName', type: 'tri' },
     { field: 'lastName', type: 'fts' },
+    { field: 'lastName', type: 'tri' },
     { field: 'email', type: 'tri' },
   ],
   allowedRelations: ['role', 'department'],
