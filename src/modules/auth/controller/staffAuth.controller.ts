@@ -1,5 +1,5 @@
 import { Broker } from '@broker/broker';
-import { Body, Controller, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Public } from '@shared/decorators/isPublic.decorator';
 import { MfaTokenGuard } from '@shared/guards/mfaToken.guard';
@@ -30,6 +30,7 @@ import { SetupMfaUsecase } from '../usecases/setupMfa.uc';
 import { ConfirmMfaSetupUsecase } from '../usecases/confirmMfaSetup.uc';
 import { ForgotPasswordUsecase } from '../usecases/forgotPassword.uc';
 import { ResetPasswordUsecase } from '../usecases/resetPassword.uc';
+import { GetMeUsecase } from '../usecases/getMe.uc';
 
 @Controller('staff/auth')
 export class StaffAuthController {
@@ -50,7 +51,14 @@ export class StaffAuthController {
     private readonly confirmMfaSetupUc: ConfirmMfaSetupUsecase,
     private readonly forgotPasswordUc: ForgotPasswordUsecase,
     private readonly resetPasswordUc: ResetPasswordUsecase,
+    private readonly getMeUc: GetMeUsecase,
   ) {}
+
+  // ── Get current user profile ─────────────────────────────────────────────────
+  @Get('me')
+  getMe() {
+    return this.serviceBroker.runUsecases([this.getMeUc], {});
+  }
 
   // ── Step 1: Login (credentials only, returns mfaToken) ──────────────────────
   @Public()

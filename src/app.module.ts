@@ -30,7 +30,7 @@ import { QueryEngineModule } from '@shared/queryEngine';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => configService.get('typeorm')!,
     }),
-    ClsModule.forRoot({ middleware: { mount: true } }),
+    ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     RedisModule,
     QueryEngineModule,

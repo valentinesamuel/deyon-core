@@ -43,6 +43,7 @@ function setUpCORS(app: TNestApp, configService: ConfigService) {
       'Accept',
       'Authorization',
       'Cache-control',
+      'X-Api-Token',
     ],
     credentials: true,
   };
