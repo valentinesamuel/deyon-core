@@ -28,7 +28,7 @@ export class SendInviteEmailUsecase extends Usecase<SendInviteEmailResult> {
     const { inviteToken, email } = params;
 
     const frontendUrl = this.configService.get<string>('common.frontendUrl');
-    const inviteLink = `${frontendUrl}/staff/accept-invite?token=${inviteToken}`;
+    const inviteLink = `${frontendUrl}/invite/accept?token=${inviteToken}`;
 
     try {
       await this.emailProvider.sendInviteEmail({ to: email, inviteLink });

@@ -2,9 +2,10 @@ import { EntityManager, FindManyOptions, FindOneOptions, Repository } from 'type
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Staff } from '@modules/core/entities/staff.entity';
+import { BaseRepository } from './base.repository';
 
 @Injectable()
-export class StaffRepository extends Repository<Staff> {
+export class StaffRepository extends BaseRepository<Staff> {
   private readonly logger = new Logger(StaffRepository.name);
 
   constructor(

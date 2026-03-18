@@ -2,6 +2,10 @@ $kind: http-request
 name: Login
 method: POST
 url: "{{baseUrl}}staff/auth/login"
+auth:
+  type: inherit
+  credentials:
+    id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76
 order: 1000
 body:
   type: json
