@@ -16,8 +16,9 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from '@modules/auth/auth.module';
 import { RoleModule } from '@modules/role/role.module';
 import { SetupModule } from '@modules/setup/setup.module';
+import { StaffModule } from '@modules/staff/staff.module';
 import { RedisModule } from '@shared/redis/redis.module';
-import { QueryEngineModule } from './query-engine/queryEngine.module';
+import { QueryEngineModule } from '@shared/queryEngine';
 
 @Module({
   imports: [
@@ -29,13 +30,14 @@ import { QueryEngineModule } from './query-engine/queryEngine.module';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => configService.get('typeorm')!,
     }),
-    ClsModule.forRoot({ middleware: { mount: true } }),
+    ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     RedisModule,
     QueryEngineModule,
     AuthModule,
     RoleModule,
     SetupModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [

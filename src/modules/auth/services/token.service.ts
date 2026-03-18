@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import * as crypto from 'node:crypto';
+import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility';
 
 export interface AccessTokenPayload {
   sub: string;
@@ -18,18 +19,21 @@ export class TokenService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly encryptionUtility: EncryptionUtility,
   ) {}
 
   signAccessToken(payload: AccessTokenPayload): string {
     const secret = this.configService.get<string>('common.jwt.accessSecret');
     const expiresIn = this.configService.get<number>('common.jwt.accessExpiry');
-    return this.jwtService.sign(payload, { secret, expiresIn });
+    const jwt = this.jwtService.sign(payload, { secret, expiresIn });
+    return this.encryptionUtility.encrypt(jwt);
   }
 
   verifyAccessToken(token: string): AccessTokenPayload | null {
     try {
+      const jwt = this.encryptionUtility.decrypt(token);
       const secret = this.configService.get<string>('common.jwt.accessSecret');
-      return this.jwtService.verify<AccessTokenPayload>(token, { secret });
+      return this.jwtService.verify<AccessTokenPayload>(jwt, { secret });
     } catch {
       return null;
     }

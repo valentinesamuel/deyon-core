@@ -99,7 +99,7 @@ The cursor WHERE clause looks more complicated, but the database can use an inde
 Notice the cursor query asks for `LIMIT 21` instead of `LIMIT 20`. That extra row is a peek ahead:
 
 ```typescript
-export function buildCursorPage(rows, limit, sortFields) {
+export function buildCursorPage<T>(rows: T[], limit: number, sortFields: SortField[], prevCursor: string | null = null, totalRecords?: number): CursorPage<T> {
   const hasMore = rows.length > limit;
   const data = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore
@@ -108,7 +108,7 @@ export function buildCursorPage(rows, limit, sortFields) {
 
   return {
     data,
-    meta: { nextCursor, hasMore, limit },
+    meta: { nextCursor, prevCursor: null, hasMore, limit, totalRecords },
   };
 }
 ```
@@ -134,8 +134,10 @@ The API response looks like this:
   "data": [ ... 20 items ... ],
   "meta": {
     "nextCursor": "eyJjcmVhdGVkX2F0Ijoi...",
+    "prevCursor": null,
     "hasMore": true,
-    "limit": 20
+    "limit": 20,
+    "totalRecords": 1000
   }
 }
 ```

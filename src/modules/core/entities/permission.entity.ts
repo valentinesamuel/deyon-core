@@ -2,7 +2,7 @@ import { Entity, Column, ManyToMany } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 import { Role } from './role.entity';
 
-@Entity('permission')
+@Entity()
 export class Permission extends BaseEntity {
   @Column({ type: 'varchar', unique: true })
   code: string;

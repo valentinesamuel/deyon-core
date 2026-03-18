@@ -42,6 +42,7 @@ import { SetupMfaUsecase } from './usecases/setupMfa.uc';
 import { ConfirmMfaSetupUsecase } from './usecases/confirmMfaSetup.uc';
 import { ForgotPasswordUsecase } from './usecases/forgotPassword.uc';
 import { ResetPasswordUsecase } from './usecases/resetPassword.uc';
+import { GetMeUsecase } from './usecases/getMe.uc';
 
 // Email adapter
 import { EmailModule } from '@adapters/email/email.module';
@@ -89,6 +90,7 @@ import { EventLogRepository } from '@adapters/repositories/eventLog.repository';
     ConfirmMfaSetupUsecase,
     ForgotPasswordUsecase,
     ResetPasswordUsecase,
+    GetMeUsecase,
   ],
   exports: [TokenService, AuthService, EventLogService, StaffRepository],
 })

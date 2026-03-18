@@ -78,7 +78,7 @@ Response:
 
 ```json
 {
-  "otpauthUri": "otpauth://totp/Hospital%3Acmo%40hospital.org?secret=BASE32SECRET&issuer=Hospital",
+  "otpAuthUri": "otpauth://totp/Hospital%3Acmo%40hospital.org?secret=BASE32SECRET&issuer=Hospital",
   "qrCodeDataUrl": ["otpauth://totp/DeyonHMS:cmo%40hospital.com?secret=...&issuer=DeyonHMS"]
 }
 ```
@@ -316,7 +316,7 @@ Response:
 
 ```json
 {
-  "otpauthUri": "otpauth://totp/...",
+  "otpAuthUri": "otpauth://totp/...",
   "backupCodes": ["xxxxx-xxxxx", "..."]
 }
 ```

@@ -1,5 +1,5 @@
 import { Usecase } from '@broker/types';
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { AcceptInviteDto } from '../dto/acceptInvite.dto';
 import { InviteTokenRepository } from '@adapters/repositories/inviteToken.repository';
@@ -71,10 +71,10 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     const departmentId = cached?.departmentId ?? inviteRecord.departmentId;
 
     // Ensure no duplicate
-    const existing = await this.staffRepository.findOne({ where: { email: emailToUse } });
-    if (existing) {
-      throw new ConflictException('An account with this email already exists');
-    }
+    await this.staffRepository.findOneOrFailIfExists({
+      where: [{ email: emailToUse }, { phoneNumber }],
+      select: { id: true },
+    });
 
     const passwordHash = await this.authService.hashPassword(password);
 

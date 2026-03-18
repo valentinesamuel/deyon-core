@@ -159,7 +159,7 @@ One parse, many consumers. That is the payoff for the upfront work of building a
 {
   type: 'CONDITION',
   field: 'status',
-  operator: 'eq',
+  op: 'eq',
   value: 'active'
 }
 
@@ -167,8 +167,8 @@ One parse, many consumers. That is the payoff for the upfront work of building a
 {
   type: 'OR',
   children: [
-    { type: 'CONDITION', field: 'role', operator: 'eq', value: 'admin' },
-    { type: 'CONDITION', field: 'status', operator: 'eq', value: 'active' }
+    { type: 'CONDITION', field: 'role', op: 'eq', value: 'admin' },
+    { type: 'CONDITION', field: 'status', op: 'eq', value: 'active' }
   ]
 }
 ```

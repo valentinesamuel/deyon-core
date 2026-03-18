@@ -1,265 +1,361 @@
-# Blog Post Series Plan: Query Engine
+# Blog Post Accuracy Audit & Fix Plan
 
 ## Context
 
-The `QueryEngineModule` in `src/query-engine/` is a production-grade NestJS query compilation
-pipeline built to replace a basic `findAndPaginate` utility that couldn't scale beyond simple
-use cases. The engine covers: lexing/parsing filter DSL strings into an AST, validation with
-whitelist enforcement, complexity scoring, join planning, SQL building via TypeORM, hybrid
-text search, cursor pagination, Redis caching, and structured analytics.
+The query engine has evolved and the blog posts were written at some point during that evolution. Before linking the repo from the blog, every code snippet, interface definition, function signature, and number in every post needs to match the actual implementation exactly. Readers who look at the live code should find zero surprises.
 
-This plan covers 13 blog posts derived from that implementation. Posts will be published to
-a personal blog first, then cross-posted to Hashnode and Dev.to.
-
-**Global style rules across all posts:**
-
-- Titles must be accessible — no raw jargon (no "AST", "DSL", "predicate pushdown", "trigram",
-  "FTS" in titles)
-- Heavy use of images and illustrations; every major concept should have a visual analogy
-  simple enough for a non-developer to grasp
-- **All illustrations must be written in Markdown** — use ASCII art, Unicode box-drawing
-  characters, Mermaid diagrams (```mermaid blocks), comparison tables, and annotated code
-  blocks. No external image files or image embeds.
-- Code: simplified/illustrative snippets or conceptual diagrams only (not raw source files)
-- No AI-sounding openers or section headers ("In this article we will explore...")
+This plan covers **all 13 posts** with the specific surgical edits required per post.
 
 ---
 
-## Post List
+## Posts with NO changes needed
 
-### Junior — Tutorial-first, simplified examples
-
----
-
-**Post J1**
-**Title:** `Why your "next page" button gets slower the deeper you go`
-**One-liner:** A plain-English walkthrough of why OFFSET pagination quietly breaks on large
-tables — and how cursor-based pagination fixes it with a real-world analogy and code you can
-follow.
-**Audience:** Junior backend developers
-**Tone:** Tutorial-first, friendly
-**Illustrations needed:**
-
-- A bookshelf analogy: OFFSET = counting from page 1 every time vs cursor = bookmark
-- A diagram showing Postgres scanning 50,000 rows just to return 20
-- Side-by-side SQL showing OFFSET vs cursor WHERE clause
+These are accurate and/or correctly simplified:
+- **J2** – `collectFields`, config shape, error JSON all match.
+- **J3** – TypeORM query-builder intro; no engine-specific snippets.
+- **M3** – `stableStringify`, `buildCacheKey`, `invalidate` all match exactly (prefix `qe:cache`, DEFAULT_TTL=60, `this.redis.del(...keys)`).
+- **M5** – FTS/trigram config shape, SQL, per-field type config all match.
+- **M6** – `getEffectiveSortFields`, `buildCursorWhereClause` logic and SQL patterns all match.
+- **S1** – 6-layer pipeline, design decision table, cost model all match.
 
 ---
 
-**Post J2**
-**Title:** `Your API probably lets users search columns you never intended. Here's the fix.`
-**One-liner:** A beginner-friendly look at why passing raw filter params straight to your
-database is a real security problem — and how a simple whitelist configuration closes the door.
-**Audience:** Junior backend developers
-**Tone:** Tutorial-first, light narrative
-**Illustrations needed:**
+## Posts requiring edits
 
-- A bouncer analogy: whitelist = bouncer with a guest list
-- Diagram: request params → whitelist check → DB vs request params → DB (no check)
-- Example config object showing allowedFilters
+### 1. `J1-cursor-pagination-why-offset-breaks.md`
 
----
+**Issue A – `buildCursorPage` signature is incomplete**
+- Blog shows 3 params: `buildCursorPage(rows, limit, sortFields)`
+- Actual has 5: `buildCursorPage<T>(rows: T[], limit: number, sortFields: SortField[], prevCursor: string | null = null, totalRecords?: number): CursorPage<T>`
 
-**Post J3**
-**Title:** `From .find() to real queries: how to ask your database smarter questions`
-**One-liner:** If you've only ever used `.findOne()` and `.findAndCount()`, this is a
-step-by-step intro to TypeORM's query builder — what it is, why it exists, and when you
-actually need it.
-**Audience:** Junior backend developers
-**Tone:** Tutorial-first, step-by-step
-**Illustrations needed:**
+Fix: Add the two optional params to the signature in the code snippet.
 
-- Analogy: `.find()` is ordering from a fixed menu vs query builder is telling the chef exactly what you want
-- Progression diagram: entity → repository → query builder → SQL
+**Issue B – `meta` shape is missing `prevCursor`**
+- Blog meta: `{ nextCursor, hasMore, limit }`
+- Actual `CursorMeta`: `{ nextCursor, prevCursor, hasMore, limit, totalRecords? }`
+- The JSON response example in the post also omits `prevCursor`.
+
+Fix: Update the return statement in the snippet and the JSON example to include `prevCursor: null`.
 
 ---
 
-### Mid-level — Concept + illustrative code snippets
+### 2. `M1-filter-dsl-lexer-parser-ast.md`
 
----
+**Issue – `ConditionNode` shows `operator:` but actual field is `op:`**
 
-**Post M1**
-**Title:** `How we let users write filter expressions in a URL — and turned them into real database queries`
-**One-liner:** Breaking down how a hand-written scanner and parser turn
-`where=(role='admin' OR status='active')` into a structured tree your backend can safely
-validate, optimize, and execute.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- The "words → grammar → meaning" analogy for lexer/parser
-- Visual of token stream → AST tree diagram
-- Side-by-side: bracket params vs DSL string → same AST
-
----
-
-**Post M2**
-**Title:** `How we built a speed bump for database queries before they get out of hand`
-**One-liner:** A scoring system that assigns costs to joins, filters, and text search — and
-rejects any query over budget before it even touches the database.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- Analogy: taxi meter — each filter/join adds to the fare; over budget = no ride
-- Score breakdown table (filter=1, join=3, search=5, aggregation=6)
-- Flow diagram: query → scorer → gate → DB (or rejection)
-
----
-
-**Post M3**
-**Title:** `How we made sure the same search always hits the cache, even when the URL params are shuffled`
-**One-liner:** The trick behind deterministic Redis cache keys: stable JSON serialization +
-SHA-256 hashing, so `?status=active&role=admin` and `?role=admin&status=active` are treated
-as the same query.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- Analogy: two people ordering "burger with fries, no pickles" vs "no pickles, fries, burger" — same order
-- Diagram: params object → sort keys → serialize → hash → Redis key
-- TTL invalidation flow diagram
-
----
-
-**Post M4**
-**Title:** `The deleted-data bug that appears when you start joining tables`
-**One-liner:** Adding `deleted_at IS NULL` to your root query is not enough. Here's what
-slips through when you forget the same check on your JOIN conditions — and how to automate it.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- Venn diagram: soft-deleted staff appearing via unguarded JOIN
-- Before/after SQL showing JOIN ON with and without deletedAt check
-- Illustration of "ghost rows" sneaking through a join
-
----
-
-**Post M5**
-**Title:** `PostgreSQL has two ways to search text. Here's when to use each — and how to use both at once.`
-**One-liner:** Full-text search and fuzzy/similarity search solve different problems. This
-post shows how to pick the right one per field and wire them together in a single query.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- "Library card catalog" (FTS) vs "autocomplete with typos" (trigram) illustration
-- Side-by-side: what each approach returns for a misspelled search term
-- Config snippet showing per-field search type selection
-
----
-
-**Post M6**
-**Title:** `How we make sure "next page" never skips a row, no matter how many columns you sort by`
-**One-liner:** A step-by-step look at the WHERE clause expansion that makes multi-column cursor
-pagination stable — and why missing a single tiebreaker causes silent data gaps.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- "Bookmark in a book sorted by two criteria" analogy
-- Visual expansion of OR+AND SQL pattern for 2-column and 3-column cursors
-- Diagram: last row values → encoded cursor → next page WHERE clause
-
----
-
-**Post M7**
-**Title:** `When joining a table just to filter it is secretly more work than it needs to be`
-**One-liner:** When a JOIN contributes no columns to the SELECT list, rewriting it as a
-subquery check often runs faster — here's how to spot those cases and what the difference
-looks like.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- Analogy: asking a colleague to attend a meeting just to answer one yes/no question vs
-  sending them a quick message instead
-- SQL side-by-side: LEFT JOIN vs EXISTS subquery
-- Diagram: filter-only join detection logic
-
----
-
-**Post M8**
-**Title:** `How we let users build complex filters without letting them break the database`
-**One-liner:** Supporting AND/OR boolean logic in API filters is only safe if you also enforce
-field whitelists, depth limits, join caps, and a total complexity budget — here's how all of
-those work together.
-**Audience:** Mid-level backend developers
-**Tone:** Concept + simplified code
-**Illustrations needed:**
-
-- Analogy: a form with guardrails vs an open text field
-- Layered defense diagram: whitelist → depth check → join cap → complexity gate
-- Error response shape with structured `code` + `details`
-
----
-
-### Senior — Story-driven + deep dive / essay
-
----
-
-**Post S1**
-**Title:** `We outgrew our findAndPaginate helper. Replacing it took six layers and a lot of second-guessing.`
-**One-liner:** The full story of designing a production query engine in NestJS — the
-architectural decisions across every layer, the trade-offs we wrestled with, and the parts
-we'd revisit if we started today.
-**Audience:** Senior backend developers
-**Tone:** Story-driven, candid, architectural
-**Illustrations needed:**
-
-- Timeline: old utility → pain points → design phases → final architecture
-- Full pipeline diagram (same as the blog post's ASCII — but as a real illustration)
-- Decision matrix for key architectural choices (AST vs direct QB, cursor vs offset, etc.)
-
----
-
-**Post S2**
-**Title:** `The three query tricks we built into our optimizer — and two we wish we'd added from day one`
-**One-liner:** Selectivity reordering, filter-only join detection, and condition pushdown:
-what each optimization does, when it actually helps, and an honest look at what we left out.
-**Audience:** Senior backend developers
-**Tone:** Deep-dive essay, opinionated, retrospective
-**Illustrations needed:**
-
-- Analogy for selectivity: filtering a crowd — check ID first, then coat color
-- Before/after query plan diff (conceptual, not raw EXPLAIN output)
-- "Future iterations" section with illustrated wishlist (prepared statement cache, auto-invalidation)
-
----
-
-## Illustration Format (applies to every post)
-
-All visuals must be pure Markdown — no image embeds, no external assets. Allowed forms:
-
-- **ASCII / Unicode diagrams** — flow diagrams, before/after comparisons, pipeline stages
-- **Mermaid diagrams** — ```mermaid flowchart, sequenceDiagram, or graph blocks
-- **Comparison tables** — `| Option A | Option B |` with clear headers
-- **Annotated code blocks** — fenced code with inline comments explaining each line
-
-Example of an acceptable ASCII diagram:
-
+The code example at the bottom of the post:
+```typescript
+{ type: 'CONDITION', field: 'status', operator: 'eq', value: 'active' }
 ```
- User request
-      │
-      ▼
- ┌──────────┐     ┌──────────┐
- │ Whitelist│────▶│ DB Query │
- │  Check   │     │          │
- └──────────┘     └──────────┘
-      │
-   Blocked ❌
+must be:
+```typescript
+{ type: 'CONDITION', field: 'status', op: 'eq', value: 'active' }
 ```
+This appears twice: once in the standalone condition node and once inside the logical node's children array.
+
+Note: `type: 'CONDITION'` is correct because `ASTNodeType` is a string enum (`ASTNodeType.CONDITION = 'CONDITION'`).
+
+---
+
+### 3. `M2-complexity-scoring-budget.md`
+
+**Issue A – `scoreComplexity` body uses wrong `ParsedQuery` field names**
+
+Blog shows:
+```typescript
+const filters = countLeafConditions(query.ast);
+const joins = countUniqueRelationPrefixes(query.joins);
+const search = query.searchTerms?.length ?? 0;
+const aggregations = query.groupBy?.length ? 1 : 0;
+```
+
+Actual `ParsedQuery` fields:
+- `query.ast` → `query.whereAst` (and also includes `query.havingAst`)
+- `query.joins` doesn't exist on `ParsedQuery`; join count is derived by walking the AST for relation prefixes + scanning `query.include` + `query.groupBy`
+- `query.searchTerms` → `query.search` (a `SearchInput[]`)
+- `query.groupBy?.length` is correct but aggregations also checks `query.aggregates.length`
+
+Fix: Replace the function body to match the actual implementation:
+```typescript
+export function scoreComplexity(query: ParsedQuery): ComplexityBreakdown {
+  const filterCount =
+    countLeafConditions(query.whereAst) + countLeafConditions(query.havingAst);
+
+  // Count unique relation prefixes from filters, include=, and groupBy
+  const relationPrefixes = collectAllRelationPrefixes(query);
+  const joinCount = relationPrefixes.size;
+
+  const searchCount = query.search.length;
+  const aggregationCount = query.aggregates.length + query.groupBy.length > 0 ? 1 : 0;
+
+  const filters = filterCount * COSTS.filter;
+  const joins = joinCount * COSTS.join;
+  const search = searchCount * COSTS.search;
+  const aggregations = aggregationCount * COSTS.aggregation;
+  const total = filters + joins + search + aggregations;
+
+  return { filters, joins, search, aggregations, total };
+}
+```
+
+**Issue B – `ComplexityBreakdown` values are already-multiplied costs, not raw counts**
+
+The `breakdown` fields in the return value (and in error responses) are **costs already multiplied**, meaning:
+- `filters` = filterCount × 1  (equals filter count since cost = 1)
+- `joins` = joinCount × 3  (always a multiple of 3)
+- `search` = searchCount × 5  (always a multiple of 5)
+- `aggregations` = 0 or 6
+
+The M2 error response example:
+```json
+{ "score": 28, "breakdown": { "filters": 4, "joins": 5, "search": 2, "aggregations": 0 } }
+```
+Is doubly wrong:
+- `joins: 5` is impossible (must be a multiple of 3)
+- Sum: 4+5+2+0 = 11, not 28
+
+Fix: Replace with a mathematically valid example:
+```json
+{
+  "score": 28,
+  "breakdown": { "filters": 4, "joins": 9, "search": 15, "aggregations": 0 }
+}
+```
+(4 filter conditions × 1 = 4; 3 joins × 3 = 9; 3 search terms × 5 = 15; total = 28 ✓)
+
+**Issue C – "last of eight validation checks" → twelfth of thirteen**
+
+The gate section says: "The complexity score is the last of eight validation checks..."
+Actual: it is rule 12 out of 13 (rule 13 is field-path whitelisting).
+
+Fix: Change to "one of thirteen validation checks" or describe the gate accurately — the 5 additional rules cover aggregate fields, groupBy constraints, having constraints, cursor+aggregation incompatibility, and field-path whitelisting.
+
+The numbered gate diagram showing rules [1]-[8] should be expanded to [1]-[13]:
+```
+[1]  Filter fields whitelist
+[2]  Filter count limit
+[3]  Relation depth per field
+[4]  Join count limit
+[5]  Sort fields whitelist
+[6]  Include relations whitelist
+[7]  Search fields whitelist
+[8]  Aggregate fields whitelist
+[9]  groupBy requires at least one aggregate
+[10] having requires groupBy
+[11] Cursor not supported with aggregation
+[12] Complexity score gate         <-- the gate
+[13] Explicit fields whitelist
+```
+
+---
+
+### 4. `M4-soft-delete-join-bug.md`
+
+**Issue – `JoinSpec` interface is missing the `isInclude` field**
+
+Blog shows:
+```typescript
+export interface JoinSpec {
+  type: 'LEFT';
+  parentAlias: string;
+  relationProperty: string;
+  alias: string;
+  depth: number;
+  hasDeletedAt: boolean;
+}
+```
+
+Actual has one additional field:
+```typescript
+  isInclude: boolean; // whether this join was registered via include= (needs SELECT)
+```
+
+Fix: Add `isInclude: boolean;` to the interface in the blog post, with a brief inline comment matching the actual code.
+
+---
+
+### 5. `M7-filter-only-join-exists-subquery.md`
+
+**Issue A – `detectFilterOnlyAliases` has a wrong/simplified signature**
+
+Blog shows:
+```typescript
+function detectFilterOnlyAliases(filterAliases, selectedAliases) {
+  const filterOnly = [];
+  for (const alias of filterAliases) {
+    if (!selectedAliases.has(alias)) {
+      filterOnly.push(alias);
+    }
+  }
+  return filterOnly;
+}
+```
+
+Actual signature:
+```typescript
+export function detectFilterOnlyAliases(
+  joinSpecs: JoinSpec[],
+  filterPlan: FilterPlan,
+  selectedAliases: Set<string>,
+): Set<string>
+```
+
+The actual function derives `filterAliases` internally by iterating over `filterPlan.resolvedConditions`, then cross-checks those against the `joinSpecs` array. It returns a `Set<string>`, not an array.
+
+Fix: Update the snippet to show the actual signature with a note on what `FilterPlan` provides. The internal logic can remain conceptually simplified but the call signature must be right.
+
+**Issue B – `OptimizedJoinSpec` is missing `pushdownConditions` and `isInclude` fields**
+
+Blog shows the interface with only `useExists` added. Actual adds two fields to the base `JoinSpec`:
+```typescript
+export interface OptimizedJoinSpec extends JoinSpec {
+  useExists: boolean;
+  pushdownConditions: string[];  // raw SQL snippets for JOIN ON predicate pushdown
+}
+```
+
+Also `JoinSpec` itself has `isInclude: boolean` (already fixed in M4). The combined actual interface should show all fields.
+
+Fix: Add `pushdownConditions: string[];` to the `OptimizedJoinSpec` shown in M7.
+
+---
+
+### 6. `M8-boolean-filter-api-guardrails.md`
+
+**Issue A – "eight validation rules" / "eight guardrails" throughout → 13**
+
+The intro says: "the answer was eight validation rules". The diagram, the section headers, the "layered defense" section all reference 8. Actual code has 13 rules.
+
+Fix: Change every mention of "eight" to "thirteen" where it refers to validation rule count. Update the diagram and the "layered defense" graphic to include all 13 rules (the 5 additions are aggregation-related: rules 8-11 + rule 13).
+
+New diagram to replace the 8-rule version:
+```
+[1]  Filter fields whitelist         --> 400: "Field 'x' not allowed"
+[2]  Filter count limit              --> 400: "Too many filters"
+[3]  Relation depth per field        --> 400: "Field 'x' exceeds max depth"
+[4]  Join count limit                --> 400: "Too many joins"
+[5]  Sort fields whitelist           --> 400: "Sort field 'x' not allowed"
+[6]  Include relations whitelist     --> 400: "Relation 'x' not allowed"
+[7]  Search fields whitelist         --> 400: "Search field 'x' not allowed"
+[8]  Aggregate fields whitelist      --> 400: "Aggregate field 'x' not allowed"
+[9]  groupBy requires aggregates     --> 400: "groupBy requires an aggregate"
+[10] having requires groupBy         --> 400: "having requires groupBy"
+[11] Cursor + aggregation blocked    --> 400: "cursor not supported with groupBy"
+[12] Complexity score gate           --> 400: "Query too complex"
+[13] Explicit fields whitelist       --> 400: "Field 'x' not allowed"
+```
+
+Layer diagram updates:
+```
+Layer 1: IDENTITY  (Rules 1, 5, 6, 7)   -- whitelists
+Layer 2: QUANTITY  (Rules 2, 3, 4)       -- caps
+Layer 3: AGGREGATE LOGIC (Rules 8–11)   -- aggregation guard rails
+Layer 4: COST GATE (Rule 12)            -- complexity score
+Layer 5: FIELD SCOPE (Rule 13)          -- explicit field whitelist
+```
+
+**Issue B – `collectFields` doesn't handle `AGGREGATE` nodes**
+
+Blog shows:
+```typescript
+if (node.type === 'CONDITION') fields.add(node.field);
+```
+
+Actual:
+```typescript
+if (node.type === ASTNodeType.CONDITION || node.type === ASTNodeType.AGGREGATE) {
+  fields.add(node.field);
+}
+```
+
+Fix: Add the AGGREGATE check to the snippet.
+
+---
+
+### 7. `S2-query-optimizer-deep-dive.md`
+
+**Issue A – `detectFilterOnlyAliases` has the same wrong/simplified signature as in M7**
+
+Same fix as M7 Issue A. The S2 snippet should show the actual signature.
+
+**Issue B – `buildPushdownMap` has completely wrong signature and logic**
+
+Blog shows:
+```typescript
+function buildPushdownMap(ast, joinSpecs) {
+  const pushdown = new Map(); // alias -> conditions[]
+  for (const condition of leafConditions(ast)) {
+    const alias = extractAlias(condition.field);
+    ...
+  }
+}
+```
+
+Actual:
+```typescript
+function buildPushdownMap(filterPlan: FilterPlan, ast: ASTNode | null): Map<string, string[]>
+```
+
+Key differences from blog:
+1. Parameters are `(filterPlan, ast)` — not `(ast, joinSpecs)`. First arg is `FilterPlan`, not `ast`.
+2. Uses `filterPlan.resolvedConditions` (which maps each condition node to its `{alias, column}`) — not a raw `extractAlias(condition.field)` heuristic.
+3. Only processes **top-level** conditions (direct children of the root AND node), not all leaf conditions. This is intentional: only safe single-alias top-level conditions can be pushed down without changing semantics.
+4. Returns `Map<string, string[]>` where values are formatted SQL snippet strings (not raw condition nodes).
+
+Fix: Rewrite the snippet to match the actual parameters and explain the top-level-only constraint:
+
+```typescript
+function buildPushdownMap(
+  filterPlan: FilterPlan,
+  ast: ASTNode | null,
+): Map<string, string[]> {
+  const pushdown = new Map<string, string[]>();
+  if (!ast) return pushdown;
+
+  // Only top-level conditions (direct children of a root AND) are safe to push down.
+  // Nested conditions inside OR branches cannot be moved without changing semantics.
+  const candidates: ConditionNode[] = [];
+  if (ast.type === ASTNodeType.AND) {
+    for (const child of ast.children) {
+      if (child.type === ASTNodeType.CONDITION) candidates.push(child);
+    }
+  } else if (ast.type === ASTNodeType.CONDITION) {
+    candidates.push(ast);
+  }
+
+  for (const cond of candidates) {
+    const resolved = filterPlan.resolvedConditions.get(cond);
+    if (!resolved || resolved.alias === 'root') continue;
+
+    // This condition targets a single non-root alias — it can live on the JOIN ON
+    const snippet = formatConditionSnippet(resolved.alias, resolved.column, cond);
+    if (!pushdown.has(resolved.alias)) pushdown.set(resolved.alias, []);
+    pushdown.get(resolved.alias)!.push(snippet);
+  }
+
+  return pushdown;
+}
+```
+
+---
+
+## Files to modify (in order of dependency)
+
+1. `blog/junior/J1-cursor-pagination-why-offset-breaks.md`
+2. `blog/mid-level/M1-filter-dsl-lexer-parser-ast.md`
+3. `blog/mid-level/M2-complexity-scoring-budget.md`
+4. `blog/mid-level/M4-soft-delete-join-bug.md`
+5. `blog/mid-level/M7-filter-only-join-exists-subquery.md`
+6. `blog/mid-level/M8-boolean-filter-api-guardrails.md`
+7. `blog/senior/S2-query-optimizer-deep-dive.md`
 
 ---
 
 ## Verification
 
-Once posts are drafted:
-
-1. Read each post aloud — if it sounds like a press release, rewrite the opener
-2. Every concept section should have at least one Markdown illustration (ASCII, Mermaid, or table)
-3. Junior posts: a non-developer should be able to follow the analogy without reading the code
-4. Mid-level posts: a developer who hasn't seen the codebase should understand the "why" before the "how"
-5. Senior posts: the retrospective/candid sections should feel like a real engineer talking, not a tutorial
-6. Cross-check titles: no raw jargon (AST, DSL, trigram, FTS, predicate pushdown) in any final title
+After making all edits:
+1. Re-read each changed snippet against the actual source file side-by-side.
+2. For math in error responses: sum the breakdown fields and confirm they equal `score`.
+3. For interface definitions: confirm every field matches the actual TypeScript interface.
+4. For function signatures: confirm param names/types match the actual exported function.
+5. Check that no "eight" → "thirteen" replacement was missed with a grep across M2 and M8.
