@@ -8,7 +8,7 @@ import { StaffRepository } from '@adapters/repositories/staff.repository';
 
 export interface SetupMfaResult {
   qrCodeDataUrl: string;
-  otpauthUrl: string;
+  otpAuthUrl: string;
 }
 
 @Injectable()
@@ -30,13 +30,13 @@ export class SetupMfaUsecase extends Usecase<SetupMfaResult> {
     const staff = await this.staffRepository.findOne({ where: { id: mfaStaffId } });
     if (!staff) throw new UnauthorizedException('Staff not found');
 
-    const { encryptedSecret, otpauthUrl, qrCodeDataUrl } = await this.mfaService.generateSecret(
+    const { encryptedSecret, otpAuthUrl, qrCodeDataUrl } = await this.mfaService.generateSecret(
       staff.email,
     );
 
     // Store encrypted secret (not yet confirmed)
     await this.mfaConfigRepository.saveOrUpdate(mfaStaffId, { encryptedSecret });
 
-    return { qrCodeDataUrl, otpauthUrl };
+    return { qrCodeDataUrl, otpAuthUrl };
   }
 }

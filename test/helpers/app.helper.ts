@@ -1,4 +1,5 @@
 import { ClassSerializerInterceptor, INestApplication, ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -37,7 +38,8 @@ export async function createTestingModule(): Promise<TestingModule> {
  * All E2E requests must include `.set('x-api-key', 'test-api-key')` to pass AuthorizationGuard.
  */
 export async function createTestApp(module: TestingModule): Promise<INestApplication> {
-  const app = module.createNestApplication();
+  const app = module.createNestApplication<NestExpressApplication>();
+  app.set('query parser', 'extended');
 
   app.setGlobalPrefix('/api/v1', { exclude: ['health'] });
   app.use(cookieParser());

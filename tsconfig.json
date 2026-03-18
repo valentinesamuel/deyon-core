@@ -10,7 +10,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "baseUrl": "./src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
@@ -20,22 +20,22 @@
     "noFallthroughCasesInSwitch": false,
     "paths": {
       "@adapters/*": [
-        "src/adapters/*"
+        "adapters/*"
       ],
       "@broker/*": [
-        "src/broker/*"
+        "broker/*"
       ],
       "@config/*": [
-        "src/configs/*"
+        "configs/*"
       ],
       "@generated/*": [
-        "src/generated/*"
+        "generated/*"
       ],
       "@modules/*": [
-        "src/modules/*"
+        "modules/*"
       ],
       "@shared/*": [
-        "src/shared/*"
+        "shared/*"
       ]
     }
   },

@@ -76,13 +76,17 @@ EXISTS does not help much when:
 The query optimizer inspects which table aliases appear in the SELECT clause versus which ones appear only in filter conditions:
 
 ```typescript
-function detectFilterOnlyAliases(filterAliases, selectedAliases) {
-  const filterOnly = [];
+export function detectFilterOnlyAliases(joinSpecs: JoinSpec[], filterPlan: FilterPlan, selectedAliases: Set<string>): Set<string> {
+  // filterAliases are derived internally from filterPlan.resolvedConditions
+  const filterAliases = new Set(
+    [...filterPlan.resolvedConditions.values()].map(c => c.alias).filter(Boolean)
+  );
+  const filterOnly = new Set<string>();
 
-  for (const alias of filterAliases) {
-    if (!selectedAliases.has(alias)) {
+  for (const spec of joinSpecs) {
+    if (filterAliases.has(spec.alias) && !selectedAliases.has(spec.alias)) {
       // This alias is used in filters but never in SELECT
-      filterOnly.push(alias);
+      filterOnly.add(spec.alias);
     }
   }
 
@@ -100,7 +104,9 @@ interface OptimizedJoinSpec {
   alias: string;
   depth: number;
   hasDeletedAt: boolean;
-  useExists: boolean;  // <-- true for filter-only joins
+  isInclude: boolean;           // whether this join was registered via include= (needs SELECT)
+  useExists: boolean;           // true for filter-only joins
+  pushdownConditions: string[]; // raw SQL snippets for JOIN ON predicate pushdown
 }
 ```
 

@@ -64,10 +64,10 @@ The `scoreComplexity` function counts each operation type and multiplies by its 
 
 ```typescript
 export function scoreComplexity(query): ComplexityBreakdown {
-  const filters = countLeafConditions(query.ast);
-  const joins = countUniqueRelationPrefixes(query.joins);
-  const search = query.searchTerms?.length ?? 0;
-  const aggregations = query.groupBy?.length ? 1 : 0;
+  const filters = countLeafConditions(query.whereAst) + countLeafConditions(query.havingAst);
+  const joins = collectAllRelationPrefixes(query).size;
+  const search = query.search?.length ?? 0;
+  const aggregations = (query.aggregates?.length || query.groupBy?.length) ? 1 : 0;
 
   const total =
     filters * COSTS.filter +
@@ -92,24 +92,29 @@ Total:                                                         16
 
 ## The gate
 
-The complexity score is the last of eight validation checks in the query validator. If the score exceeds the configured maximum, the request is rejected:
+The complexity score is check number twelve in the query validator's thirteen-step pipeline. If the score exceeds the configured maximum, the request is rejected:
 
 ```
 Request arrives
     |
     v
-[1] Check filter fields against whitelist
-[2] Check filter count <= maxFilters
-[3] Check relation depth per field
-[4] Check join count <= maxJoins
-[5] Check sort fields against whitelist
-[6] Check include relations against whitelist
-[7] Check search fields against whitelist
-[8] Check complexity score <= maxComplexityScore   <-- the gate
+[1]  Check filter fields against whitelist
+[2]  Check filter count <= maxFilters
+[3]  Check relation depth per field
+[4]  Check join count <= maxJoins
+[5]  Check sort fields against whitelist
+[6]  Check include relations against whitelist
+[7]  Check search fields against whitelist
+[8]  Check aggregate fields against whitelist
+[9]  Check groupBy constraints
+[10] Check having constraints
+[11] Check cursor + aggregation incompatibility
+[12] Check complexity score <= maxComplexityScore   <-- the gate
+[13] Check field-path whitelist
     |
     v
-Passed all 8? --> Build and execute the query
-Failed any?   --> Return 400 with details
+Passed all 13? --> Build and execute the query
+Failed any?    --> Return 400 with details
 ```
 
 When the score exceeds the budget:
@@ -123,8 +128,8 @@ When the score exceeds the budget:
     "max": 20,
     "breakdown": {
       "filters": 4,
-      "joins": 5,
-      "search": 2,
+      "joins": 9,
+      "search": 15,
       "aggregations": 0
     }
   }

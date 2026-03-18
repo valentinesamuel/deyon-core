@@ -51,6 +51,7 @@ export async function seedPermissionsAndRoles(dataSource: DataSource): Promise<v
       ('role:delete',       'Delete roles'),
       ('staff:invite',      'Invite staff'),
       ('staff:read',        'Read staff'),
+      ('staff:list',        'List staff'),
       ('staff:update',      'Update staff'),
       ('staff:deactivate',  'Deactivate staff'),
       ('department:create', 'Create departments'),

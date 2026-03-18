@@ -9,8 +9,8 @@ request:
     type: json
     content: >-
       {
-        "mfaToken": "2e4bdeea72673496bdef6909d765225ccb6ee96d881adff13f5faf0285c9a23a",
-        "totpCode": "359654"
+        "mfaToken": "54d2e1ceb4ca8c08b1cbf31ab1bfeca97027fe5017b8ea5fe9e030755288c19a",
+        "totpCode": "365340"
       }
 response:
   statusCode: 201
@@ -54,21 +54,21 @@ response:
     - key: x-ratelimit-reset
       value: "30"
     - key: set-cookie
-      value: access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNDhmZmQ5Mi05MDE4LTQ1MjYtYjQ5OC0yZWY1ZWUxZWE3M2EiLCJqdGkiOiI5YTZjNTZmNi02ZGMyLTQ4MWQtODEwMS0xMmE0YTliZjIxODAiLCJyb2xlIjoiIiwiaWF0IjoxNzczMTg1NTQxLCJleHAiOjE3NzMxODY0NDF9.VeDkadCDUVIf0_4nw3vqRROPVzwZnajJO_C1eC3ayXw;
-        Max-Age=900; Path=/; Expires=Tue, 10 Mar 2026 23:47:21 GMT; HttpOnly;
+      value: access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjNDhmZmQ5Mi05MDE4LTQ1MjYtYjQ5OC0yZWY1ZWUxZWE3M2EiLCJqdGkiOiJhOTJlYjhjOC01MGM5LTQ0NGUtODM1MC1iZWY4ZWU2YmQ3OTQiLCJyb2xlIjoic3VwZXJfYWRtaW4iLCJpYXQiOjE3NzMzNTA0MjYsImV4cCI6MTc3MzM1MTMyNn0.PGVnl6HMfr3zvKhER9Qjdt4qJWqDko2h-kb5gzwvKaQ;
+        Max-Age=900; Path=/; Expires=Thu, 12 Mar 2026 21:35:26 GMT; HttpOnly;
         Secure; SameSite=Strict
     - key: set-cookie
-      value: refresh_token=e7c3efc5afe64562f7a2de022fcccdf804d458c0ff517887576d9b8dd2d26172;
-        Max-Age=604800; Path=/staff/auth/refresh; Expires=Tue, 17 Mar 2026
-        23:32:21 GMT; HttpOnly; Secure; SameSite=Strict
+      value: refresh_token=ddb704dcba349a5042e2322bd3c3cc6aa8b7228c21ac961471f6ba8133055450;
+        Max-Age=604800; Path=/staff/auth/refresh; Expires=Thu, 19 Mar 2026
+        21:20:26 GMT; HttpOnly; Secure; SameSite=Strict
     - key: content-type
       value: application/json; charset=utf-8
     - key: content-length
-      value: "235"
+      value: "247"
     - key: etag
-      value: W/"eb-dqrHK0pLMwcbAjgKNYPDvEnBRb4"
+      value: W/"f7-mqwmrfYmU2Vy5m7eW+bnSfAgzks"
     - key: date
-      value: Tue, 10 Mar 2026 23:32:21 GMT
+      value: Thu, 12 Mar 2026 21:20:26 GMT
     - key: connection
       value: keep-alive
     - key: keep-alive
@@ -76,6 +76,5 @@ response:
   body:
     type: json
     content: '{"statusCode":201,"success":true,"message":"Request
-      successful","result":{"staffId":"c48ffd92-9018-4526-b498-2ef5ee1ea73a","role":"","firstName":"Raegan","lastName":"Collier"},"path":"/api/v1/staff/auth/login/mfa-verify","duration":76}'
-order: 1773185545842
-name: success
+      successful","result":{"staffId":"c48ffd92-9018-4526-b498-2ef5ee1ea73a","role":"super_admin","firstName":"Raegan","lastName":"Collier"},"path":"/api/v1/staff/auth/login/mfa-verify","duration":155}'
+order: 1018029084973763
