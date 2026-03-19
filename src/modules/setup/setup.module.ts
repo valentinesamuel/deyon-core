@@ -14,9 +14,10 @@ import { RegisterCmoUsecase } from './usecases/registerCmo.uc';
 import { BootstrapSystemUsecase } from './usecases/bootstrapSystem.uc';
 import { SetupController } from './controller/setup.controller';
 import { Broker } from '@broker/broker';
+import { CoreModule } from '@modules/core/core.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SystemConfig, MfaConfig, Role]), AuthModule],
+  imports: [TypeOrmModule.forFeature([SystemConfig, MfaConfig, Role]), AuthModule, CoreModule],
   controllers: [SetupController],
   providers: [
     Broker,
