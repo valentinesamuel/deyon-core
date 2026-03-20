@@ -1,3 +1,4 @@
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,7 +8,7 @@ import typeorm from '@config/typeorm.config';
 import { Broker } from '@broker/broker';
 import { AppController } from './app.controller';
 import { ClsModule } from 'nestjs-cls';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ClsContextGuard } from '@shared/guards/clsContext.guard';
 import { PermissionGuard } from '@shared/guards/permission.guard';
 import { JwtAuthGuard } from '@shared/guards/jwtAuth.guard';
@@ -22,6 +23,7 @@ import { QueryEngineModule } from '@shared/queryEngine';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       load: [common, typeorm],
       ...configSchema,
@@ -41,6 +43,10 @@ import { QueryEngineModule } from '@shared/queryEngine';
   ],
   controllers: [AppController],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     Broker,
     {
       provide: APP_GUARD,
