@@ -68,9 +68,9 @@ export class BootstrapSystemUsecase extends Usecase<BootstrapSystemResult> {
     }
 
     // 4. Find super_admin role
-    const role = await this.roleRepository.findOne({ where: { alias: 'super_admin' } });
+    const role = await this.roleRepository.findOne({ where: { alias: 'cmo' } });
     if (!role) {
-      throw new InternalServerErrorException('super_admin role not found — run migrations first');
+      throw new InternalServerErrorException('cmo role not found — run migrations first');
     }
 
     // 5. Assign super_admin role to CMO

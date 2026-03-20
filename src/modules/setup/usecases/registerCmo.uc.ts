@@ -8,6 +8,7 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 import { Staff } from '@modules/core/entities/staff.entity';
 import { SystemConfig } from '@modules/core/entities/systemConfig.entity';
+import { ApplicationUtility } from '@shared/utility/applicationUtility.service';
 
 export interface RegisterCmoResult {
   requiresMfaSetup: boolean;
@@ -22,6 +23,7 @@ export class RegisterCmoUsecase extends Usecase<RegisterCmoResult> {
     private readonly staffRepository: StaffRepository,
     private readonly authService: AuthService,
     private readonly eventLogService: EventLogService,
+    private readonly applicationUtility: ApplicationUtility,
   ) {
     super();
   }
@@ -55,7 +57,7 @@ export class RegisterCmoUsecase extends Usecase<RegisterCmoResult> {
       firstName,
       lastName,
       email,
-      phoneNumber,
+      phoneNumber: this.applicationUtility.validatePhoneNumber(phoneNumber).number?.e164,
       passwordHash,
       isActive: true,
       isApproved: true,

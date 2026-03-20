@@ -37,13 +37,14 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
     // 4. Seed 14 permissions
     await queryRunner.query(`
       INSERT INTO "permission" ("code", "description") VALUES
-        ('*:*',               'Superadmin wildcard — grants all permissions'),
+        ('*:*',               'Cmo wildcard — grants all permissions'),
         ('role:create',       'Create roles'),
         ('role:read',         'Read roles'),
         ('role:update',       'Update roles'),
         ('role:delete',       'Delete roles'),
         ('staff:invite',      'Invite staff'),
         ('staff:read',        'Read staff'),
+        ('staff:list',        'List staff'),
         ('staff:update',      'Update staff'),
         ('staff:deactivate',  'Deactivate staff'),
         ('department:create', 'Create departments'),
@@ -54,21 +55,21 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
       ON CONFLICT ("code") DO NOTHING
     `);
 
-    // 5. Seed super_admin role
+    // 5. Seed cmo role
     await queryRunner.query(`
       INSERT INTO "role" ("name", "alias", "is_active", "is_system_role")
-      SELECT 'Super Admin', 'super_admin', true, true
+      SELECT 'Cmo', 'cmo', true, true
       WHERE NOT EXISTS (
-        SELECT 1 FROM "role" WHERE "alias" = 'super_admin'
+        SELECT 1 FROM "role" WHERE "alias" = 'cmo'
       )
     `);
 
-    // 6. Link *:* permission to super_admin role
+    // 6. Link *:* permission to cmo role
     await queryRunner.query(`
       INSERT INTO "role_permission" ("role_id", "permission_id")
       SELECT r.id, p.id
       FROM "role" r, "permission" p
-      WHERE r.alias = 'super_admin'
+      WHERE r.alias = 'cmo'
         AND p.code = '*:*'
       ON CONFLICT DO NOTHING
     `);
@@ -104,21 +105,21 @@ export class SystemBootstrap1773182024365 implements MigrationInterface {
       WHERE "alias" IN ('administration', 'clinical', 'pharmacy', 'hr', 'finance')
     `);
 
-    // 6. Remove role_permission link for super_admin/*:*
+    // 6. Remove role_permission link for cmo/*:*
     await queryRunner.query(`
       DELETE FROM "role_permission"
-      WHERE "role_id"       = (SELECT id FROM "role"       WHERE alias = 'super_admin')
+      WHERE "role_id"       = (SELECT id FROM "role"       WHERE alias = 'cmo')
         AND "permission_id" = (SELECT id FROM "permission" WHERE code  = '*:*')
     `);
 
-    // 5. Remove super_admin role
-    await queryRunner.query(`DELETE FROM "role" WHERE "alias" = 'super_admin'`);
+    // 5. Remove cmo role
+    await queryRunner.query(`DELETE FROM "role" WHERE "alias" = 'cmo'`);
 
     // 4. Remove seeded permissions
     await queryRunner.query(`
       DELETE FROM "permission" WHERE "code" IN (
         '*:*', 'role:create', 'role:read', 'role:update', 'role:delete',
-        'staff:invite', 'staff:read', 'staff:update', 'staff:deactivate',
+        'staff:invite', 'staff:read', 'staff:list', 'staff:update', 'staff:deactivate',
         'department:create', 'department:read', 'department:update', 'department:delete',
         'permission:read'
       )

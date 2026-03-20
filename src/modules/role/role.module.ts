@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClsModule } from 'nestjs-cls';
 import { Role } from '../core/entities/role.entity';
 import { Permission } from '../core/entities/permission.entity';
 import { EventLog } from '../core/entities/eventLog.entity';
@@ -14,7 +13,7 @@ import { Broker } from '@broker/broker';
 import { RequestContextService } from '@shared/context/requestContext.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Role, Permission, EventLog]), ClsModule, AuthModule],
+  imports: [TypeOrmModule.forFeature([Role, Permission, EventLog]), AuthModule],
   controllers: [RoleController],
   providers: [
     RoleService,

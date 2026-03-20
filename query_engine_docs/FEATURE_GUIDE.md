@@ -162,6 +162,7 @@ where=field>10
 where=field IS NULL
 where=field NOT IN ('a','b','c')
 where=field BETWEEN 10 AND 20
+where=field BETWEEN 10, 20
 ```
 
 ### Boolean Logic
@@ -428,6 +429,10 @@ Supported functions: `count`, `sum`, `avg`, `min`, `max`
 ```
 GET /staff?groupBy=department.id&aggregate[count]=id&having=count(id)>5
 ```
+
+> **Note:** Aggregate conditions in HAVING support **comparison operators only**
+> (`=`, `!=`, `>`, `>=`, `<`, `<=`). Set operators (IN, NOT IN, BETWEEN) and
+> text operators (LIKE, ILIKE) are **not valid** in aggregate conditions.
 
 ---
 
@@ -756,3 +761,82 @@ curl "http://localhost:3000/staff?withDeleted=true&where=isActive%3Dfalse"
 curl "http://localhost:3000/staff?sort=-createdAt,lastName&limit=20"
 # createdAt DESC, then lastName ASC
 ```
+
+### All parameters combined
+
+```bash
+curl "http://localhost:3000/staff?\
+where=isActive%3Dfalse\
+&sort=firstName%2C-createdAt\
+&limit=3\
+&include=role\
+&groupBy=roleId\
+&having=count(id)%3E5\
+&withDeleted=false\
+&filter%5BisActive%5D%5Beq%5D=true\
+&filter%5BroleId%5D%5Beq%5D=YOUR_ROLE_ID\
+&search%5BfirstName%5D%5Bfts%5D=John\
+&search%5Bemail%5D%5Btri%5D=john%40\
+&aggregate%5Bcount%5D=id"
+# where=isActive=false
+# sort=firstName,-createdAt     ← comma-separated, - prefix for DESC
+# having=count(id)>5            ← fn(field) operator value
+```
+
+Test these combinations against GET /api/v1/staff after fixes:                            │
+│                                                                                           │
+│ ┌─────┬───────────────────────────────────────────────────────────┬─────────────────────┐ │
+│ │  #  │                       Query Params                        │   Expected Result   │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 1   │ ?limit=5&sort=-createdAt                                  │ 200, paginated list │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 2   │ ?filter[firstName][eq]=John                               │ 200, filtered       │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 3   │ ?filter[isActive][eq]=true                                │ 200, filtered       │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 4   │ ?filter[role.name][eq]=Admin                              │ 200, filtered via   │ │
+│ │     │                                                           │ join                │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 5   │ ?where=firstName = 'John'                                 │ 200, DSL filtered   │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 6   │ ?include=role,department                                  │ 200, with relations │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 7   │ ?fields[root]=id,firstName&include=role&fields[role]=name │ 200, field selected │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 8   │ ?fields[role]=name (no include=)                          │ 200, implicit join  │ │
+│ │     │                                                           │ (tests fix #2)      │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 9   │ ?groupBy=roleId&aggregate[count]=id                       │ 200, raw            │ │
+│ │     │                                                           │ aggregation data    │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 10  │ ?groupBy=roleId                                           │ 400, "groupBy       │ │
+│ │     │                                                           │ requires aggregate" │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 11  │ ?having=count(id) > 5                                     │ 400, "having        │ │
+│ │     │                                                           │ requires groupBy"   │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 12  │ ?search[firstName][fts]=John                              │ 200, FTS results    │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 13  │ ?search[email][tri]=john                                  │ 200, trigram        │ │
+│ │     │                                                           │ results             │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 14  │ ?withDeleted=true                                         │ 200, includes       │ │
+│ │     │                                                           │ soft-deleted        │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 15  │ ?withDeleted=false                                        │ 200, excludes       │ │
+│ │     │                                                           │ soft-deleted        │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │     │                                                           │ 400 "Invalid query  │ │
+│ │ 16  │ ?where=INVALID SYNTAX                                     │ syntax: ..." (not   │ │
+│ │     │                                                           │ 500)                │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 17  │ ?filter[unknown][badop]=test                              │ 400 validation      │ │
+│ │     │                                                           │ error (not 500)     │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │     │                                                           │ 400 "cursor not     │ │
+│ │ 18  │ ?groupBy=roleId&aggregate[count]=id&cursor=abc            │ supported with      │ │
+│ │     │                                                           │ aggregate"          │ │
+│ ├─────┼───────────────────────────────────────────────────────────┼─────────────────────┤ │
+│ │ 19  │ ?limit=5&cursor={from previous response}                  │ 200, next page      │ │
+│ └─────┴───────────────────────────────────────────────────────────┴─────────────────────┘ │
+│                                                                         

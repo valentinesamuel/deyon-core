@@ -107,6 +107,7 @@ export interface JoinSpec {
   alias: string;
   depth: number;
   hasDeletedAt: boolean;  // <-- this flag
+  isInclude: boolean;     // whether this join was registered via include= (needs SELECT)
 }
 ```
 

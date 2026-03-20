@@ -48,11 +48,15 @@ We measured a 10-15% improvement on queries with mixed selectivity conditions on
 When a user filters on `doctor.department = 'cardiology'` but does not include `doctor` in the response, we are joining an entire table just to ask a yes/no question. The optimizer detects this:
 
 ```typescript
-function detectFilterOnlyAliases(filterAliases, selectedAliases) {
-  const filterOnly = [];
-  for (const alias of filterAliases) {
-    if (!selectedAliases.has(alias)) {
-      filterOnly.push(alias);
+export function detectFilterOnlyAliases(joinSpecs: JoinSpec[], filterPlan: FilterPlan, selectedAliases: Set<string>): Set<string> {
+  // filterAliases are derived internally from filterPlan.resolvedConditions
+  const filterAliases = new Set(
+    [...filterPlan.resolvedConditions.values()].map(c => c.alias).filter(Boolean)
+  );
+  const filterOnly = new Set<string>();
+  for (const spec of joinSpecs) {
+    if (filterAliases.has(spec.alias) && !selectedAliases.has(spec.alias)) {
+      filterOnly.add(spec.alias);
     }
   }
   return filterOnly;
@@ -86,17 +90,21 @@ This is a deliberate sequencing choice. We wanted to validate that the detection
 When a filter condition references only one non-root alias, it can be moved from the WHERE clause to the JOIN ON clause. This is called predicate pushdown, and it reduces the number of rows that participate in the join.
 
 ```typescript
-function buildPushdownMap(ast, joinSpecs) {
-  const pushdown = new Map(); // alias -> conditions[]
+function buildPushdownMap(filterPlan: FilterPlan, ast: ASTNode | null): Map<string, string[]> {
+  const pushdown = new Map<string, string[]>(); // alias -> SQL snippet[]
 
-  for (const condition of leafConditions(ast)) {
-    const alias = extractAlias(condition.field);
-    if (alias && alias !== 'root') {
-      // This condition only references one non-root alias
-      // It can be pushed down to that alias's JOIN ON clause
-      if (!pushdown.has(alias)) pushdown.set(alias, []);
-      pushdown.get(alias).push(condition);
-    }
+  if (!ast || ast.type !== ASTNodeType.AND) return pushdown;
+
+  // Only process direct children of the root AND node (top-level conditions)
+  for (const child of ast.children) {
+    if (child.type !== ASTNodeType.CONDITION) continue;
+    const resolved = filterPlan.resolvedConditions.get(child);
+    if (!resolved || resolved.alias === 'root') continue;
+
+    // This condition targets a single non-root alias — push it down to the JOIN ON clause
+    const snippet = `${resolved.alias}.${resolved.column} ${resolved.op} ${resolved.paramRef}`;
+    if (!pushdown.has(resolved.alias)) pushdown.set(resolved.alias, []);
+    pushdown.get(resolved.alias)!.push(snippet);
   }
   return pushdown;
 }

@@ -8,7 +8,7 @@ import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility
 
 export interface MfaSecretResult {
   encryptedSecret: string;
-  otpauthUrl: string;
+  otpAuthUrl: string;
   qrCodeDataUrl: string;
 }
 
@@ -35,11 +35,11 @@ export class MfaService {
   async generateSecret(email: string): Promise<MfaSecretResult> {
     const issuer = this.configService.get<string>('common.mfa.issuer');
     const secret = this.totp.generateSecret();
-    const otpauthUrl = this.totp.toURI({ label: email, issuer, secret });
-    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+    const otpAuthUrl = this.totp.toURI({ label: email, issuer, secret });
+    const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
     const encryptedSecret = this.encryptionUtility.encrypt(secret);
 
-    return { encryptedSecret, otpauthUrl, qrCodeDataUrl };
+    return { encryptedSecret, otpAuthUrl, qrCodeDataUrl };
   }
 
   async verifyTotp(encryptedSecret: string, code: string): Promise<boolean> {

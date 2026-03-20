@@ -1,3 +1,4 @@
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,7 +8,7 @@ import typeorm from '@config/typeorm.config';
 import { Broker } from '@broker/broker';
 import { AppController } from './app.controller';
 import { ClsModule } from 'nestjs-cls';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ClsContextGuard } from '@shared/guards/clsContext.guard';
 import { PermissionGuard } from '@shared/guards/permission.guard';
 import { JwtAuthGuard } from '@shared/guards/jwtAuth.guard';
@@ -16,11 +17,13 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from '@modules/auth/auth.module';
 import { RoleModule } from '@modules/role/role.module';
 import { SetupModule } from '@modules/setup/setup.module';
+import { StaffModule } from '@modules/staff/staff.module';
 import { RedisModule } from '@shared/redis/redis.module';
-import { QueryEngineModule } from './query-engine/queryEngine.module';
+import { QueryEngineModule } from '@shared/queryEngine';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       load: [common, typeorm],
       ...configSchema,
@@ -29,16 +32,21 @@ import { QueryEngineModule } from './query-engine/queryEngine.module';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => configService.get('typeorm')!,
     }),
-    ClsModule.forRoot({ middleware: { mount: true } }),
+    ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     RedisModule,
     QueryEngineModule,
     AuthModule,
     RoleModule,
     SetupModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     Broker,
     {
       provide: APP_GUARD,
