@@ -5,6 +5,7 @@ import { MfaSetupDto } from '../dto/mfaSetup.dto';
 import { MfaService } from '../services/mfa.service';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 export interface SetupMfaResult {
   qrCodeDataUrl: string;
@@ -17,15 +18,13 @@ export class SetupMfaUsecase extends Usecase<SetupMfaResult> {
     private readonly mfaService: MfaService,
     private readonly mfaConfigRepository: MfaConfigRepository,
     private readonly staffRepository: StaffRepository,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: MfaSetupDto & { mfaStaffId: string },
-  ): Promise<SetupMfaResult> {
-    const { mfaStaffId } = params;
+  async execute(_entityManager: EntityManager, _params: MfaSetupDto): Promise<SetupMfaResult> {
+    const mfaStaffId = this.requestContextService.getUserId();
 
     const staff = await this.staffRepository.findOne({ where: { id: mfaStaffId } });
     if (!staff) throw new UnauthorizedException('Staff not found');

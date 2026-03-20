@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys } from '@adapters/cache/cache.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { RefreshToken } from '@modules/core/entities/refreshToken.entity';
@@ -12,29 +13,29 @@ export class SessionService {
   private readonly logger = new Logger(SessionService.name);
 
   constructor(
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
   ) {}
 
   async addSession(staffId: string, familyId: string): Promise<void> {
     const key = RedisKeys.sessions(staffId);
-    await this.redisService.sadd(key, familyId);
+    await this.cacheAdapter.sadd(key, familyId, { db: CacheDbType.AUTH });
   }
 
   async removeSession(staffId: string, familyId: string): Promise<void> {
     const key = RedisKeys.sessions(staffId);
-    await this.redisService.srem(key, familyId);
+    await this.cacheAdapter.srem(key, familyId, { db: CacheDbType.AUTH });
   }
 
   async getActiveSessions(staffId: string): Promise<string[]> {
     const key = RedisKeys.sessions(staffId);
-    return this.redisService.smembers(key);
+    return this.cacheAdapter.smembers(key, { db: CacheDbType.AUTH });
   }
 
   async getSessionCount(staffId: string): Promise<number> {
     const key = RedisKeys.sessions(staffId);
-    return this.redisService.scard(key);
+    return this.cacheAdapter.scard(key, { db: CacheDbType.AUTH });
   }
 
   /**
@@ -70,9 +71,9 @@ export class SessionService {
   async revokeAllSessions(staffId: string): Promise<void> {
     await this.refreshTokenRepository.update({ staffId }, { isRevoked: true });
     const key = RedisKeys.sessions(staffId);
-    const members = await this.redisService.smembers(key);
+    const members = await this.cacheAdapter.smembers(key, { db: CacheDbType.AUTH });
     if (members.length > 0) {
-      await this.redisService.del(key);
+      await this.cacheAdapter.del(key, { db: CacheDbType.AUTH });
     }
     this.logger.log(`Revoked all sessions for staff ${staffId}`);
   }

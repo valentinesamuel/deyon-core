@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CoreModule } from '@modules/core/core.module';
 
 // Entities
 import { Staff } from '@modules/core/entities/staff.entity';
@@ -55,7 +54,6 @@ import { EventLogRepository } from '@adapters/repositories/eventLog.repository';
   imports: [
     TypeOrmModule.forFeature([Staff, Permission, RefreshToken, MfaConfig, InviteToken, EventLog]),
     JwtModule.register({}),
-    CoreModule,
     EmailModule,
   ],
   controllers: [StaffAuthController],

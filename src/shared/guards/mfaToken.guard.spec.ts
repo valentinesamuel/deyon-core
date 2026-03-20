@@ -1,7 +1,11 @@
 import { mock } from 'vitest-mock-extended';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { MfaTokenGuard } from './mfaToken.guard';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RequestContextService } from '@shared/context/requestContext.service';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 function makeCtx(body: Record<string, any>): { ctx: ExecutionContext; req: any } {
   const req: any = { body };
@@ -12,11 +16,13 @@ function makeCtx(body: Record<string, any>): { ctx: ExecutionContext; req: any }
 
 describe('MfaTokenGuard', () => {
   let guard: MfaTokenGuard;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
 
   beforeEach(() => {
-    redisService = mock<RedisService>();
-    guard = new MfaTokenGuard(redisService);
+    cacheAdapter = mock<CacheAdapter>();
+    requestContextService = mock<RequestContextService>();
+    guard = new MfaTokenGuard(cacheAdapter, requestContextService);
   });
 
   it('should throw UnauthorizedException if no mfaToken in body', async () => {
@@ -24,17 +30,18 @@ describe('MfaTokenGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
-  it('should throw UnauthorizedException if token not in Redis (expired/invalid)', async () => {
-    redisService.getJson.mockResolvedValue(null);
+  it('should throw UnauthorizedException if token not in cache (expired/invalid)', async () => {
+    cacheAdapter.get.mockResolvedValue(null);
     const { ctx } = makeCtx({ mfaToken: 'bad-token' });
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+    expect(cacheAdapter.get).toHaveBeenCalledWith(expect.any(String), AUTH);
   });
 
-  it('should set req.mfaStaffId and return true on valid token', async () => {
-    redisService.getJson.mockResolvedValue({ staffId: 'staff-123' });
-    const { ctx, req } = makeCtx({ mfaToken: 'valid-token' });
+  it('should call setUserId on context service and return true on valid token', async () => {
+    cacheAdapter.get.mockResolvedValue({ staffId: 'staff-123' });
+    const { ctx } = makeCtx({ mfaToken: 'valid-token' });
     const result = await guard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(req.mfaStaffId).toBe('staff-123');
+    expect(requestContextService.setUserId).toHaveBeenCalledWith('staff-123');
   });
 });

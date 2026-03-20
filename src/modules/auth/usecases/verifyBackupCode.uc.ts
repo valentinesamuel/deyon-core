@@ -1,7 +1,6 @@
 import { Usecase } from '@broker/types';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { Response } from 'express';
 import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { MfaBackupVerifyDto } from '../dto/mfaBackupVerify.dto';
@@ -13,9 +12,16 @@ import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repo
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
+import { RequestContextService } from '@shared/context/requestContext.service';
+
+export interface VerifyBackupCodeResult {
+  accessToken: string;
+  refreshToken: string;
+  staffId: string;
+}
 
 @Injectable()
-export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
+export class VerifyBackupCodeUsecase extends Usecase<VerifyBackupCodeResult> {
   private readonly logger = new Logger(VerifyBackupCodeUsecase.name);
 
   constructor(
@@ -27,20 +33,19 @@ export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
     private readonly mfaConfigRepository: MfaConfigRepository,
     private readonly staffRepository: StaffRepository,
     private readonly configService: ConfigService,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
   async execute(
     _entityManager: EntityManager,
-    params: MfaBackupVerifyDto & {
-      res: Response;
-      ipAddress?: string;
-      userAgent?: string;
-      mfaStaffId: string;
-    },
-  ): Promise<{ staffId: string }> {
-    const { mfaStaffId, backupCode, res, ipAddress, userAgent } = params;
+    params: MfaBackupVerifyDto,
+  ): Promise<VerifyBackupCodeResult> {
+    const { backupCode } = params;
+    const mfaStaffId = this.requestContextService.getUserId();
+    const ipAddress = this.requestContextService.getIp() ?? undefined;
+    const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
     const staff = await this.staffRepository.findOne({
       where: { id: mfaStaffId },
@@ -103,7 +108,6 @@ export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
     });
 
     await this.sessionService.addSession(mfaStaffId, familyId);
-    this.tokenService.setAuthCookies(res, accessToken, opaqueToken);
     await this.staffRepository.update(mfaStaffId, { lastLogin: new Date() });
 
     await this.eventLogService.log({
@@ -114,6 +118,6 @@ export class VerifyBackupCodeUsecase extends Usecase<{ staffId: string }> {
       userAgent,
     });
 
-    return { staffId: mfaStaffId };
+    return { accessToken, refreshToken: opaqueToken, staffId: mfaStaffId };
   }
 }

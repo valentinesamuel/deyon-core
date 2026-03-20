@@ -35,7 +35,7 @@ export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParam
   async execute(em: EntityManager, params: CreateRoleParams): Promise<CreateRoleResult> {
     const { params: dto, metadata } = params;
     const { ipAddress, userAgent } = metadata.requestMetadata;
-    const actorId = this.requestContextService.getUser()?.publicId;
+    const actorId = this.requestContextService.getUser()?.id;
 
     // 1. Check role name doesn't exist
     await this.roleService.findOneByDataAndFailIfExists({ where: { name: dto.name } }, em);

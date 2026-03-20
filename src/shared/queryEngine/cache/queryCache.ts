@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { ParsedQuery } from '../types/query.types';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
 
 const CACHE_PREFIX = 'qe:cache';
 const DEFAULT_TTL = 60;
@@ -29,11 +30,11 @@ function buildCacheKey(entityName: string, parsedQuery: ParsedQuery): string {
 
 @Injectable()
 export class QueryCache {
-  constructor(private readonly redis: RedisService) {}
+  constructor(private readonly cacheAdapter: CacheAdapter) {}
 
   async get<T>(entityName: string, parsedQuery: ParsedQuery): Promise<T | null> {
     const key = buildCacheKey(entityName, parsedQuery);
-    return this.redis.getJson<T>(key);
+    return this.cacheAdapter.get<T>(key, { db: CacheDbType.AUTH });
   }
 
   async set(
@@ -43,14 +44,14 @@ export class QueryCache {
     ttlSeconds: number = DEFAULT_TTL,
   ): Promise<void> {
     const key = buildCacheKey(entityName, parsedQuery);
-    await this.redis.setJson(key, data, ttlSeconds);
+    await this.cacheAdapter.set(key, data, { db: CacheDbType.AUTH, ttl: ttlSeconds });
   }
 
   async invalidate(entityName: string): Promise<void> {
     const pattern = `${CACHE_PREFIX}:${entityName}:*`;
-    const keys = await this.redis.scanKeys(pattern);
+    const keys = await this.cacheAdapter.scanKeys(pattern, { db: CacheDbType.AUTH });
     if (keys.length > 0) {
-      await this.redis.del(...keys);
+      await this.cacheAdapter.deleteMany(keys, { db: CacheDbType.AUTH });
     }
   }
 

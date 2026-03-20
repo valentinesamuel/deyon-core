@@ -8,7 +8,11 @@ import { SessionService } from '../services/session.service';
 import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RequestContextService } from '@shared/context/requestContext.service';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 describe('RefreshTokenUsecase', () => {
   let usecase: RefreshTokenUsecase;
@@ -17,13 +21,10 @@ describe('RefreshTokenUsecase', () => {
   let eventLogService: ReturnType<typeof mock<EventLogService>>;
   let refreshTokenRepo: ReturnType<typeof mock<RefreshTokenRepository>>;
   let staffRepo: ReturnType<typeof mock<StaffRepository>>;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
   let configService: ReturnType<typeof mock<ConfigService>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
   let em: ReturnType<typeof mock<EntityManager>>;
-
-  const mockRes = { cookie: vi.fn(), clearCookie: vi.fn() } as any;
-  const mockReq = (cookie?: string) =>
-    ({ cookies: cookie ? { refresh_token: cookie } : {} }) as any;
 
   const activeStaff = { id: 'staff-1', isActive: true, isApproved: true, role: { alias: 'admin' } };
   const validToken = {
@@ -41,9 +42,13 @@ describe('RefreshTokenUsecase', () => {
     eventLogService = mock<EventLogService>();
     refreshTokenRepo = mock<RefreshTokenRepository>();
     staffRepo = mock<StaffRepository>();
-    redisService = mock<RedisService>();
+    cacheAdapter = mock<CacheAdapter>();
     configService = mock<ConfigService>();
+    requestContextService = mock<RequestContextService>();
     em = mock<EntityManager>();
+
+    requestContextService.getIp.mockReturnValue('127.0.0.1');
+    requestContextService.getUserAgent.mockReturnValue('test-agent');
 
     usecase = new RefreshTokenUsecase(
       tokenService,
@@ -51,8 +56,9 @@ describe('RefreshTokenUsecase', () => {
       eventLogService,
       refreshTokenRepo,
       staffRepo,
-      redisService,
+      cacheAdapter,
       configService,
+      requestContextService,
     );
 
     eventLogService.log.mockResolvedValue(undefined);
@@ -60,37 +66,31 @@ describe('RefreshTokenUsecase', () => {
     tokenService.generateJti.mockReturnValue('new-jti');
     tokenService.signAccessToken.mockReturnValue('new-access-token');
     tokenService.generateOpaqueToken.mockReturnValue('new-opaque');
-    tokenService.setAuthCookies.mockReturnValue(undefined);
-    tokenService.clearAuthCookies.mockReturnValue(undefined);
     configService.get.mockReturnValue(604800);
-    redisService.del.mockResolvedValue(undefined);
+    cacheAdapter.del.mockResolvedValue(undefined);
   });
 
-  it('should rotate token and return { refreshed: true }', async () => {
+  it('should rotate token and return accessToken + newRefreshToken', async () => {
     refreshTokenRepo.findByTokenHash.mockResolvedValue(validToken as any);
     staffRepo.findOne.mockResolvedValue(activeStaff as any);
     refreshTokenRepo.revokeToken.mockResolvedValue(undefined);
     refreshTokenRepo.createToken.mockResolvedValue({} as any);
 
-    const result = await usecase.execute(em, {
-      req: mockReq('opaque-cookie'),
-      res: mockRes,
-    });
+    const result = await usecase.execute(em, { refreshToken: 'opaque-cookie' });
 
-    expect(result).toEqual({ refreshed: true });
+    expect(result).toEqual({ accessToken: 'new-access-token', newRefreshToken: 'new-opaque' });
     expect(refreshTokenRepo.revokeToken).toHaveBeenCalled();
     expect(refreshTokenRepo.createToken).toHaveBeenCalled();
+    expect(cacheAdapter.del).toHaveBeenCalledWith(expect.any(String), AUTH);
   });
 
-  it('should throw if no refresh token cookie', async () => {
-    await expect(usecase.execute(em, { req: mockReq(), res: mockRes })).rejects.toThrow(
-      UnauthorizedException,
-    );
+  it('should throw if no refresh token provided', async () => {
+    await expect(usecase.execute(em, { refreshToken: '' })).rejects.toThrow(UnauthorizedException);
   });
 
   it('should throw if token not found in DB', async () => {
     refreshTokenRepo.findByTokenHash.mockResolvedValue(null);
-    await expect(usecase.execute(em, { req: mockReq('cookie'), res: mockRes })).rejects.toThrow(
+    await expect(usecase.execute(em, { refreshToken: 'cookie' })).rejects.toThrow(
       UnauthorizedException,
     );
   });
@@ -99,7 +99,7 @@ describe('RefreshTokenUsecase', () => {
     refreshTokenRepo.findByTokenHash.mockResolvedValue({ ...validToken, isRevoked: true } as any);
     sessionService.revokeFamily.mockResolvedValue(undefined);
 
-    await expect(usecase.execute(em, { req: mockReq('cookie'), res: mockRes })).rejects.toThrow(
+    await expect(usecase.execute(em, { refreshToken: 'cookie' })).rejects.toThrow(
       UnauthorizedException,
     );
 
@@ -111,7 +111,7 @@ describe('RefreshTokenUsecase', () => {
     refreshTokenRepo.findByTokenHash.mockResolvedValue(expiredToken as any);
     refreshTokenRepo.revokeToken.mockResolvedValue(undefined);
 
-    await expect(usecase.execute(em, { req: mockReq('cookie'), res: mockRes })).rejects.toThrow(
+    await expect(usecase.execute(em, { refreshToken: 'cookie' })).rejects.toThrow(
       UnauthorizedException,
     );
   });
@@ -120,7 +120,7 @@ describe('RefreshTokenUsecase', () => {
     refreshTokenRepo.findByTokenHash.mockResolvedValue(validToken as any);
     staffRepo.findOne.mockResolvedValue({ ...activeStaff, isActive: false } as any);
 
-    await expect(usecase.execute(em, { req: mockReq('cookie'), res: mockRes })).rejects.toThrow(
+    await expect(usecase.execute(em, { refreshToken: 'cookie' })).rejects.toThrow(
       UnauthorizedException,
     );
   });

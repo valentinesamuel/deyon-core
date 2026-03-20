@@ -6,6 +6,7 @@ import { AuthService } from '../services/auth.service';
 import { EventLogService } from '../services/eventLog.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 export interface LoginStaffResult {
   requiresMfa: boolean;
@@ -20,15 +21,15 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
     private readonly authService: AuthService,
     private readonly eventLogService: EventLogService,
     private readonly staffRepository: StaffRepository,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: StaffLoginDto & { ipAddress?: string; userAgent?: string },
-  ): Promise<LoginStaffResult> {
-    const { email, password, ipAddress, userAgent } = params;
+  async execute(_entityManager: EntityManager, params: StaffLoginDto): Promise<LoginStaffResult> {
+    const { email, password } = params;
+    const ipAddress = this.requestContextService.getIp() ?? undefined;
+    const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
     // 1. Check Redis lockout
     await this.authService.checkLockout(email);

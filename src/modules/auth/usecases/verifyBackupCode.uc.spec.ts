@@ -10,6 +10,7 @@ import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 describe('VerifyBackupCodeUsecase', () => {
   let usecase: VerifyBackupCodeUsecase;
@@ -21,14 +22,12 @@ describe('VerifyBackupCodeUsecase', () => {
   let mfaConfigRepo: ReturnType<typeof mock<MfaConfigRepository>>;
   let staffRepo: ReturnType<typeof mock<StaffRepository>>;
   let configService: ReturnType<typeof mock<ConfigService>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
   let em: ReturnType<typeof mock<EntityManager>>;
 
-  const mockRes = { cookie: vi.fn() } as any;
   const params = {
-    mfaStaffId: 'staff-1',
     mfaToken: 'mfa-token-1',
     backupCode: 'ABCDE12345',
-    res: mockRes,
   };
 
   const mockStaff = { id: 'staff-1', role: { alias: 'admin' } };
@@ -46,7 +45,12 @@ describe('VerifyBackupCodeUsecase', () => {
     mfaConfigRepo = mock<MfaConfigRepository>();
     staffRepo = mock<StaffRepository>();
     configService = mock<ConfigService>();
+    requestContextService = mock<RequestContextService>();
     em = mock<EntityManager>();
+
+    requestContextService.getUserId.mockReturnValue('staff-1');
+    requestContextService.getIp.mockReturnValue('127.0.0.1');
+    requestContextService.getUserAgent.mockReturnValue('test-agent');
 
     usecase = new VerifyBackupCodeUsecase(
       mfaService,
@@ -57,6 +61,7 @@ describe('VerifyBackupCodeUsecase', () => {
       mfaConfigRepo,
       staffRepo,
       configService,
+      requestContextService,
     );
 
     eventLogService.log.mockResolvedValue(undefined);
@@ -64,7 +69,6 @@ describe('VerifyBackupCodeUsecase', () => {
     tokenService.signAccessToken.mockReturnValue('access-tok');
     tokenService.generateOpaqueToken.mockReturnValue('opaque-tok');
     tokenService.sha256.mockReturnValue('tok-hash');
-    tokenService.setAuthCookies.mockReturnValue(undefined);
     configService.get.mockReturnValue(604800);
     sessionService.enforceSessionLimit.mockResolvedValue(undefined);
     sessionService.addSession.mockResolvedValue(undefined);
@@ -73,15 +77,19 @@ describe('VerifyBackupCodeUsecase', () => {
     staffRepo.update.mockResolvedValue(undefined as any);
   });
 
-  it('should return { staffId } on valid backup code', async () => {
+  it('should return accessToken, refreshToken, staffId on valid backup code', async () => {
     staffRepo.findOne.mockResolvedValue(mockStaff as any);
     mfaConfigRepo.findByStaffId.mockResolvedValue(mockMfaConfig as any);
-    mfaService.verifyBackupCode.mockResolvedValue(1); // matches index 1
+    mfaService.verifyBackupCode.mockResolvedValue(1);
 
     const result = await usecase.execute(em, params);
 
-    expect(result).toEqual({ staffId: 'staff-1' });
-    expect(mfaConfigRepo.saveOrUpdate).toHaveBeenCalled(); // mark as used
+    expect(result).toMatchObject({
+      staffId: 'staff-1',
+      accessToken: 'access-tok',
+      refreshToken: 'opaque-tok',
+    });
+    expect(mfaConfigRepo.saveOrUpdate).toHaveBeenCalled();
   });
 
   it('should throw if staff not found', async () => {
@@ -98,7 +106,7 @@ describe('VerifyBackupCodeUsecase', () => {
   it('should throw if backup code is invalid', async () => {
     staffRepo.findOne.mockResolvedValue(mockStaff as any);
     mfaConfigRepo.findByStaffId.mockResolvedValue(mockMfaConfig as any);
-    mfaService.verifyBackupCode.mockResolvedValue(-1); // no match
+    mfaService.verifyBackupCode.mockResolvedValue(-1);
 
     await expect(usecase.execute(em, params)).rejects.toThrow(UnauthorizedException);
   });
@@ -107,7 +115,7 @@ describe('VerifyBackupCodeUsecase', () => {
     staffRepo.findOne.mockResolvedValue(mockStaff as any);
     mfaConfigRepo.findByStaffId.mockResolvedValue({
       ...mockMfaConfig,
-      usedBackupCodes: JSON.stringify([1]), // index 1 already used
+      usedBackupCodes: JSON.stringify([1]),
     } as any);
     mfaService.verifyBackupCode.mockResolvedValue(1);
 

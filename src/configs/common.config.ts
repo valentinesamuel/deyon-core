@@ -33,10 +33,6 @@ export default registerAs('common', () => ({
     refreshExpiry: Number.parseInt(process.env.JWT_REFRESH_EXPIRY ?? '604800', 10),
   },
 
-  redis: {
-    url: process.env.REDIS_URL,
-  },
-
   mfa: {
     issuer: process.env.MFA_ISSUER ?? 'DeyonHMS',
   },

@@ -3,8 +3,8 @@ import { Observable } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { RequestTrackerService, RequestMetrics } from '../observability/requestTracker.service';
-import { UserSessionType } from '../context/request.context';
 import { ConfigService } from '@nestjs/config';
+import { TRequestUser } from '@shared/context/requestContext.service';
 
 @Injectable()
 export class RequestTrackerInterceptor implements NestInterceptor {
@@ -40,7 +40,7 @@ export class RequestTrackerInterceptor implements NestInterceptor {
     const cpuUsage = process.cpuUsage();
 
     // Get user context (populated by auth guards that run before interceptors)
-    const user: UserSessionType | undefined = request.user;
+    const user: TRequestUser | undefined = request.user;
 
     const metrics: RequestMetrics = {
       requestId,

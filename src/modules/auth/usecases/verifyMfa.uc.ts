@@ -1,7 +1,6 @@
 import { Usecase } from '@broker/types';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { Response } from 'express';
 import { MfaVerifyDto } from '../dto/mfaVerify.dto';
 import { MfaService } from '../services/mfa.service';
 import { TokenService } from '../services/token.service';
@@ -10,13 +9,17 @@ import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys, RedisTTL } from '@adapters/cache/cache.constants';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 export interface VerifyMfaResult {
+  accessToken: string;
+  refreshToken: string;
   staffId: string;
   role: string;
   firstName: string;
@@ -35,22 +38,18 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly mfaConfigRepository: MfaConfigRepository,
     private readonly staffRepository: StaffRepository,
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
     private readonly configService: ConfigService,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: MfaVerifyDto & {
-      res: Response;
-      ipAddress?: string;
-      userAgent?: string;
-      mfaStaffId: string;
-    },
-  ): Promise<VerifyMfaResult> {
-    const { mfaStaffId, totpCode, res, ipAddress, userAgent } = params;
+  async execute(_entityManager: EntityManager, params: MfaVerifyDto): Promise<VerifyMfaResult> {
+    const { totpCode } = params;
+    const mfaStaffId = this.requestContextService.getUserId();
+    const ipAddress = this.requestContextService.getIp() ?? undefined;
+    const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
     // 1. Load staff
     const staff = await this.staffRepository.findOne({
@@ -66,7 +65,7 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
 
     // 3. Anti-replay check
     const antiReplayKey = RedisKeys.totpUsed(mfaStaffId, totpCode);
-    const alreadyUsed = await this.redisService.exists(antiReplayKey);
+    const alreadyUsed = await this.cacheAdapter.exists(antiReplayKey, { db: CacheDbType.AUTH });
     if (alreadyUsed) {
       throw new UnauthorizedException('TOTP code already used');
     }
@@ -86,7 +85,10 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     }
 
     // 5. Mark code as used (anti-replay)
-    await this.redisService.set(antiReplayKey, '1', RedisTTL.totpAntiReplay);
+    await this.cacheAdapter.set(antiReplayKey, '1', {
+      db: CacheDbType.AUTH,
+      ttl: RedisTTL.totpAntiReplay,
+    });
 
     // 6. Enforce session limit
     await this.sessionService.enforceSessionLimit(mfaStaffId);
@@ -115,10 +117,7 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
 
     await this.sessionService.addSession(mfaStaffId, familyId);
 
-    // 8. Set cookies
-    this.tokenService.setAuthCookies(res, accessToken, opaqueToken);
-
-    // 9. Update lastLogin
+    // 8. Update lastLogin
     await this.staffRepository.update(mfaStaffId, { lastLogin: new Date() });
 
     await this.eventLogService.log({
@@ -130,6 +129,8 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     });
 
     return {
+      accessToken,
+      refreshToken: opaqueToken,
       staffId: mfaStaffId,
       role: staff.role?.alias ?? '',
       firstName: staff.firstName,

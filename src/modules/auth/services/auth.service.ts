@@ -2,8 +2,9 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import * as crypto from 'node:crypto';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys, RedisTTL } from '@adapters/cache/cache.constants';
 
 const MAX_FAILED_ATTEMPTS = 5;
 
@@ -13,7 +14,7 @@ export class AuthService {
 
   constructor(
     private readonly staffRepository: StaffRepository,
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
   ) {}
 
   async hashPassword(password: string): Promise<string> {
@@ -30,7 +31,9 @@ export class AuthService {
   }
 
   async checkLockout(email: string): Promise<void> {
-    const locked = await this.redisService.exists(RedisKeys.loginLockout(email));
+    const locked = await this.cacheAdapter.exists(RedisKeys.loginLockout(email), {
+      db: CacheDbType.AUTH,
+    });
     if (locked) {
       throw new UnauthorizedException('Account is temporarily locked. Please try again later.');
     }
@@ -38,11 +41,14 @@ export class AuthService {
 
   async recordFailedAttempt(email: string, staffId?: string): Promise<void> {
     const attemptsKey = RedisKeys.loginAttempts(email);
-    const count = await this.redisService.incr(attemptsKey);
-    await this.redisService.expire(attemptsKey, RedisTTL.loginAttempts);
+    const count = await this.cacheAdapter.incr(attemptsKey, { db: CacheDbType.AUTH });
+    await this.cacheAdapter.expire(attemptsKey, RedisTTL.loginAttempts, { db: CacheDbType.AUTH });
 
     if (count >= MAX_FAILED_ATTEMPTS) {
-      await this.redisService.set(RedisKeys.loginLockout(email), '1', RedisTTL.loginLockout);
+      await this.cacheAdapter.set(RedisKeys.loginLockout(email), '1', {
+        db: CacheDbType.AUTH,
+        ttl: RedisTTL.loginLockout,
+      });
       if (staffId) {
         await this.staffRepository.update(staffId, {
           lockedUntil: new Date(Date.now() + RedisTTL.loginLockout * 1000),
@@ -53,18 +59,26 @@ export class AuthService {
   }
 
   async clearFailedAttempts(email: string): Promise<void> {
-    await this.redisService.del(RedisKeys.loginAttempts(email));
+    await this.cacheAdapter.del(RedisKeys.loginAttempts(email), { db: CacheDbType.AUTH });
   }
 
   async issueEphemeralMfaToken(staffId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString('hex');
-    await this.redisService.setJson(RedisKeys.mfaPending(token), { staffId }, RedisTTL.mfaPending);
+    await this.cacheAdapter.set(
+      RedisKeys.mfaPending(token),
+      { staffId },
+      { db: CacheDbType.AUTH, ttl: RedisTTL.mfaPending },
+    );
     return token;
   }
 
   async issueEphemeralSetupToken(staffId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString('hex');
-    await this.redisService.setJson(RedisKeys.mfaSetup(token), { staffId }, RedisTTL.mfaSetup);
+    await this.cacheAdapter.set(
+      RedisKeys.mfaSetup(token),
+      { staffId },
+      { db: CacheDbType.AUTH, ttl: RedisTTL.mfaSetup },
+    );
     return token;
   }
 

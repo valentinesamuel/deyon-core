@@ -1,14 +1,15 @@
 import { Usecase } from '@broker/types';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { Request, Response } from 'express';
 import { TokenService } from '../services/token.service';
 import { SessionService } from '../services/session.service';
 import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys } from '@adapters/cache/cache.constants';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 @Injectable()
 export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
@@ -17,19 +18,19 @@ export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
     private readonly sessionService: SessionService,
     private readonly eventLogService: EventLogService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
   async execute(
     _entityManager: EntityManager,
-    params: { req: Request; res: Response; ipAddress?: string; userAgent?: string },
+    params: { accessToken: string; refreshToken: string },
   ): Promise<{ loggedOut: boolean }> {
-    const { req, res, ipAddress, userAgent } = params;
-
-    const accessToken = req?.cookies?.access_token;
-    const refreshToken = req?.cookies?.refresh_token;
+    const { accessToken, refreshToken } = params;
+    const ipAddress = this.requestContextService.getIp() ?? undefined;
+    const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
     let staffId: string | undefined;
 
@@ -41,7 +42,10 @@ export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
         // TTL = remaining lifetime of token
         const remainingTtl = payload['exp'] ? payload['exp'] - Math.floor(Date.now() / 1000) : 900;
         if (remainingTtl > 0) {
-          await this.redisService.set(RedisKeys.jtiBlocklist(payload.jti), '1', remainingTtl);
+          await this.cacheAdapter.set(RedisKeys.jtiBlocklist(payload.jti), '1', {
+            db: CacheDbType.AUTH,
+            ttl: remainingTtl,
+          });
         }
       }
     }
@@ -58,8 +62,6 @@ export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
     }
 
     if (!staffId) throw new UnauthorizedException('No active session found');
-
-    this.tokenService.clearAuthCookies(res);
 
     await this.eventLogService.log({
       actorId: staffId,
