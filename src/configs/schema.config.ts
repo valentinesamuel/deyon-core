@@ -79,5 +79,8 @@ export default {
 
     // Frontend URL (for email links)
     FRONTEND_URL: Joi.string().required(),
+
+    //Sentry
+    SENTRY_DSN: Joi.string().required(),
   }),
 };

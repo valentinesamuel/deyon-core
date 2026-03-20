@@ -17,6 +17,7 @@ export class AppController {
   @ApiResponse({ status: 201, description: 'The record has been successfully created.' })
   @ApiInternalServerErrorResponse()
   check() {
+    throw new Error('My first Sentry error!');
     this.logger.log('Checking health of the service...');
     return {
       message: 'Service is up and running',
