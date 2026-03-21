@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Permission } from '@modules/core/entities/permission.entity';
 
 @Injectable()
@@ -20,5 +20,9 @@ export class PermissionRepository extends Repository<Permission> {
 
   async findAllActive(): Promise<Permission[]> {
     return this.repo.find({ where: { isActive: true } });
+  }
+
+  async findByCodes(codes: string[]): Promise<Permission[]> {
+    return this.repo.find({ where: { code: In(codes), isActive: true } });
   }
 }

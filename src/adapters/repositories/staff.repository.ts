@@ -65,4 +65,32 @@ export class StaffRepository extends BaseRepository<Staff> {
     await this.update(id, updateData);
     return this.findStaffAndFailIfNotExist(id);
   }
+
+  async findStaffByRoleId(roleId: string, entityManager?: EntityManager): Promise<Staff[]> {
+    const repo = entityManager ? entityManager.getRepository(Staff) : this;
+    return repo.find({ where: { roleId } });
+  }
+
+  async bulkUpdateRoleId(
+    staffIds: string[],
+    targetRoleId: string,
+    entityManager?: EntityManager,
+  ): Promise<void> {
+    const repo = entityManager ? entityManager.getRepository(Staff) : this;
+    await repo
+      .createQueryBuilder()
+      .update(Staff)
+      .set({ roleId: targetRoleId })
+      .whereInIds(staffIds)
+      .execute();
+  }
+
+  async updateStaffRoleById(
+    staffId: string,
+    roleId: string,
+    entityManager?: EntityManager,
+  ): Promise<void> {
+    const repo = entityManager ? entityManager.getRepository(Staff) : this;
+    await repo.update(staffId, { roleId });
+  }
 }
