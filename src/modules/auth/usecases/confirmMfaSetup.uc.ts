@@ -41,16 +41,13 @@ export class ConfirmMfaSetupUsecase extends Usecase<ConfirmMfaSetupResult> {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: MfaSetupConfirmDto,
-  ): Promise<ConfirmMfaSetupResult> {
+  async execute(em: EntityManager, params: MfaSetupConfirmDto): Promise<ConfirmMfaSetupResult> {
     const { totpCode, setupToken } = params;
     const mfaStaffId = this.requestContextService.getUserId();
     const ipAddress = this.requestContextService.getIp() ?? undefined;
     const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
-    const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId);
+    const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId, em);
     if (!mfaConfig) throw new UnauthorizedException('MFA setup not initiated');
 
     const valid = await this.mfaService.verifyTotp(mfaConfig.encryptedSecret, totpCode);
@@ -58,10 +55,14 @@ export class ConfirmMfaSetupUsecase extends Usecase<ConfirmMfaSetupResult> {
 
     // Generate and store backup codes
     const { plainCodes, hashedCodes } = await this.mfaService.generateBackupCodes();
-    await this.mfaConfigRepository.saveOrUpdate(mfaStaffId, {
-      backupCodeHashes: JSON.stringify(hashedCodes),
-      usedBackupCodes: JSON.stringify([]),
-    });
+    await this.mfaConfigRepository.saveOrUpdate(
+      mfaStaffId,
+      {
+        backupCodeHashes: JSON.stringify(hashedCodes),
+        usedBackupCodes: JSON.stringify([]),
+      },
+      em,
+    );
 
     // Mark MFA as enabled for staff
     await this.staffRepository.update(mfaStaffId, { mfaEnabled: true });
@@ -88,24 +89,30 @@ export class ConfirmMfaSetupUsecase extends Usecase<ConfirmMfaSetupResult> {
     const familyId = crypto.randomUUID();
     const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
-    await this.refreshTokenRepository.createToken({
-      tokenHash,
-      staffId: mfaStaffId,
-      familyId,
-      expiresAt: new Date(Date.now() + refreshExpiry * 1000),
-      userAgent,
-      ipAddress,
-    });
+    await this.refreshTokenRepository.createToken(
+      {
+        tokenHash,
+        staffId: mfaStaffId,
+        familyId,
+        expiresAt: new Date(Date.now() + refreshExpiry * 1000),
+        userAgent,
+        ipAddress,
+      },
+      em,
+    );
 
     await this.sessionService.addSession(mfaStaffId, familyId);
 
-    await this.eventLogService.log({
-      actorId: mfaStaffId,
-      event: EventType.MFA_SETUP,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: mfaStaffId,
+        event: EventType.MFA_SETUP,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     // Return backup codes (only shown once)
     return { accessGranted: true, backupCodes: plainCodes, accessToken, refreshToken: opaqueToken };

@@ -27,10 +27,7 @@ export class ResetPasswordUsecase extends Usecase<{ message: string }> {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: ResetPasswordDto,
-  ): Promise<{ message: string }> {
+  async execute(em: EntityManager, params: ResetPasswordDto): Promise<{ message: string }> {
     const { token, newPassword } = params;
     const ipAddress = this.requestContextService.getIp() ?? undefined;
     const userAgent = this.requestContextService.getUserAgent() ?? undefined;
@@ -57,13 +54,16 @@ export class ResetPasswordUsecase extends Usecase<{ message: string }> {
     // Delete the reset token
     await this.cacheAdapter.del(RedisKeys.pwReset(tokenHash), { db: CacheDbType.AUTH });
 
-    await this.eventLogService.log({
-      actorId: data.staffId,
-      event: EventType.PASSWORD_RESET_COMPLETED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: data.staffId,
+        event: EventType.PASSWORD_RESET_COMPLETED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { message: 'Password reset successfully. Please log in again.' };
   }

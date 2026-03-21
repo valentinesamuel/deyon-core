@@ -34,10 +34,7 @@ export class ForgotPasswordUsecase extends Usecase<{ message: string }> {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: ForgotPasswordDto,
-  ): Promise<{ message: string }> {
+  async execute(em: EntityManager, params: ForgotPasswordDto): Promise<{ message: string }> {
     const { email } = params;
     const ipAddress = this.requestContextService.getIp() ?? undefined;
     const userAgent = this.requestContextService.getUserAgent() ?? undefined;
@@ -77,13 +74,16 @@ export class ForgotPasswordUsecase extends Usecase<{ message: string }> {
       );
     }
 
-    await this.eventLogService.log({
-      actorId: staff.id,
-      event: EventType.PASSWORD_RESET_REQUESTED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staff.id,
+        event: EventType.PASSWORD_RESET_REQUESTED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return SAME_RESPONSE;
   }

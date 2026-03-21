@@ -45,7 +45,7 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     super();
   }
 
-  async execute(_entityManager: EntityManager, params: MfaVerifyDto): Promise<VerifyMfaResult> {
+  async execute(em: EntityManager, params: MfaVerifyDto): Promise<VerifyMfaResult> {
     const { totpCode } = params;
     const mfaStaffId = this.requestContextService.getUserId();
     const ipAddress = this.requestContextService.getIp() ?? undefined;
@@ -60,7 +60,7 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     if (!staff) throw new UnauthorizedException('Staff not found');
 
     // 2. Load MFA config
-    const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId);
+    const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId, em);
     if (!mfaConfig) throw new UnauthorizedException('MFA not configured');
 
     // 3. Anti-replay check
@@ -73,14 +73,17 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     // 4. Verify TOTP
     const valid = await this.mfaService.verifyTotp(mfaConfig.encryptedSecret, totpCode);
     if (!valid) {
-      await this.eventLogService.log({
-        actorId: mfaStaffId,
-        event: EventType.MFA_FAILED,
-        module: EventModule.AUTH,
-        ipAddress,
-        userAgent,
-        success: false,
-      });
+      await this.eventLogService.log(
+        {
+          actorId: mfaStaffId,
+          event: EventType.MFA_FAILED,
+          module: EventModule.AUTH,
+          ipAddress,
+          userAgent,
+          success: false,
+        },
+        em,
+      );
       throw new UnauthorizedException('Invalid TOTP code');
     }
 
@@ -106,27 +109,33 @@ export class VerifyMfaUsecase extends Usecase<VerifyMfaResult> {
     const familyId = crypto.randomUUID();
     const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
-    await this.refreshTokenRepository.createToken({
-      tokenHash,
-      staffId: mfaStaffId,
-      familyId,
-      expiresAt: new Date(Date.now() + refreshExpiry * 1000),
-      userAgent,
-      ipAddress,
-    });
+    await this.refreshTokenRepository.createToken(
+      {
+        tokenHash,
+        staffId: mfaStaffId,
+        familyId,
+        expiresAt: new Date(Date.now() + refreshExpiry * 1000),
+        userAgent,
+        ipAddress,
+      },
+      em,
+    );
 
     await this.sessionService.addSession(mfaStaffId, familyId);
 
     // 8. Update lastLogin
     await this.staffRepository.update(mfaStaffId, { lastLogin: new Date() });
 
-    await this.eventLogService.log({
-      actorId: mfaStaffId,
-      event: EventType.MFA_VERIFIED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: mfaStaffId,
+        event: EventType.MFA_VERIFIED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return {
       accessToken,

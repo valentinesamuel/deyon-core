@@ -26,7 +26,7 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
     super();
   }
 
-  async execute(_entityManager: EntityManager, params: StaffLoginDto): Promise<LoginStaffResult> {
+  async execute(em: EntityManager, params: StaffLoginDto): Promise<LoginStaffResult> {
     const { email, password } = params;
     const ipAddress = this.requestContextService.getIp() ?? undefined;
     const userAgent = this.requestContextService.getUserAgent() ?? undefined;
@@ -51,14 +51,17 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
 
     if (!staff) {
       // Always same error to prevent email enumeration
-      await this.eventLogService.log({
-        event: EventType.LOGIN_FAILED,
-        module: EventModule.AUTH,
-        ipAddress,
-        userAgent,
-        metadata: { reason: 'staff_not_found' },
-        success: false,
-      });
+      await this.eventLogService.log(
+        {
+          event: EventType.LOGIN_FAILED,
+          module: EventModule.AUTH,
+          ipAddress,
+          userAgent,
+          metadata: { reason: 'staff_not_found' },
+          success: false,
+        },
+        em,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -69,16 +72,19 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
     const isPasswordValid = await this.authService.verifyPassword(staff.passwordHash, password);
 
     if (!isPasswordValid) {
-      await this.authService.recordFailedAttempt(email, staff.id);
-      await this.eventLogService.log({
-        actorId: staff.id,
-        event: EventType.LOGIN_FAILED,
-        module: EventModule.AUTH,
-        ipAddress,
-        userAgent,
-        metadata: { reason: 'invalid_password' },
-        success: false,
-      });
+      await this.authService.recordFailedAttempt(email, staff.id, em);
+      await this.eventLogService.log(
+        {
+          actorId: staff.id,
+          event: EventType.LOGIN_FAILED,
+          module: EventModule.AUTH,
+          ipAddress,
+          userAgent,
+          metadata: { reason: 'invalid_password' },
+          success: false,
+        },
+        em,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -88,14 +94,17 @@ export class LoginStaffUsecase extends Usecase<LoginStaffResult> {
     // 6. Issue ephemeral MFA token (no cookies yet — step 1 of 2)
     const mfaToken = await this.authService.issueEphemeralMfaToken(staff.id);
 
-    await this.eventLogService.log({
-      actorId: staff.id,
-      event: EventType.LOGIN_SUCCESS,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-      metadata: { step: 'credentials_verified' },
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staff.id,
+        event: EventType.LOGIN_SUCCESS,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+        metadata: { step: 'credentials_verified' },
+      },
+      em,
+    );
 
     return { requiresMfa: true, mfaToken };
   }

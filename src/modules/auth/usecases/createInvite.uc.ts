@@ -29,7 +29,7 @@ export class CreateInviteUsecase extends Usecase<CreateInviteResult> {
   }
 
   async execute(
-    _entityManager: EntityManager,
+    em: EntityManager,
     params: StaffInviteDto & { invitedById?: string },
   ): Promise<CreateInviteResult> {
     const { email, roleId, departmentId, invitedById } = params;
@@ -41,14 +41,17 @@ export class CreateInviteUsecase extends Usecase<CreateInviteResult> {
 
     const expiresAt = new Date(Date.now() + RedisTTL.invite * 1000);
 
-    await this.inviteTokenRepository.createToken({
-      tokenHash,
-      email,
-      roleId,
-      departmentId,
-      expiresAt,
-      invitedById,
-    });
+    await this.inviteTokenRepository.createToken(
+      {
+        tokenHash,
+        email,
+        roleId,
+        departmentId,
+        expiresAt,
+        invitedById,
+      },
+      em,
+    );
 
     // Also cache in Redis for fast lookup
     await this.cacheAdapter.set(
@@ -57,14 +60,17 @@ export class CreateInviteUsecase extends Usecase<CreateInviteResult> {
       { db: CacheDbType.AUTH, ttl: RedisTTL.invite },
     );
 
-    await this.eventLogService.log({
-      actorId: invitedById,
-      event: EventType.INVITE_SENT,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-      metadata: { email },
-    });
+    await this.eventLogService.log(
+      {
+        actorId: invitedById,
+        event: EventType.INVITE_SENT,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+        metadata: { email },
+      },
+      em,
+    );
 
     return { inviteToken: plainToken, email };
   }

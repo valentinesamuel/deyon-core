@@ -66,14 +66,17 @@ export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParam
     const saved = await em.getRepository(Role).save(role);
 
     // 6. Log event
-    await this.eventService.log({
-      actorId,
-      event: EventType.ROLE_CREATED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-      metadata: { roleName: dto.name, permissions: permCodes },
-    });
+    await this.eventService.log(
+      {
+        actorId,
+        event: EventType.ROLE_CREATED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+        metadata: { roleName: dto.name, permissions: permCodes },
+      },
+      em,
+    );
 
     // 7. Return result
     return {

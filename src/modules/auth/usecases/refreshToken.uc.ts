@@ -33,10 +33,7 @@ export class RefreshTokenUsecase extends Usecase<RefreshTokenResult> {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: { refreshToken: string },
-  ): Promise<RefreshTokenResult> {
+  async execute(em: EntityManager, params: { refreshToken: string }): Promise<RefreshTokenResult> {
     const { refreshToken: opaqueToken } = params;
     const ipAddress = this.requestContextService.getIp() ?? undefined;
     const userAgent = this.requestContextService.getUserAgent() ?? undefined;
@@ -44,26 +41,29 @@ export class RefreshTokenUsecase extends Usecase<RefreshTokenResult> {
     if (!opaqueToken) throw new UnauthorizedException('No refresh token provided');
 
     const tokenHash = this.tokenService.sha256(opaqueToken);
-    const stored = await this.refreshTokenRepository.findByTokenHash(tokenHash);
+    const stored = await this.refreshTokenRepository.findByTokenHash(tokenHash, em);
 
     if (!stored) throw new UnauthorizedException('Invalid refresh token');
 
     // Theft detection: token was already revoked
     if (stored.isRevoked) {
       await this.sessionService.revokeFamily(stored.staffId, stored.familyId);
-      await this.eventLogService.log({
-        actorId: stored.staffId,
-        event: EventType.TOKEN_THEFT_DETECTED,
-        module: EventModule.AUTH,
-        ipAddress,
-        userAgent,
-        success: false,
-      });
+      await this.eventLogService.log(
+        {
+          actorId: stored.staffId,
+          event: EventType.TOKEN_THEFT_DETECTED,
+          module: EventModule.AUTH,
+          ipAddress,
+          userAgent,
+          success: false,
+        },
+        em,
+      );
       throw new UnauthorizedException('Token reuse detected — all sessions terminated');
     }
 
     if (stored.expiresAt < new Date()) {
-      await this.refreshTokenRepository.revokeToken(tokenHash);
+      await this.refreshTokenRepository.revokeToken(tokenHash, em);
       throw new UnauthorizedException('Refresh token expired');
     }
 
@@ -76,7 +76,7 @@ export class RefreshTokenUsecase extends Usecase<RefreshTokenResult> {
     }
 
     // Rotate: revoke old token, issue new pair
-    await this.refreshTokenRepository.revokeToken(tokenHash);
+    await this.refreshTokenRepository.revokeToken(tokenHash, em);
 
     const newJti = this.tokenService.generateJti();
     const newAccessToken = this.tokenService.signAccessToken({
@@ -89,25 +89,31 @@ export class RefreshTokenUsecase extends Usecase<RefreshTokenResult> {
     const newTokenHash = this.tokenService.sha256(newOpaqueToken);
     const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
-    await this.refreshTokenRepository.createToken({
-      tokenHash: newTokenHash,
-      staffId: staff.id,
-      familyId: stored.familyId,
-      expiresAt: new Date(Date.now() + refreshExpiry * 1000),
-      userAgent,
-      ipAddress,
-    });
+    await this.refreshTokenRepository.createToken(
+      {
+        tokenHash: newTokenHash,
+        staffId: staff.id,
+        familyId: stored.familyId,
+        expiresAt: new Date(Date.now() + refreshExpiry * 1000),
+        userAgent,
+        ipAddress,
+      },
+      em,
+    );
 
     // Invalidate profile cache to pick up any role changes
     await this.cacheAdapter.del(RedisKeys.profile(staff.id), { db: CacheDbType.AUTH });
 
-    await this.eventLogService.log({
-      actorId: staff.id,
-      event: EventType.TOKEN_REFRESHED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staff.id,
+        event: EventType.TOKEN_REFRESHED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { accessToken: newAccessToken, newRefreshToken: newOpaqueToken };
   }

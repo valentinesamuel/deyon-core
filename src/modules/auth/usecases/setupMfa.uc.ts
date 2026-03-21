@@ -23,7 +23,7 @@ export class SetupMfaUsecase extends Usecase<SetupMfaResult> {
     super();
   }
 
-  async execute(_entityManager: EntityManager, _params: MfaSetupDto): Promise<SetupMfaResult> {
+  async execute(em: EntityManager, _params: MfaSetupDto): Promise<SetupMfaResult> {
     const mfaStaffId = this.requestContextService.getUserId();
 
     const staff = await this.staffRepository.findOne({ where: { id: mfaStaffId } });
@@ -34,7 +34,7 @@ export class SetupMfaUsecase extends Usecase<SetupMfaResult> {
     );
 
     // Store encrypted secret (not yet confirmed)
-    await this.mfaConfigRepository.saveOrUpdate(mfaStaffId, { encryptedSecret });
+    await this.mfaConfigRepository.saveOrUpdate(mfaStaffId, { encryptedSecret }, em);
 
     return { qrCodeDataUrl, otpAuthUrl };
   }

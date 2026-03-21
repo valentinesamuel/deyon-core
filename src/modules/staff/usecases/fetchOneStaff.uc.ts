@@ -15,7 +15,7 @@ export class FetchOneStaffUsecase extends Usecase<Staff, FetchOneStaffParams> {
     super();
   }
 
-  async execute(_em: EntityManager, params: FetchOneStaffParams): Promise<Staff> {
+  async execute(em: EntityManager, params: FetchOneStaffParams): Promise<Staff> {
     return this.queryEngine.executeOne(Staff, params.id, params.query, STAFF_QUERY_CONFIG);
   }
 }

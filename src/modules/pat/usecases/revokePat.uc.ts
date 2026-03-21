@@ -25,10 +25,10 @@ export class RevokePatUsecase extends Usecase<RevokePatResult> {
     super();
   }
 
-  async execute(_em: EntityManager, params: { id: string }): Promise<RevokePatResult> {
+  async execute(em: EntityManager, params: { id: string }): Promise<RevokePatResult> {
     const staffId = this.requestContextService.getUserId();
 
-    const revoked = await this.patRepository.revokeById(params.id, staffId);
+    const revoked = await this.patRepository.revokeById(params.id, staffId, em);
     if (!revoked) {
       throw new NotFoundException('Personal access token not found');
     }

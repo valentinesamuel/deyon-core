@@ -17,15 +17,15 @@ export class RoleService {
 
   async findOneByDataAndFailIfNotExists(
     options: FindResourceOptions<Role>,
-    entitymanger?: EntityManager,
+    entityManager?: EntityManager,
   ) {
-    return this.roleRepository.findOneOrFailIfNotExists(options, entitymanger);
+    return this.roleRepository.findOneOrFailIfNotExists(options, entityManager);
   }
 
   async findOneByDataAndFailIfExists(
     options: FindResourceOptions<Role>,
-    entitymanger?: EntityManager,
+    entityManager?: EntityManager,
   ) {
-    return this.roleRepository.findOneOrFailIfExists(options, entitymanger);
+    return this.roleRepository.findOneOrFailIfExists(options, entityManager);
   }
 }

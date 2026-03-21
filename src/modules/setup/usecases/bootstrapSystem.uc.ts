@@ -57,7 +57,7 @@ export class BootstrapSystemUsecase extends Usecase<BootstrapSystemResult> {
     }
 
     // 2. Load CMO's MFA config
-    const mfaConfig = await this.mfaConfigRepository.findByStaffId(staffId);
+    const mfaConfig = await this.mfaConfigRepository.findByStaffId(staffId, entityManager);
     if (!mfaConfig) {
       throw new UnauthorizedException('MFA not configured');
     }
@@ -91,13 +91,16 @@ export class BootstrapSystemUsecase extends Usecase<BootstrapSystemResult> {
     );
 
     // 7. Log event
-    await this.eventLogService.log({
-      actorId: staffId,
-      event: EventType.SETUP_COMPLETED,
-      module: EventModule.SETUP,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staffId,
+        event: EventType.SETUP_COMPLETED,
+        module: EventModule.SETUP,
+        ipAddress,
+        userAgent,
+      },
+      entityManager,
+    );
 
     // 8. Invalidate Redis profile cache (fire-and-forget)
     try {

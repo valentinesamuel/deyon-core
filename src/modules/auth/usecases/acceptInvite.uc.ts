@@ -33,10 +33,7 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: AcceptInviteDto,
-  ): Promise<AcceptInviteResult> {
+  async execute(em: EntityManager, params: AcceptInviteDto): Promise<AcceptInviteResult> {
     const { token, firstName, lastName, phoneNumber, password, licenseNumber, specialization } =
       params;
     const ipAddress = this.requestContextService.getIp() ?? undefined;
@@ -51,8 +48,10 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
       departmentId: string;
     }>(RedisKeys.invite(tokenHash), { db: CacheDbType.AUTH });
 
-    const inviteRecord =
-      await this.inviteTokenRepository.findByTokenHashAndFailIfNotExist(tokenHash);
+    const inviteRecord = await this.inviteTokenRepository.findByTokenHashAndFailIfNotExist(
+      tokenHash,
+      em,
+    );
 
     if (inviteRecord.isUsed) {
       throw new BadRequestException('Invite token has already been used');
@@ -67,41 +66,50 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     const departmentId = cached?.departmentId ?? inviteRecord.departmentId;
 
     // Ensure no duplicate
-    await this.staffRepository.findOneOrFailIfExists({
-      where: [{ email: emailToUse }, { phoneNumber }],
-      select: { id: true },
-    });
+    await this.staffRepository.findOneOrFailIfExists(
+      {
+        where: [{ email: emailToUse }, { phoneNumber }],
+        select: { id: true },
+      },
+      em,
+    );
 
     const passwordHash = await this.authService.hashPassword(password);
 
-    const staff = await this.staffRepository.createStaff({
-      firstName,
-      lastName,
-      email: emailToUse,
-      phoneNumber,
-      passwordHash,
-      licenseNumber,
-      specialization,
-      roleId,
-      departmentId,
-      isActive: true,
-      isApproved: true,
-    });
+    const staff = await this.staffRepository.createStaff(
+      {
+        firstName,
+        lastName,
+        email: emailToUse,
+        phoneNumber,
+        passwordHash,
+        licenseNumber,
+        specialization,
+        roleId,
+        departmentId,
+        isActive: true,
+        isApproved: true,
+      },
+      em,
+    );
 
     // Mark invite as used
-    await this.inviteTokenRepository.markAsUsed(inviteRecord.id);
+    await this.inviteTokenRepository.markAsUsed(inviteRecord.id, em);
     await this.cacheAdapter.del(RedisKeys.invite(tokenHash), { db: CacheDbType.AUTH });
 
     // Issue MFA setup token
     const setupToken = await this.authService.issueEphemeralSetupToken(staff.id);
 
-    await this.eventLogService.log({
-      actorId: staff.id,
-      event: EventType.INVITE_ACCEPTED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staff.id,
+        event: EventType.INVITE_ACCEPTED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { requiresMfaSetup: true, setupToken, staffId: staff.id };
   }

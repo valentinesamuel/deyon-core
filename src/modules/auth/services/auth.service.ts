@@ -1,6 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import * as crypto from 'node:crypto';
+import { EntityManager } from 'typeorm';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 import { CacheAdapter } from '@adapters/cache/cache.adapter';
 import { CacheDbType } from '@adapters/cache/providers/redis.provider';
@@ -39,7 +40,7 @@ export class AuthService {
     }
   }
 
-  async recordFailedAttempt(email: string, staffId?: string): Promise<void> {
+  async recordFailedAttempt(email: string, staffId?: string, em?: EntityManager): Promise<void> {
     const attemptsKey = RedisKeys.loginAttempts(email);
     const count = await this.cacheAdapter.incr(attemptsKey, { db: CacheDbType.AUTH });
     await this.cacheAdapter.expire(attemptsKey, RedisTTL.loginAttempts, { db: CacheDbType.AUTH });
@@ -50,7 +51,8 @@ export class AuthService {
         ttl: RedisTTL.loginLockout,
       });
       if (staffId) {
-        await this.staffRepository.update(staffId, {
+        const repo = em ? em.getRepository(this.staffRepository.target) : this.staffRepository;
+        await repo.update(staffId, {
           lockedUntil: new Date(Date.now() + RedisTTL.loginLockout * 1000),
         });
       }

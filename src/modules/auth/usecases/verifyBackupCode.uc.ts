@@ -38,10 +38,7 @@ export class VerifyBackupCodeUsecase extends Usecase<VerifyBackupCodeResult> {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: MfaBackupVerifyDto,
-  ): Promise<VerifyBackupCodeResult> {
+  async execute(em: EntityManager, params: MfaBackupVerifyDto): Promise<VerifyBackupCodeResult> {
     const { backupCode } = params;
     const mfaStaffId = this.requestContextService.getUserId();
     const ipAddress = this.requestContextService.getIp() ?? undefined;
@@ -53,7 +50,7 @@ export class VerifyBackupCodeUsecase extends Usecase<VerifyBackupCodeResult> {
     });
     if (!staff) throw new UnauthorizedException('Staff not found');
 
-    const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId);
+    const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId, em);
     if (!mfaConfig || !mfaConfig.backupCodeHashes) {
       throw new UnauthorizedException('Backup codes not configured');
     }
@@ -65,23 +62,30 @@ export class VerifyBackupCodeUsecase extends Usecase<VerifyBackupCodeResult> {
 
     const matchIndex = await this.mfaService.verifyBackupCode(backupCode, hashedCodes);
     if (matchIndex === -1 || usedIndexes.includes(matchIndex)) {
-      await this.eventLogService.log({
-        actorId: mfaStaffId,
-        event: EventType.MFA_FAILED,
-        module: EventModule.AUTH,
-        ipAddress,
-        userAgent,
-        metadata: { reason: 'invalid_backup_code' },
-        success: false,
-      });
+      await this.eventLogService.log(
+        {
+          actorId: mfaStaffId,
+          event: EventType.MFA_FAILED,
+          module: EventModule.AUTH,
+          ipAddress,
+          userAgent,
+          metadata: { reason: 'invalid_backup_code' },
+          success: false,
+        },
+        em,
+      );
       throw new UnauthorizedException('Invalid or already used backup code');
     }
 
     // Mark backup code as used
     usedIndexes.push(matchIndex);
-    await this.mfaConfigRepository.saveOrUpdate(mfaStaffId, {
-      usedBackupCodes: JSON.stringify(usedIndexes),
-    });
+    await this.mfaConfigRepository.saveOrUpdate(
+      mfaStaffId,
+      {
+        usedBackupCodes: JSON.stringify(usedIndexes),
+      },
+      em,
+    );
 
     // Enforce session limit and issue tokens
     await this.sessionService.enforceSessionLimit(mfaStaffId);
@@ -98,25 +102,31 @@ export class VerifyBackupCodeUsecase extends Usecase<VerifyBackupCodeResult> {
     const familyId = crypto.randomUUID();
     const refreshExpiry = this.configService.get<number>('common.jwt.refreshExpiry')!;
 
-    await this.refreshTokenRepository.createToken({
-      tokenHash,
-      staffId: mfaStaffId,
-      familyId,
-      expiresAt: new Date(Date.now() + refreshExpiry * 1000),
-      userAgent,
-      ipAddress,
-    });
+    await this.refreshTokenRepository.createToken(
+      {
+        tokenHash,
+        staffId: mfaStaffId,
+        familyId,
+        expiresAt: new Date(Date.now() + refreshExpiry * 1000),
+        userAgent,
+        ipAddress,
+      },
+      em,
+    );
 
     await this.sessionService.addSession(mfaStaffId, familyId);
     await this.staffRepository.update(mfaStaffId, { lastLogin: new Date() });
 
-    await this.eventLogService.log({
-      actorId: mfaStaffId,
-      event: EventType.MFA_BACKUP_USED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: mfaStaffId,
+        event: EventType.MFA_BACKUP_USED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { accessToken, refreshToken: opaqueToken, staffId: mfaStaffId };
   }

@@ -25,7 +25,7 @@ export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
   }
 
   async execute(
-    _entityManager: EntityManager,
+    em: EntityManager,
     params: { accessToken: string; refreshToken: string },
   ): Promise<{ loggedOut: boolean }> {
     const { accessToken, refreshToken } = params;
@@ -53,23 +53,26 @@ export class LogoutUsecase extends Usecase<{ loggedOut: boolean }> {
     // Revoke refresh token
     if (refreshToken) {
       const tokenHash = this.tokenService.sha256(refreshToken);
-      const stored = await this.refreshTokenRepository.findByTokenHash(tokenHash);
+      const stored = await this.refreshTokenRepository.findByTokenHash(tokenHash, em);
       if (stored) {
         staffId = staffId ?? stored.staffId;
-        await this.refreshTokenRepository.revokeToken(tokenHash);
+        await this.refreshTokenRepository.revokeToken(tokenHash, em);
         await this.sessionService.removeSession(stored.staffId, stored.familyId);
       }
     }
 
     if (!staffId) throw new UnauthorizedException('No active session found');
 
-    await this.eventLogService.log({
-      actorId: staffId,
-      event: EventType.LOGOUT,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staffId,
+        event: EventType.LOGOUT,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { loggedOut: true };
   }

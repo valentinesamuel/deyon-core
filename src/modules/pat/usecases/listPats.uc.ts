@@ -28,9 +28,9 @@ export class ListPatsUsecase extends Usecase<ListPatsResult> {
     super();
   }
 
-  async execute(_em: EntityManager, _params: Record<string, unknown>): Promise<ListPatsResult> {
+  async execute(em: EntityManager, _params: Record<string, unknown>): Promise<ListPatsResult> {
     const staffId = this.requestContextService.getUserId();
-    const tokens = await this.patRepository.findAllForStaff(staffId);
+    const tokens = await this.patRepository.findAllForStaff(staffId, em);
 
     const pats: PatSummary[] = tokens.map((t) => ({
       id: t.id,

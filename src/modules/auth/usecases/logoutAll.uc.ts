@@ -23,7 +23,7 @@ export class LogoutAllUsecase extends Usecase<{ loggedOut: boolean }> {
   }
 
   async execute(
-    _entityManager: EntityManager,
+    em: EntityManager,
     params: { accessToken: string },
   ): Promise<{ loggedOut: boolean }> {
     const staffId = this.requestContextService.getUserId();
@@ -51,13 +51,16 @@ export class LogoutAllUsecase extends Usecase<{ loggedOut: boolean }> {
     // Invalidate profile cache
     await this.cacheAdapter.del(RedisKeys.profile(staffId), { db: CacheDbType.AUTH });
 
-    await this.eventLogService.log({
-      actorId: staffId,
-      event: EventType.LOGOUT_ALL,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staffId,
+        event: EventType.LOGOUT_ALL,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { loggedOut: true };
   }
