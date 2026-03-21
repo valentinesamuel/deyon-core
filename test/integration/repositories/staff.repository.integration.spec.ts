@@ -57,30 +57,32 @@ describe('StaffRepository Integration', () => {
     expect(rows[0].email).toBe('repo@hospital.com');
   });
 
-  it('findStaffAndFailIfExist throws ConflictException when staff exists', async () => {
+  it('findOneOrFailIfExists throws ConflictException when staff exists', async () => {
     const staff = await staffRepo.createStaff(createStaffData());
 
-    await expect(staffRepo.findStaffAndFailIfExist(staff.id)).rejects.toThrow(
-      'Staff already exists',
+    await expect(staffRepo.findOneOrFailIfExists({ where: { id: staff.id } })).rejects.toThrow(
+      'Resource already exists',
     );
   });
 
-  it('findStaffAndFailIfExist resolves silently when staff not found', async () => {
-    await expect(staffRepo.findStaffAndFailIfExist('non-existent-uuid')).resolves.toBeUndefined();
+  it('findOneOrFailIfExists resolves when staff not found', async () => {
+    await expect(
+      staffRepo.findOneOrFailIfExists({ where: { id: 'non-existent-uuid' } }),
+    ).resolves.toBeNull();
   });
 
-  it('findStaffAndFailIfNotExist returns staff when found', async () => {
+  it('findOneOrFailIfNotExists returns staff when found', async () => {
     const created = await staffRepo.createStaff(createStaffData());
 
-    const found = await staffRepo.findStaffAndFailIfNotExist(created.id);
+    const found = await staffRepo.findOneOrFailIfNotExists({ where: { id: created.id } });
     expect(found.id).toBe(created.id);
     expect(found.email).toBe('repo@hospital.com');
   });
 
-  it('findStaffAndFailIfNotExist throws BadRequestException when not found', async () => {
-    await expect(staffRepo.findStaffAndFailIfNotExist('non-existent-uuid')).rejects.toThrow(
-      'Staff not found',
-    );
+  it('findOneOrFailIfNotExists throws NotFoundException when not found', async () => {
+    await expect(
+      staffRepo.findOneOrFailIfNotExists({ where: { id: 'non-existent-uuid' } }),
+    ).rejects.toThrow('Resource not found');
   });
 
   it('updateStaff applies partial updates', async () => {
@@ -91,11 +93,11 @@ describe('StaffRepository Integration', () => {
     expect(updated?.lastName).toBe('Test'); // unchanged
   });
 
-  it('findStaffByDataAndFailIfExist throws when duplicate email', async () => {
+  it('findOneOrFailIfExists throws when duplicate email', async () => {
     await staffRepo.createStaff(createStaffData('dup@hospital.com'));
 
     await expect(
-      staffRepo.findStaffByDataAndFailIfExist({ where: { email: 'dup@hospital.com' } }),
-    ).rejects.toThrow('Staff already exists');
+      staffRepo.findOneOrFailIfExists({ where: { email: 'dup@hospital.com' } }),
+    ).rejects.toThrow('Resource already exists');
   });
 });

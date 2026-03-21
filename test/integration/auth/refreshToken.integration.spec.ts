@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { createTestingModule } from '../../helpers/app.helper';
@@ -78,16 +78,12 @@ describe('RefreshToken Integration', () => {
     const staff = await seedStaff();
     const { plain } = await seedActiveRefreshToken(staff.id);
 
-    const mockReq = { cookies: { refresh_token: plain } } as any;
-    const mockRes = { cookie: vi.fn(), clearCookie: vi.fn() } as any;
+    const result = await refreshUc.execute(dataSource.manager, { refreshToken: plain });
 
-    const result = await refreshUc.execute(dataSource.manager, {
-      req: mockReq,
-      res: mockRes,
+    expect(result).toMatchObject({
+      accessToken: expect.any(String),
+      newRefreshToken: expect.any(String),
     });
-
-    expect(result.refreshed).toBe(true);
-    expect(mockRes.cookie).toHaveBeenCalledTimes(2); // new access + refresh cookies
 
     // Old token should be revoked
     const oldHash = tokenService.sha256(plain);
@@ -107,24 +103,18 @@ describe('RefreshToken Integration', () => {
     // Revoke the token manually (simulating a stolen & used token)
     await refreshTokenRepo.revokeToken(tokenService.sha256(plain));
 
-    const mockReq = { cookies: { refresh_token: plain } } as any;
-    const mockRes = { cookie: vi.fn(), clearCookie: vi.fn() } as any;
-
-    await expect(
-      refreshUc.execute(dataSource.manager, { req: mockReq, res: mockRes }),
-    ).rejects.toThrow('Token reuse detected');
+    await expect(refreshUc.execute(dataSource.manager, { refreshToken: plain })).rejects.toThrow(
+      'Token reuse detected',
+    );
 
     // All tokens in the family must be revoked
     const familyTokens = await dataSource.getRepository(RefreshToken).find({ where: { familyId } });
     expect(familyTokens.every((t) => t.isRevoked)).toBe(true);
   });
 
-  it('throws 401 when no refresh token cookie present', async () => {
-    const mockReq = { cookies: {} } as any;
-    const mockRes = { cookie: vi.fn(), clearCookie: vi.fn() } as any;
-
-    await expect(
-      refreshUc.execute(dataSource.manager, { req: mockReq, res: mockRes }),
-    ).rejects.toThrow('No refresh token provided');
+  it('throws 401 when no refresh token provided', async () => {
+    await expect(refreshUc.execute(dataSource.manager, { refreshToken: '' })).rejects.toThrow(
+      'No refresh token provided',
+    );
   });
 });

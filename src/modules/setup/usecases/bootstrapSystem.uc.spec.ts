@@ -11,8 +11,11 @@ import { SystemConfigRepository } from '@adapters/repositories/systemConfig.repo
 import { RoleRepository } from '@adapters/repositories/role.repository';
 import { MfaService } from '@modules/auth/services/mfa.service';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
 import { SystemConfig } from '@modules/core/entities/systemConfig.entity';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 describe('BootstrapSystemUsecase', () => {
   let usecase: BootstrapSystemUsecase;
@@ -21,7 +24,7 @@ describe('BootstrapSystemUsecase', () => {
   let roleRepo: ReturnType<typeof mock<RoleRepository>>;
   let mfaService: ReturnType<typeof mock<MfaService>>;
   let eventLogService: ReturnType<typeof mock<EventLogService>>;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
   let em: ReturnType<typeof mock<EntityManager>>;
 
   const params = {
@@ -37,7 +40,7 @@ describe('BootstrapSystemUsecase', () => {
     roleRepo = mock<RoleRepository>();
     mfaService = mock<MfaService>();
     eventLogService = mock<EventLogService>();
-    redisService = mock<RedisService>();
+    cacheAdapter = mock<CacheAdapter>();
     em = mock<EntityManager>();
 
     usecase = new BootstrapSystemUsecase(
@@ -46,11 +49,11 @@ describe('BootstrapSystemUsecase', () => {
       roleRepo,
       mfaService,
       eventLogService,
-      redisService,
+      cacheAdapter,
     );
 
     eventLogService.log.mockResolvedValue(undefined);
-    redisService.del.mockResolvedValue(undefined);
+    cacheAdapter.del.mockResolvedValue(undefined);
     em.update.mockResolvedValue(undefined as any);
   });
 
@@ -68,6 +71,7 @@ describe('BootstrapSystemUsecase', () => {
 
     expect(result).toEqual({ success: true, roleAssigned: 'super_admin' });
     expect(em.update).toHaveBeenCalledTimes(2); // staff role + system config
+    expect(cacheAdapter.del).toHaveBeenCalledWith(expect.any(String), AUTH);
   });
 
   it('should throw ConflictException if setup already complete', async () => {

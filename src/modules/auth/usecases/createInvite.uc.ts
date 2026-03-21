@@ -6,8 +6,10 @@ import { InviteTokenRepository } from '@adapters/repositories/inviteToken.reposi
 import { TokenService } from '../services/token.service';
 import { EventLogService } from '../services/eventLog.service';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys, RedisTTL } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys, RedisTTL } from '@adapters/cache/cache.constants';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 export interface CreateInviteResult {
   inviteToken: string;
@@ -20,46 +22,55 @@ export class CreateInviteUsecase extends Usecase<CreateInviteResult> {
     private readonly inviteTokenRepository: InviteTokenRepository,
     private readonly tokenService: TokenService,
     private readonly eventLogService: EventLogService,
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
   async execute(
-    _entityManager: EntityManager,
-    params: StaffInviteDto & { invitedById?: string; ipAddress?: string; userAgent?: string },
+    em: EntityManager,
+    params: StaffInviteDto & { invitedById?: string },
   ): Promise<CreateInviteResult> {
-    const { email, roleId, departmentId, invitedById, ipAddress, userAgent } = params;
+    const { email, roleId, departmentId, invitedById } = params;
+    const ipAddress = this.requestContextService.getIp() ?? undefined;
+    const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
     const plainToken = this.tokenService.generateOpaqueToken();
     const tokenHash = this.tokenService.sha256(plainToken);
 
     const expiresAt = new Date(Date.now() + RedisTTL.invite * 1000);
 
-    await this.inviteTokenRepository.createToken({
-      tokenHash,
-      email,
-      roleId,
-      departmentId,
-      expiresAt,
-      invitedById,
-    });
-
-    // Also cache in Redis for fast lookup
-    await this.redisService.setJson(
-      RedisKeys.invite(tokenHash),
-      { email, roleId, departmentId },
-      RedisTTL.invite,
+    await this.inviteTokenRepository.createToken(
+      {
+        tokenHash,
+        email,
+        roleId,
+        departmentId,
+        expiresAt,
+        invitedById,
+      },
+      em,
     );
 
-    await this.eventLogService.log({
-      actorId: invitedById,
-      event: EventType.INVITE_SENT,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-      metadata: { email },
-    });
+    // Also cache in Redis for fast lookup
+    await this.cacheAdapter.set(
+      RedisKeys.invite(tokenHash),
+      { email, roleId, departmentId },
+      { db: CacheDbType.AUTH, ttl: RedisTTL.invite },
+    );
+
+    await this.eventLogService.log(
+      {
+        actorId: invitedById,
+        event: EventType.INVITE_SENT,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+        metadata: { email },
+      },
+      em,
+    );
 
     return { inviteToken: plainToken, email };
   }

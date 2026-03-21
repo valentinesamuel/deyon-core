@@ -53,29 +53,35 @@ export class RegisterCmoUsecase extends Usecase<RegisterCmoResult> {
     const passwordHash = await this.authService.hashPassword(password);
 
     // 4. Create CMO staff account
-    const staff = await this.staffRepository.createStaff({
-      firstName,
-      lastName,
-      email,
-      phoneNumber: this.applicationUtility.validatePhoneNumber(phoneNumber).number?.e164,
-      passwordHash,
-      isActive: true,
-      isApproved: true,
-      mfaEnabled: false,
-      roleId: undefined,
-    });
+    const staff = await this.staffRepository.createStaff(
+      {
+        firstName,
+        lastName,
+        email,
+        phoneNumber: this.applicationUtility.validatePhoneNumber(phoneNumber).number?.e164,
+        passwordHash,
+        isActive: true,
+        isApproved: true,
+        mfaEnabled: false,
+        roleId: undefined,
+      },
+      entityManager,
+    );
 
     // 5. Issue MFA setup token
     const setupToken = await this.authService.issueEphemeralSetupToken(staff.id);
 
     // 6. Log event
-    await this.eventLogService.log({
-      actorId: staff.id,
-      event: EventType.CMO_REGISTERED,
-      module: EventModule.SETUP,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staff.id,
+        event: EventType.CMO_REGISTERED,
+        module: EventModule.SETUP,
+        ipAddress,
+        userAgent,
+      },
+      entityManager,
+    );
 
     return { requiresMfaSetup: true, setupToken };
   }

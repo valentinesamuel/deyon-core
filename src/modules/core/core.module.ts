@@ -1,11 +1,13 @@
+import { CacheModule } from '@adapters/cache/cache.module';
 import { Broker } from '@broker/broker';
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { ApplicationUtility } from '@shared/utility/applicationUtility.service';
 
+@Global()
 @Module({
-  imports: [],
+  imports: [CacheModule],
   providers: [Broker, RequestContextService, ApplicationUtility],
-  exports: [Broker, RequestContextService, ApplicationUtility],
+  exports: [Broker, RequestContextService, ApplicationUtility, CacheModule],
 })
 export class CoreModule {}

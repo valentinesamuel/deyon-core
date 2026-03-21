@@ -15,15 +15,9 @@ export type FindResourceOptions<T> = {
 };
 
 export abstract class BaseRepository<T extends ObjectLiteral> extends Repository<T> {
-  private repo(entityManager?: EntityManager): Repository<T> {
-    return entityManager ? entityManager.getRepository(this.target) : this;
-  }
-
-  async findOneOrFailIfNotExists(
-    options: FindResourceOptions<T>,
-    entityManager?: EntityManager,
-  ): Promise<T> {
-    const entity = await this.repo(entityManager).findOne(options);
+  async findOneOrFailIfNotExists(options: FindResourceOptions<T>, em?: EntityManager): Promise<T> {
+    const repo = em ? em.getRepository(this.target) : this;
+    const entity = await repo.findOne(options);
 
     if (!entity) {
       throw new NotFoundException('Resource not found');
@@ -32,13 +26,14 @@ export abstract class BaseRepository<T extends ObjectLiteral> extends Repository
     return entity;
   }
 
-  async findOneOrFailIfExists(options: FindResourceOptions<T>, entityManager?: EntityManager) {
-    const exist = await this.repo(entityManager).existsBy(options.where);
+  async findOneOrFailIfExists(options: FindResourceOptions<T>, em?: EntityManager) {
+    const repo = em ? em.getRepository(this.target) : this;
+    const exist = await repo.existsBy(options.where);
 
     if (exist) {
       throw new ConflictException('Resource already exists');
     }
 
-    return this.repo(entityManager).findOne(options);
+    return repo.findOne(options);
   }
 }

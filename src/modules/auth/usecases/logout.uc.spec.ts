@@ -6,7 +6,9 @@ import { TokenService } from '../services/token.service';
 import { SessionService } from '../services/session.service';
 import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 describe('LogoutUsecase', () => {
   let usecase: LogoutUsecase;
@@ -14,35 +16,38 @@ describe('LogoutUsecase', () => {
   let sessionService: ReturnType<typeof mock<SessionService>>;
   let eventLogService: ReturnType<typeof mock<EventLogService>>;
   let refreshTokenRepo: ReturnType<typeof mock<RefreshTokenRepository>>;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
   let em: ReturnType<typeof mock<EntityManager>>;
-
-  const mockRes = { clearCookie: vi.fn() } as any;
 
   beforeEach(() => {
     tokenService = mock<TokenService>();
     sessionService = mock<SessionService>();
     eventLogService = mock<EventLogService>();
     refreshTokenRepo = mock<RefreshTokenRepository>();
-    redisService = mock<RedisService>();
+    cacheAdapter = mock<CacheAdapter>();
+    requestContextService = mock<RequestContextService>();
     em = mock<EntityManager>();
+
+    requestContextService.getIp.mockReturnValue('127.0.0.1');
+    requestContextService.getUserAgent.mockReturnValue('test-agent');
 
     usecase = new LogoutUsecase(
       tokenService,
       sessionService,
       eventLogService,
       refreshTokenRepo,
-      redisService,
+      cacheAdapter,
+      requestContextService,
     );
 
     eventLogService.log.mockResolvedValue(undefined);
-    tokenService.clearAuthCookies.mockReturnValue(undefined);
   });
 
-  it('should logout using access token JTI blocklist', async () => {
+  it('should logout using access token JTI blocklist and refresh token revocation', async () => {
     const payload = { sub: 'staff-1', jti: 'jti-1', exp: Math.floor(Date.now() / 1000) + 900 };
     tokenService.verifyAccessToken.mockReturnValue(payload as any);
-    redisService.set.mockResolvedValue(undefined);
+    cacheAdapter.set.mockResolvedValue(undefined);
     tokenService.sha256.mockReturnValue('hash-1');
     refreshTokenRepo.findByTokenHash.mockResolvedValue({
       staffId: 'staff-1',
@@ -52,13 +57,16 @@ describe('LogoutUsecase', () => {
     sessionService.removeSession.mockResolvedValue(undefined);
 
     const result = await usecase.execute(em, {
-      req: { cookies: { access_token: 'access', refresh_token: 'refresh' } } as any,
-      res: mockRes,
+      accessToken: 'access',
+      refreshToken: 'refresh',
     });
 
     expect(result).toEqual({ loggedOut: true });
-    expect(redisService.set).toHaveBeenCalled(); // JTI blocklisted
-    expect(tokenService.clearAuthCookies).toHaveBeenCalled();
+    expect(cacheAdapter.set).toHaveBeenCalledWith(
+      expect.stringContaining('jti-1'),
+      '1',
+      expect.objectContaining({ db: CacheDbType.AUTH }),
+    );
   });
 
   it('should logout using refresh token only', async () => {
@@ -72,8 +80,8 @@ describe('LogoutUsecase', () => {
     sessionService.removeSession.mockResolvedValue(undefined);
 
     const result = await usecase.execute(em, {
-      req: { cookies: { refresh_token: 'refresh' } } as any,
-      res: mockRes,
+      accessToken: '',
+      refreshToken: 'refresh',
     });
 
     expect(result).toEqual({ loggedOut: true });
@@ -84,11 +92,8 @@ describe('LogoutUsecase', () => {
     tokenService.sha256.mockReturnValue('hash-1');
     refreshTokenRepo.findByTokenHash.mockResolvedValue(null);
 
-    await expect(
-      usecase.execute(em, {
-        req: { cookies: { refresh_token: 'refresh' } } as any,
-        res: mockRes,
-      }),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(usecase.execute(em, { accessToken: '', refreshToken: 'refresh' })).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

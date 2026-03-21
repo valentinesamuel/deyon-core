@@ -11,6 +11,8 @@ export class ClsContextGuard implements CanActivate {
     if (request.user) {
       this.requestContext.setUser(request.user);
     }
+    this.requestContext.setIp(request.ip);
+    this.requestContext.setUserAgent(request.headers['user-agent']);
 
     return true;
   }

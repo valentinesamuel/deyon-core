@@ -7,7 +7,11 @@ import { SessionService } from '../services/session.service';
 import { TokenService } from '../services/token.service';
 import { EventLogService } from '../services/eventLog.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RequestContextService } from '@shared/context/requestContext.service';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 describe('ResetPasswordUsecase', () => {
   let usecase: ResetPasswordUsecase;
@@ -16,7 +20,8 @@ describe('ResetPasswordUsecase', () => {
   let tokenService: ReturnType<typeof mock<TokenService>>;
   let eventLogService: ReturnType<typeof mock<EventLogService>>;
   let staffRepo: ReturnType<typeof mock<StaffRepository>>;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
   let em: ReturnType<typeof mock<EntityManager>>;
 
   beforeEach(() => {
@@ -25,8 +30,12 @@ describe('ResetPasswordUsecase', () => {
     tokenService = mock<TokenService>();
     eventLogService = mock<EventLogService>();
     staffRepo = mock<StaffRepository>();
-    redisService = mock<RedisService>();
+    cacheAdapter = mock<CacheAdapter>();
+    requestContextService = mock<RequestContextService>();
     em = mock<EntityManager>();
+
+    requestContextService.getIp.mockReturnValue('127.0.0.1');
+    requestContextService.getUserAgent.mockReturnValue('test-agent');
 
     usecase = new ResetPasswordUsecase(
       authService,
@@ -34,17 +43,18 @@ describe('ResetPasswordUsecase', () => {
       tokenService,
       eventLogService,
       staffRepo,
-      redisService,
+      cacheAdapter,
+      requestContextService,
     );
 
     eventLogService.log.mockResolvedValue(undefined);
     tokenService.sha256.mockReturnValue('token-hash');
     sessionService.revokeAllSessions.mockResolvedValue(undefined);
-    redisService.del.mockResolvedValue(undefined);
+    cacheAdapter.del.mockResolvedValue(undefined);
   });
 
   it('should reset password and revoke all sessions', async () => {
-    redisService.getJson.mockResolvedValue({ staffId: 'staff-1' });
+    cacheAdapter.get.mockResolvedValue({ staffId: 'staff-1' });
     authService.hashPassword.mockResolvedValue('new-hash');
     staffRepo.update.mockResolvedValue(undefined as any);
 
@@ -57,11 +67,11 @@ describe('ResetPasswordUsecase', () => {
     expect(authService.hashPassword).toHaveBeenCalledWith('NewPass1!');
     expect(staffRepo.update).toHaveBeenCalled();
     expect(sessionService.revokeAllSessions).toHaveBeenCalledWith('staff-1');
-    expect(redisService.del).toHaveBeenCalled();
+    expect(cacheAdapter.del).toHaveBeenCalledWith(expect.any(String), AUTH);
   });
 
   it('should throw UnauthorizedException if token is invalid or expired', async () => {
-    redisService.getJson.mockResolvedValue(null);
+    cacheAdapter.get.mockResolvedValue(null);
 
     await expect(
       usecase.execute(em, {

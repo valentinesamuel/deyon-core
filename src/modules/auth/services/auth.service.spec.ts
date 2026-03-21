@@ -2,17 +2,20 @@ import { mock } from 'vitest-mock-extended';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 describe('AuthService', () => {
   let service: AuthService;
   let staffRepo: ReturnType<typeof mock<StaffRepository>>;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
 
   beforeEach(() => {
     staffRepo = mock<StaffRepository>();
-    redisService = mock<RedisService>();
-    service = new AuthService(staffRepo, redisService);
+    cacheAdapter = mock<CacheAdapter>();
+    service = new AuthService(staffRepo, cacheAdapter);
   });
 
   describe('hashPassword', () => {
@@ -44,40 +47,52 @@ describe('AuthService', () => {
   });
 
   describe('checkLockout', () => {
-    it('should throw UnauthorizedException if lockout key exists in Redis', async () => {
-      redisService.exists.mockResolvedValue(true);
+    it('should throw UnauthorizedException if lockout key exists in cache', async () => {
+      cacheAdapter.exists.mockResolvedValue(true);
       await expect(service.checkLockout('test@example.com')).rejects.toThrow(UnauthorizedException);
+      expect(cacheAdapter.exists).toHaveBeenCalledWith(
+        expect.stringContaining('test@example.com'),
+        AUTH,
+      );
     });
 
     it('should not throw if lockout key does not exist', async () => {
-      redisService.exists.mockResolvedValue(false);
+      cacheAdapter.exists.mockResolvedValue(false);
       await expect(service.checkLockout('test@example.com')).resolves.not.toThrow();
     });
   });
 
   describe('recordFailedAttempt', () => {
     it('should increment counter and set expiry without locking if below threshold', async () => {
-      redisService.incr.mockResolvedValue(3);
-      redisService.expire.mockResolvedValue(undefined);
+      cacheAdapter.incr.mockResolvedValue(3);
+      cacheAdapter.expire.mockResolvedValue(undefined);
 
       await service.recordFailedAttempt('test@example.com');
 
-      expect(redisService.incr).toHaveBeenCalled();
-      expect(redisService.expire).toHaveBeenCalled();
-      expect(redisService.set).not.toHaveBeenCalled();
+      expect(cacheAdapter.incr).toHaveBeenCalledWith(expect.any(String), AUTH);
+      expect(cacheAdapter.expire).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Number),
+        AUTH,
+      );
+      expect(cacheAdapter.set).not.toHaveBeenCalled();
     });
 
     it('should set lockout key and throw at MAX_FAILED_ATTEMPTS (5)', async () => {
-      redisService.incr.mockResolvedValue(5);
-      redisService.expire.mockResolvedValue(undefined);
-      redisService.set.mockResolvedValue(undefined);
+      cacheAdapter.incr.mockResolvedValue(5);
+      cacheAdapter.expire.mockResolvedValue(undefined);
+      cacheAdapter.set.mockResolvedValue(undefined);
       staffRepo.update.mockResolvedValue(undefined as any);
 
       await expect(service.recordFailedAttempt('test@example.com', 'staff-id')).rejects.toThrow(
         UnauthorizedException,
       );
 
-      expect(redisService.set).toHaveBeenCalled();
+      expect(cacheAdapter.set).toHaveBeenCalledWith(
+        expect.any(String),
+        '1',
+        expect.objectContaining({ db: CacheDbType.AUTH }),
+      );
       expect(staffRepo.update).toHaveBeenCalledWith(
         'staff-id',
         expect.objectContaining({ lockedUntil: expect.any(Date) }),
@@ -85,9 +100,9 @@ describe('AuthService', () => {
     });
 
     it('should not update staff record if staffId is not provided', async () => {
-      redisService.incr.mockResolvedValue(5);
-      redisService.expire.mockResolvedValue(undefined);
-      redisService.set.mockResolvedValue(undefined);
+      cacheAdapter.incr.mockResolvedValue(5);
+      cacheAdapter.expire.mockResolvedValue(undefined);
+      cacheAdapter.set.mockResolvedValue(undefined);
 
       await expect(service.recordFailedAttempt('test@example.com')).rejects.toThrow(
         UnauthorizedException,
@@ -98,37 +113,38 @@ describe('AuthService', () => {
   });
 
   describe('clearFailedAttempts', () => {
-    it('should delete the login attempts key from Redis', async () => {
-      redisService.del.mockResolvedValue(undefined);
+    it('should delete the login attempts key from cache', async () => {
+      cacheAdapter.del.mockResolvedValue(undefined);
       await service.clearFailedAttempts('test@example.com');
-      expect(redisService.del).toHaveBeenCalledWith(expect.stringContaining('test@example.com'));
+      expect(cacheAdapter.del).toHaveBeenCalledWith(
+        expect.stringContaining('test@example.com'),
+        AUTH,
+      );
     });
   });
 
   describe('issueEphemeralMfaToken', () => {
-    it('should return a 64-char hex token and store it in Redis', async () => {
-      redisService.setJson.mockResolvedValue(undefined);
+    it('should return a 64-char hex token and store it in cache', async () => {
+      cacheAdapter.set.mockResolvedValue(undefined);
       const token = await service.issueEphemeralMfaToken('staff-123');
       expect(token).toMatch(/^[0-9a-f]{64}$/);
-      // Key contains the random token (not staffId); staffId is in the value
-      expect(redisService.setJson).toHaveBeenCalledWith(
+      expect(cacheAdapter.set).toHaveBeenCalledWith(
         expect.stringContaining(token),
         expect.objectContaining({ staffId: 'staff-123' }),
-        expect.any(Number),
+        expect.objectContaining({ db: CacheDbType.AUTH }),
       );
     });
   });
 
   describe('issueEphemeralSetupToken', () => {
-    it('should return a 64-char hex token and store it in Redis with setup key', async () => {
-      redisService.setJson.mockResolvedValue(undefined);
+    it('should return a 64-char hex token and store it in cache with setup key', async () => {
+      cacheAdapter.set.mockResolvedValue(undefined);
       const token = await service.issueEphemeralSetupToken('staff-456');
       expect(token).toMatch(/^[0-9a-f]{64}$/);
-      // Key contains the random token (not staffId); staffId is in the value
-      expect(redisService.setJson).toHaveBeenCalledWith(
+      expect(cacheAdapter.set).toHaveBeenCalledWith(
         expect.stringContaining(token),
         expect.objectContaining({ staffId: 'staff-456' }),
-        expect.any(Number),
+        expect.objectContaining({ db: CacheDbType.AUTH }),
       );
     });
   });

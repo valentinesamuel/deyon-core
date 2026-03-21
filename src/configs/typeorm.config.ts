@@ -31,6 +31,6 @@ export const dataSource = {
   migrations: ['dist/migrations/**/*{.ts,.js}'],
   retryAttempts: Number.parseInt(process.env.DATABASE_RETRY_ATTEMPTS ?? '3'),
 };
-export default registerAs('typeorm', () => dataSource);
+export default registerAs('typeormConfig', () => dataSource);
 
 export const connectionSource = new DataSource(dataSource as DataSourceOptions);

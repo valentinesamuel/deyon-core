@@ -1,5 +1,3 @@
-export const REDIS_CLIENT = 'REDIS_CLIENT';
-
 export const RedisKeys = {
   loginAttempts: (email: string) => `auth:attempts:${email}`,
   loginLockout: (email: string) => `auth:lockout:${email}`,
@@ -13,6 +11,8 @@ export const RedisKeys = {
   invite: (tokenHash: string) => `auth:invite:${tokenHash}`,
   profile: (staffId: string) => `auth:profile:${staffId}`,
   role: (roleId: string) => `auth:role:${roleId}`,
+  pat: (tokenHash: string) => `auth:pat:${tokenHash}`,
+  patRevoked: (tokenHash: string) => `auth:pat:revoked:${tokenHash}`,
 } as const;
 
 export const RedisTTL = {
@@ -25,4 +25,6 @@ export const RedisTTL = {
   pwResetRate: 3600, // 1 hour
   invite: 172800, // 48 hours
   profile: 86400, // 24 hours
+  pat: 3600, // 1 hour
+  patRevoked: 90000, // 25 hours (longer than positive cache to eliminate race between instances)
 } as const;
