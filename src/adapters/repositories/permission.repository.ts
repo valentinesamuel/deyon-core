@@ -24,4 +24,8 @@ export class PermissionRepository extends BaseRepository<Permission> {
     const repo = em ? em.getRepository(Permission) : this;
     return repo.find({ where: { isActive: true } });
   }
+
+  async findByCodes(codes: string[]): Promise<Permission[]> {
+    return this.repo.find({ where: { code: In(codes), isActive: true } });
+  }
 }
