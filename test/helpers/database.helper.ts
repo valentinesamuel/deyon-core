@@ -1,4 +1,6 @@
 import { DataSource } from 'typeorm';
+import { TokenService } from '../../src/modules/auth/services/token.service';
+import { PersonalAccessToken } from '../../src/modules/core/entities/personalAccessToken.entity';
 
 export async function truncateAllTables(dataSource: DataSource): Promise<void> {
   const queryRunner = dataSource.createQueryRunner();
@@ -7,6 +9,7 @@ export async function truncateAllTables(dataSource: DataSource): Promise<void> {
     await queryRunner.query('SET session_replication_role = replica');
     // Truncate in FK-safe order
     const tables = [
+      'personal_access_token',
       'event_log',
       'refresh_token',
       'mfa_config',
@@ -58,7 +61,8 @@ export async function seedPermissionsAndRoles(dataSource: DataSource): Promise<v
       ('department:read',   'Read departments'),
       ('department:update', 'Update departments'),
       ('department:delete', 'Delete departments'),
-      ('permission:read',   'Read permissions')
+      ('permission:read',   'Read permissions'),
+    ('pat:generate',      'Generate personal access tokens')
     ON CONFLICT ("code") DO NOTHING
   `);
 
@@ -91,4 +95,41 @@ export async function seedPermissionsAndRoles(dataSource: DataSource): Promise<v
     VALUES ('setup_complete', '{"completed":false}')
     ON CONFLICT ("key") DO NOTHING
   `);
+
+  // Seed team_lead role with pat:generate permission
+  await dataSource.query(`
+    INSERT INTO "role" ("name", "alias", "is_active", "is_system_role")
+    SELECT 'Team Lead', 'team_lead', true, false
+    WHERE NOT EXISTS (SELECT 1 FROM "role" WHERE "alias" = 'team_lead')
+  `);
+
+  await dataSource.query(`
+    INSERT INTO "role_permission" ("role_id", "permission_id")
+    SELECT r.id, p.id
+    FROM "role" r, "permission" p
+    WHERE r.alias = 'team_lead' AND p.code = 'pat:generate'
+    ON CONFLICT DO NOTHING
+  `);
+}
+
+/**
+ * Seeds a personal access token for the given staffId.
+ * Returns the raw (unhashed) token string for use in Authorization: Bearer headers.
+ */
+export async function seedPat(
+  dataSource: DataSource,
+  tokenService: TokenService,
+  staffId: string,
+  name = 'test-pat',
+): Promise<string> {
+  const raw = tokenService.generateOpaqueToken();
+  await dataSource.getRepository(PersonalAccessToken).save(
+    dataSource.getRepository(PersonalAccessToken).create({
+      tokenHash: tokenService.sha256(raw),
+      staffId,
+      name,
+      isRevoked: false,
+    }),
+  );
+  return raw;
 }

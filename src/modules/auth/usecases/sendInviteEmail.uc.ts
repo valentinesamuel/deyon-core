@@ -22,7 +22,7 @@ export class SendInviteEmailUsecase extends Usecase<SendInviteEmailResult> {
   }
 
   async execute(
-    _entityManager: EntityManager,
+    entityManager: EntityManager,
     params: { inviteToken: string; email: string },
   ): Promise<SendInviteEmailResult> {
     const { inviteToken, email } = params;

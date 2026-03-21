@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import configSchema from '@config/schema.config';
 import common from '@config/common.config';
 import typeorm from '@config/typeorm.config';
+import cacheConfig from '@config/cache.config';
 import { Broker } from '@broker/broker';
 import { AppController } from './app.controller';
 import { ClsModule } from 'nestjs-cls';
@@ -18,28 +19,30 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { RoleModule } from '@modules/role/role.module';
 import { SetupModule } from '@modules/setup/setup.module';
 import { StaffModule } from '@modules/staff/staff.module';
-import { RedisModule } from '@shared/redis/redis.module';
+import { PatModule } from '@modules/pat/pat.module';
+import { CacheModule } from '@adapters/cache/cache.module';
 import { QueryEngineModule } from '@shared/queryEngine';
 
 @Module({
   imports: [
     SentryModule.forRoot(),
     ConfigModule.forRoot({
-      load: [common, typeorm],
+      load: [common, typeorm, cacheConfig],
       ...configSchema,
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => configService.get('typeorm')!,
+      useFactory: async (configService: ConfigService) => configService.get('typeormConfig')!,
     }),
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
-    RedisModule,
+    CacheModule,
     QueryEngineModule,
     AuthModule,
     RoleModule,
     SetupModule,
     StaffModule,
+    PatModule,
   ],
   controllers: [AppController],
   providers: [

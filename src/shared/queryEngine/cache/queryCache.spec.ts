@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mock } from 'vitest-mock-extended';
 import { QueryCache } from './queryCache';
-import { RedisService } from '../../shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
 import { ParsedQuery } from '../types/query.types';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 function makeParsedQuery(overrides: Partial<ParsedQuery> = {}): ParsedQuery {
   return {
@@ -23,11 +26,11 @@ function makeParsedQuery(overrides: Partial<ParsedQuery> = {}): ParsedQuery {
 
 describe('QueryCache', () => {
   let cache: QueryCache;
-  let redis: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
 
   beforeEach(() => {
-    redis = mock<RedisService>();
-    cache = new QueryCache(redis);
+    cacheAdapter = mock<CacheAdapter>();
+    cache = new QueryCache(cacheAdapter);
   });
 
   describe('getCacheKey', () => {
@@ -62,15 +65,15 @@ describe('QueryCache', () => {
         data: [],
         meta: { hasMore: false, limit: 20, nextCursor: null, prevCursor: null },
       };
-      redis.getJson.mockResolvedValue(expected);
+      cacheAdapter.get.mockResolvedValue(expected);
 
       const result = await cache.get('Staff', q);
       expect(result).toEqual(expected);
-      expect(redis.getJson).toHaveBeenCalledWith(cache.getCacheKey('Staff', q));
+      expect(cacheAdapter.get).toHaveBeenCalledWith(cache.getCacheKey('Staff', q), AUTH);
     });
 
     it('returns null on cache miss', async () => {
-      redis.getJson.mockResolvedValue(null);
+      cacheAdapter.get.mockResolvedValue(null);
       const result = await cache.get('Staff', makeParsedQuery());
       expect(result).toBeNull();
     });
@@ -80,48 +83,54 @@ describe('QueryCache', () => {
     it('stores value with the correct key and default TTL', async () => {
       const q = makeParsedQuery();
       const data = { data: [], meta: {} };
-      redis.setJson.mockResolvedValue(undefined);
+      cacheAdapter.set.mockResolvedValue(undefined);
 
       await cache.set('Staff', q, data);
 
-      expect(redis.setJson).toHaveBeenCalledWith(cache.getCacheKey('Staff', q), data, 60);
+      expect(cacheAdapter.set).toHaveBeenCalledWith(cache.getCacheKey('Staff', q), data, {
+        db: CacheDbType.AUTH,
+        ttl: 60,
+      });
     });
 
     it('stores value with custom TTL', async () => {
       const q = makeParsedQuery();
-      redis.setJson.mockResolvedValue(undefined);
+      cacheAdapter.set.mockResolvedValue(undefined);
 
       await cache.set('Staff', q, {}, 120);
 
-      expect(redis.setJson).toHaveBeenCalledWith(expect.any(String), {}, 120);
+      expect(cacheAdapter.set).toHaveBeenCalledWith(
+        expect.any(String),
+        {},
+        { db: CacheDbType.AUTH, ttl: 120 },
+      );
     });
   });
 
   describe('invalidate', () => {
     it('deletes all keys matching the entity pattern', async () => {
       const keys = ['qe:cache:Staff:abc123', 'qe:cache:Staff:def456'];
-      redis.scanKeys.mockResolvedValue(keys);
-      redis.del.mockResolvedValue(undefined);
+      cacheAdapter.scanKeys.mockResolvedValue(keys);
+      cacheAdapter.deleteMany.mockResolvedValue(undefined);
 
       await cache.invalidate('Staff');
 
-      expect(redis.scanKeys).toHaveBeenCalledWith('qe:cache:Staff:*');
-      expect(redis.del).toHaveBeenCalledWith(...keys);
+      expect(cacheAdapter.scanKeys).toHaveBeenCalledWith('qe:cache:Staff:*', AUTH);
+      expect(cacheAdapter.deleteMany).toHaveBeenCalledWith(keys, AUTH);
     });
 
-    it('does not call del when no keys found', async () => {
-      redis.scanKeys.mockResolvedValue([]);
+    it('does not call deleteMany when no keys found', async () => {
+      cacheAdapter.scanKeys.mockResolvedValue([]);
 
       await cache.invalidate('Staff');
 
-      expect(redis.del).not.toHaveBeenCalled();
+      expect(cacheAdapter.deleteMany).not.toHaveBeenCalled();
     });
   });
 
   describe('key determinism across property ordering', () => {
     it('produces the same key regardless of object key insertion order', () => {
       const q1 = makeParsedQuery({ fields: { root: ['id', 'name'] } });
-      // same fields, different object construction order doesn't matter for arrays
       const q2 = makeParsedQuery({ fields: { root: ['id', 'name'] } });
       expect(cache.getCacheKey('Staff', q1)).toBe(cache.getCacheKey('Staff', q2));
     });

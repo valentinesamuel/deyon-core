@@ -8,11 +8,11 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 
 import { IS_PUBLIC_KEY } from '@shared/decorators/isPublic.decorator';
-import { RequestUser } from '@shared/context/requestContext.type';
 import {
   PermissionCheckMode,
   REQUIRED_PERMISSIONS_KEY,
 } from '@shared/decorators/requirePermission.decorator';
+import { TRequestUser } from '@shared/context/requestContext.service';
 
 /**
  * Permission Guard
@@ -100,21 +100,24 @@ export class PermissionGuard {
   }
 
   /**
-   * Extract permission codes from user's roles
-   * User object should contain roles with permissions (set by JWT strategy)
+   * Extract permission codes from user's role (singular) or roles (plural array).
+   * Handles both shapes for forward compatibility.
    */
-  private extractUserPermissions(user: RequestUser): string[] {
-    if (!user.roles || !Array.isArray(user.roles)) {
-      return [];
-    }
-
+  private extractUserPermissions(user: TRequestUser): string[] {
     const permissionSet = new Set<string>();
 
-    // Iterate through user's roles and collect all permissions
-    for (const role of user.roles) {
+    // Support singular role shape (TRequestUser) and plural roles shape (legacy)
+    const roles: any[] =
+      (user as any).roles && Array.isArray((user as any).roles)
+        ? (user as any).roles
+        : (user as any).role
+          ? [(user as any).role]
+          : [];
+
+    for (const role of roles) {
       if (role.permissions && Array.isArray(role.permissions)) {
         for (const permission of role.permissions) {
-          if (permission.code && permission.isActive) {
+          if (permission.code && permission.isActive !== false) {
             permissionSet.add(permission.code);
           }
         }

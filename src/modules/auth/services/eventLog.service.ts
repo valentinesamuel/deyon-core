@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { EventLog, EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 
 export interface EventLogParams {
@@ -22,9 +22,10 @@ export class EventLogService {
     private readonly eventLogRepository: Repository<EventLog>,
   ) {}
 
-  async log(params: EventLogParams): Promise<void> {
+  async log(params: EventLogParams, em?: EntityManager): Promise<void> {
     try {
-      const entry = this.eventLogRepository.create({
+      const repo = em ? em.getRepository(EventLog) : this.eventLogRepository;
+      const entry = repo.create({
         actorId: params.actorId ?? null,
         event: params.event,
         module: params.module ?? null,
@@ -33,7 +34,7 @@ export class EventLogService {
         metadata: params.metadata,
         success: params.success ?? true,
       });
-      await this.eventLogRepository.save(entry);
+      await repo.save(entry);
     } catch (err) {
       // Audit must never break auth flow
       this.logger.error(

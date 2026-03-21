@@ -35,7 +35,7 @@ export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParam
   async execute(em: EntityManager, params: CreateRoleParams): Promise<CreateRoleResult> {
     const { params: dto, metadata } = params;
     const { ipAddress, userAgent } = metadata.requestMetadata;
-    const actorId = this.requestContextService.getUser()?.publicId;
+    const actorId = this.requestContextService.getUser()?.id;
 
     // 1. Check role name doesn't exist
     await this.roleService.findOneByDataAndFailIfExists({ where: { name: dto.name } }, em);
@@ -66,14 +66,17 @@ export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParam
     const saved = await em.getRepository(Role).save(role);
 
     // 6. Log event
-    await this.eventService.log({
-      actorId,
-      event: EventType.ROLE_CREATED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-      metadata: { roleName: dto.name, permissions: permCodes },
-    });
+    await this.eventService.log(
+      {
+        actorId,
+        event: EventType.ROLE_CREATED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+        metadata: { roleName: dto.name, permissions: permCodes },
+      },
+      em,
+    );
 
     // 7. Return result
     return {

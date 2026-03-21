@@ -22,4 +22,7 @@ export const PERMISSION = {
   PERMISSION: {
     READ: 'permission:read',
   },
+  PAT: {
+    GENERATE: 'pat:generate',
+  },
 } as const;

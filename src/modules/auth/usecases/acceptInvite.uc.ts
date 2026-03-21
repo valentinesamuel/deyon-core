@@ -8,8 +8,10 @@ import { AuthService } from '../services/auth.service';
 import { EventLogService } from '../services/eventLog.service';
 import { TokenService } from '../services/token.service';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys } from '@adapters/cache/cache.constants';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 export interface AcceptInviteResult {
   requiresMfaSetup: boolean;
@@ -25,38 +27,31 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     private readonly authService: AuthService,
     private readonly eventLogService: EventLogService,
     private readonly tokenService: TokenService,
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
+    private readonly requestContextService: RequestContextService,
   ) {
     super();
   }
 
-  async execute(
-    _entityManager: EntityManager,
-    params: AcceptInviteDto & { ipAddress?: string; userAgent?: string },
-  ): Promise<AcceptInviteResult> {
-    const {
-      token,
-      firstName,
-      lastName,
-      phoneNumber,
-      password,
-      licenseNumber,
-      specialization,
-      ipAddress,
-      userAgent,
-    } = params;
+  async execute(em: EntityManager, params: AcceptInviteDto): Promise<AcceptInviteResult> {
+    const { token, firstName, lastName, phoneNumber, password, licenseNumber, specialization } =
+      params;
+    const ipAddress = this.requestContextService.getIp() ?? undefined;
+    const userAgent = this.requestContextService.getUserAgent() ?? undefined;
 
     const tokenHash = this.tokenService.sha256(token);
 
     // Check Redis first, then DB
-    const cached = await this.redisService.getJson<{
+    const cached = await this.cacheAdapter.get<{
       email: string;
       roleId: string;
       departmentId: string;
-    }>(RedisKeys.invite(tokenHash));
+    }>(RedisKeys.invite(tokenHash), { db: CacheDbType.AUTH });
 
-    const inviteRecord =
-      await this.inviteTokenRepository.findByTokenHashAndFailIfNotExist(tokenHash);
+    const inviteRecord = await this.inviteTokenRepository.findByTokenHashAndFailIfNotExist(
+      tokenHash,
+      em,
+    );
 
     if (inviteRecord.isUsed) {
       throw new BadRequestException('Invite token has already been used');
@@ -71,41 +66,50 @@ export class AcceptInviteUsecase extends Usecase<AcceptInviteResult> {
     const departmentId = cached?.departmentId ?? inviteRecord.departmentId;
 
     // Ensure no duplicate
-    await this.staffRepository.findOneOrFailIfExists({
-      where: [{ email: emailToUse }, { phoneNumber }],
-      select: { id: true },
-    });
+    await this.staffRepository.findOneOrFailIfExists(
+      {
+        where: [{ email: emailToUse }, { phoneNumber }],
+        select: { id: true },
+      },
+      em,
+    );
 
     const passwordHash = await this.authService.hashPassword(password);
 
-    const staff = await this.staffRepository.createStaff({
-      firstName,
-      lastName,
-      email: emailToUse,
-      phoneNumber,
-      passwordHash,
-      licenseNumber,
-      specialization,
-      roleId,
-      departmentId,
-      isActive: true,
-      isApproved: true,
-    });
+    const staff = await this.staffRepository.createStaff(
+      {
+        firstName,
+        lastName,
+        email: emailToUse,
+        phoneNumber,
+        passwordHash,
+        licenseNumber,
+        specialization,
+        roleId,
+        departmentId,
+        isActive: true,
+        isApproved: true,
+      },
+      em,
+    );
 
     // Mark invite as used
-    await this.inviteTokenRepository.markAsUsed(inviteRecord.id);
-    await this.redisService.del(RedisKeys.invite(tokenHash));
+    await this.inviteTokenRepository.markAsUsed(inviteRecord.id, em);
+    await this.cacheAdapter.del(RedisKeys.invite(tokenHash), { db: CacheDbType.AUTH });
 
     // Issue MFA setup token
     const setupToken = await this.authService.issueEphemeralSetupToken(staff.id);
 
-    await this.eventLogService.log({
-      actorId: staff.id,
-      event: EventType.INVITE_ACCEPTED,
-      module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staff.id,
+        event: EventType.INVITE_ACCEPTED,
+        module: EventModule.AUTH,
+        ipAddress,
+        userAgent,
+      },
+      em,
+    );
 
     return { requiresMfaSetup: true, setupToken, staffId: staff.id };
   }
