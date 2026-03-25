@@ -12,7 +12,7 @@ import { RequestContextService } from '@shared/context/requestContext.service';
 
 type CreateRoleParams = { params: CreateRoleDto; metadata: RequestMetadata };
 
-export interface CreateRoleResult {
+export type CreateRoleResult = {
   name: string;
   alias: string;
   permissions: {
@@ -20,7 +20,7 @@ export interface CreateRoleResult {
     description: string;
     isActive: boolean;
   }[];
-}
+};
 
 @Injectable()
 export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParams> {

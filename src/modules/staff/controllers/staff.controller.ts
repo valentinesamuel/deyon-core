@@ -22,7 +22,7 @@ export class StaffController {
 
   @Get('')
   @RequirePermissions([PERMISSION.STAFF.READ, PERMISSION.STAFF.LIST])
-  fetchAllStaff(@Query() query: GetAllQueryDto, @Req() _req: Request) {
+  fetchAllStaff(@Query() query: GetAllQueryDto) {
     return this.serviceBroker.runUsecases([this.fetchAllStaffUsecase], { query });
   }
 
