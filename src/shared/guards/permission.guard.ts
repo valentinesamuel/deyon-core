@@ -77,7 +77,7 @@ export class PermissionGuard {
     const user = request.user;
 
     if (!user) {
-      throw new UnauthorizedException('ERR_SPY_7');
+      throw new UnauthorizedException('ERR_DYN_7');
     }
 
     // Extract user's permissions from their roles
@@ -90,7 +90,7 @@ export class PermissionGuard {
       throw new ForbiddenException({
         // statusCode: 403,
         // error: 'INSUFFICIENT_PERMISSIONS',
-        message: 'ERR_SPY_8',
+        message: 'ERR_DYN_8',
         // required: requiredPermissions,
         // mode,
       });

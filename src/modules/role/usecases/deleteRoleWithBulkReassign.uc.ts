@@ -2,14 +2,13 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { BulkReassignDto } from '@modules/role/dto/reassignStaff.dto';
-import { RequestMetadata } from '@shared/validations/reqMetadata.dto';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { RoleRepository } from '@adapters/repositories/role.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
 
-type TDeleteBulkParams = { id: string; params: BulkReassignDto; metadata: RequestMetadata };
+type TDeleteBulkParams = { id: string; params: BulkReassignDto };
 type TDeleteBulkResult = { deleted: boolean; reassigned: number };
 
 @Injectable()
@@ -27,8 +26,7 @@ export class DeleteRoleWithBulkReassignUsecase extends Usecase<
   }
 
   async execute(em: EntityManager, params: TDeleteBulkParams): Promise<TDeleteBulkResult> {
-    const { id, params: dto, metadata } = params;
-    const { ipAddress, userAgent } = metadata.requestMetadata;
+    const { id, params: dto } = params;
     const actorId = this.requestContextService.getUser()?.id;
 
     const role = await this.roleRepository.findRoleById(id, em);
@@ -51,8 +49,8 @@ export class DeleteRoleWithBulkReassignUsecase extends Usecase<
       actorId,
       event: EventType.ROLE_DELETED,
       module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
+      ipAddress: this.requestContextService.getIp(),
+      userAgent: this.requestContextService.getUserAgent(),
       metadata: { roleId: id, targetRoleId: dto.targetRoleId, reassigned: staffIds.length },
     });
 
@@ -60,8 +58,8 @@ export class DeleteRoleWithBulkReassignUsecase extends Usecase<
       actorId,
       event: EventType.STAFF_ROLE_REASSIGNED,
       module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
+      ipAddress: this.requestContextService.getIp(),
+      userAgent: this.requestContextService.getUserAgent(),
       metadata: { fromRoleId: id, toRoleId: dto.targetRoleId, staffCount: staffIds.length },
     });
 

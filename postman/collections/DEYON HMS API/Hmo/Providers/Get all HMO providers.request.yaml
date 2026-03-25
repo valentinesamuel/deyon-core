@@ -1,0 +1,12 @@
+$kind: http-request
+name: Get all HMO providers
+url: "{{baseUrl}}hmo/providers"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+auth:
+  type: inherit
+  credentials:
+    id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76
+examples: .resources/Get all HMO providers.resources/examples
+order: 566386166796143

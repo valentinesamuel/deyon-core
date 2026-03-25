@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
-import { RequestMetadata } from '@shared/validations/reqMetadata.dto';
 import { CreateHmoProviderDto } from '../dto.createHmoProvider.dto';
 import { HmoProviderService } from '../service/hmoProvider.service';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
-
-type CreateHmoProviderParams = { params: CreateHmoProviderDto; metadata: RequestMetadata };
 
 type CreateHmoProviderResult = {
   id: string;
@@ -28,7 +25,7 @@ type CreateHmoProviderResult = {
 @Injectable()
 export class CreateHmoProviderUsecase extends Usecase<
   CreateHmoProviderResult,
-  CreateHmoProviderParams
+  CreateHmoProviderDto
 > {
   constructor(
     private readonly hmoProviderService: HmoProviderService,
@@ -38,12 +35,8 @@ export class CreateHmoProviderUsecase extends Usecase<
     super();
   }
 
-  async execute(
-    em: EntityManager,
-    params: CreateHmoProviderParams,
-  ): Promise<CreateHmoProviderResult> {
-    const newHmoProvider = await this.hmoProviderService.createHmoProvider(params.params, em);
-    const { ipAddress, userAgent } = params.metadata.requestMetadata;
+  async execute(em: EntityManager, params: CreateHmoProviderDto): Promise<CreateHmoProviderResult> {
+    const newHmoProvider = await this.hmoProviderService.createHmoProvider(params, em);
 
     const actorId = this.requestContextService.getUserId();
 
@@ -53,16 +46,16 @@ export class CreateHmoProviderUsecase extends Usecase<
         actorId,
         event: EventType.HMO_PROVIDER_CREATED,
         module: EventModule.HMO_PROVIDER,
-        ipAddress,
-        userAgent,
+        ipAddress: this.requestContextService.getIp(),
+        userAgent: this.requestContextService.getUserAgent(),
         metadata: {
-          name: params.params.name,
-          code: params.params.code,
-          contactPhone: params.params.contactPhone,
-          contactEmail: params.params.contactEmail,
-          claimsEmail: params.params.claimsEmail,
-          retractionEmail: params.params.retractionEmail,
-          defaultCopay: params.params.defaultCopay,
+          name: params.name,
+          code: params.code,
+          contactPhone: params.contactPhone,
+          contactEmail: params.contactEmail,
+          claimsEmail: params.claimsEmail,
+          retractionEmail: params.retractionEmail,
+          defaultCopay: params.defaultCopay,
         },
       },
       em,

@@ -60,6 +60,7 @@ import { State } from './entities/state.entity';
 import { Supplier } from './entities/supplier.entity';
 import { SystemConfig } from './entities/systemConfig.entity';
 import { TestCatalog } from './entities/testCatalog.entity';
+import { EventLogService } from '@modules/auth/services/eventLog.service';
 
 @Global()
 @Module({
@@ -124,7 +125,14 @@ import { TestCatalog } from './entities/testCatalog.entity';
       TestCatalog,
     ]),
   ],
-  providers: [Broker, RequestContextService, ApplicationUtility],
-  exports: [Broker, RequestContextService, ApplicationUtility, CacheModule, TypeOrmModule],
+  providers: [Broker, RequestContextService, ApplicationUtility, EventLogService],
+  exports: [
+    Broker,
+    RequestContextService,
+    ApplicationUtility,
+    CacheModule,
+    EventLogService,
+    TypeOrmModule,
+  ],
 })
 export class CoreModule {}

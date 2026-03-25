@@ -60,16 +60,16 @@ export class RequestContextService {
     this.cls.set(CLS_KEY_IP, ip);
   }
 
-  getIp(): string | null {
-    return this.cls.get(CLS_KEY_IP) ?? null;
+  getIp() {
+    return this.cls.get(CLS_KEY_IP) ?? '';
   }
 
   setUserAgent(ua: string): void {
     this.cls.set(CLS_KEY_USER_AGENT, ua);
   }
 
-  getUserAgent(): string | null {
-    return this.cls.get(CLS_KEY_USER_AGENT) ?? null;
+  getUserAgent() {
+    return this.cls.get(CLS_KEY_USER_AGENT) ?? '';
   }
 
   setAbortSignal(signal: AbortSignal): void {

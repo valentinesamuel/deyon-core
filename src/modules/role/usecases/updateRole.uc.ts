@@ -2,7 +2,6 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { EntityManager, In } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { UpdateRoleDto } from '@modules/role/dto/updateRole.dto';
-import { RequestMetadata } from '@shared/validations/reqMetadata.dto';
 import { RoleService } from '@modules/role/service/role.service';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
@@ -11,7 +10,7 @@ import { Role } from '@modules/core/entities/role.entity';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { RoleRepository } from '@adapters/repositories/role.repository';
 
-type TUpdateRoleParams = { id: string; params: UpdateRoleDto; metadata: RequestMetadata };
+type TUpdateRoleParams = { id: string; params: UpdateRoleDto };
 
 type TUpdateRoleResult = {
   id: string;
@@ -34,8 +33,7 @@ export class UpdateRoleUsecase extends Usecase<TUpdateRoleResult, TUpdateRolePar
   }
 
   async execute(em: EntityManager, params: TUpdateRoleParams): Promise<TUpdateRoleResult> {
-    const { id, params: dto, metadata } = params;
-    const { ipAddress, userAgent } = metadata.requestMetadata;
+    const { id, params: dto } = params;
     const actorId = this.requestContextService.getUser()?.id;
 
     const role = await this.roleRepository.findRoleById(id, em);
@@ -72,8 +70,8 @@ export class UpdateRoleUsecase extends Usecase<TUpdateRoleResult, TUpdateRolePar
       actorId,
       event: EventType.ROLE_UPDATED,
       module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
+      ipAddress: this.requestContextService.getIp(),
+      userAgent: this.requestContextService.getUserAgent(),
       metadata: { roleId: id, name: dto.name, permissions: dto.permissions },
     });
 

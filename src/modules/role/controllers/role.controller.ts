@@ -1,6 +1,5 @@
 import { Broker } from '@broker/broker';
-import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Delete, Get, Logger, Param, Patch, Post } from '@nestjs/common';
 
 import { CreateRoleUsecase } from '@modules/role/usecases/createRole.uc';
 import { ListRolesUsecase } from '@modules/role/usecases/listRoles.uc';
@@ -13,6 +12,7 @@ import { CreateRoleDto } from '@modules/role/dto/createRole.dto';
 import { UpdateRoleDto } from '@modules/role/dto/updateRole.dto';
 import { BulkReassignDto, IndividualReassignDto } from '@modules/role/dto/reassignStaff.dto';
 import { RequirePermissions } from '@shared/decorators/requirePermission.decorator';
+import { PERMISSION } from '@shared/constants/permissions';
 
 @Controller('role')
 export class RoleController {
@@ -30,95 +30,57 @@ export class RoleController {
   ) {}
 
   @Post('')
-  @RequirePermissions(['role:create'])
-  createRole(@Body() dto: CreateRoleDto, @Req() req: Request) {
+  @RequirePermissions([PERMISSION.ROLE.CREATE])
+  createRole(@Body() dto: CreateRoleDto) {
     return this.serviceBroker.runUsecases([this.createRoleUsecase], {
       params: dto,
-      metadata: {
-        requestMetadata: {
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        },
-      },
     });
   }
 
   @Get('')
-  @RequirePermissions(['role:read'])
+  @RequirePermissions([PERMISSION.ROLE.READ])
   listRoles() {
     return this.serviceBroker.runUsecases([this.listRolesUsecase], {});
   }
 
   @Get(':id')
-  @RequirePermissions(['role:read'])
+  @RequirePermissions([PERMISSION.ROLE.READ])
   getRoleById(@Param('id') id: string) {
     return this.serviceBroker.runUsecases([this.getRoleByIdUsecase], { id });
   }
 
   @Patch(':id')
-  @RequirePermissions(['role:update'])
-  updateRole(@Param('id') id: string, @Body() dto: UpdateRoleDto, @Req() req: Request) {
+  @RequirePermissions([PERMISSION.ROLE.UPDATE])
+  updateRole(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
     return this.serviceBroker.runUsecases([this.updateRoleUsecase], {
       id,
       params: dto,
-      metadata: {
-        requestMetadata: {
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        },
-      },
     });
   }
 
   @Delete(':id')
-  @RequirePermissions(['role:delete'])
-  deleteRole(@Param('id') id: string, @Req() req: Request) {
+  @RequirePermissions([PERMISSION.ROLE.DELETE])
+  deleteRole(@Param('id') id: string) {
     return this.serviceBroker.runUsecases([this.deleteRoleUsecase], {
       id,
-      metadata: {
-        requestMetadata: {
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        },
-      },
     });
   }
 
   @Delete(':id/bulk-reassign')
-  @RequirePermissions(['role:delete'])
-  deleteRoleWithBulkReassign(
-    @Param('id') id: string,
-    @Body() dto: BulkReassignDto,
-    @Req() req: Request,
-  ) {
+  @RequirePermissions([PERMISSION.ROLE.DELETE])
+  deleteRoleWithBulkReassign(@Param('id') id: string, @Body() dto: BulkReassignDto) {
     return this.serviceBroker.runUsecases([this.deleteRoleWithBulkReassignUsecase], {
       id,
       params: dto,
-      metadata: {
-        requestMetadata: {
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        },
-      },
     });
   }
 
   @Delete(':id/individual-reassign')
-  @RequirePermissions(['role:delete'])
-  deleteRoleWithIndividualReassign(
-    @Param('id') id: string,
-    @Body() dto: IndividualReassignDto,
-    @Req() req: Request,
-  ) {
+  @RequirePermissions([PERMISSION.ROLE.DELETE])
+  deleteRoleWithIndividualReassign(@Param('id') id: string, @Body() dto: IndividualReassignDto) {
     return this.serviceBroker.runUsecases([this.deleteRoleWithIndividualReassignUsecase], {
       id,
       params: dto,
-      metadata: {
-        requestMetadata: {
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        },
-      },
     });
   }
 }

@@ -1,0 +1,9 @@
+$kind: http-request
+name: Revoke PAT
+method: DELETE
+url: "{{baseUrl}}pat/:id"
+order: 3000
+headers:
+  Authorization: Bearer {{token}}
+pathVariables:
+  id: pat-id-here
