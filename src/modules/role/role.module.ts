@@ -1,9 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Role } from '../core/entities/role.entity';
-import { Permission } from '../core/entities/permission.entity';
-import { EventLog } from '../core/entities/eventLog.entity';
-import { Staff } from '../core/entities/staff.entity';
 import { AuthModule } from '../auth/auth.module';
 import { RoleController } from './controllers/role.controller';
 import { PermissionController } from './controllers/permission.controller';
@@ -23,7 +18,7 @@ import { Broker } from '@broker/broker';
 import { RequestContextService } from '@shared/context/requestContext.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Role, Permission, EventLog, Staff]), AuthModule],
+  imports: [AuthModule],
   controllers: [RoleController, PermissionController],
   providers: [
     RoleService,

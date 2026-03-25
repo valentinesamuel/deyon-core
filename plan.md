@@ -1,361 +1,692 @@
-# Blog Post Accuracy Audit & Fix Plan
+# Entity Schema Plan: Types, Enums, Relationships
 
 ## Context
-
-The query engine has evolved and the blog posts were written at some point during that evolution. Before linking the repo from the blog, every code snippet, interface definition, function signature, and number in every post needs to match the actual implementation exactly. Readers who look at the live code should find zero surprises.
-
-This plan covers **all 13 posts** with the specific surgical edits required per post.
+All entities have column names but lack TypeORM decorators (`@Column`, `@ManyToOne`, etc.), type definitions, enum values, and FK relationships. This plan defines exactly what needs to be added to each entity file to produce a complete, production-ready schema.
 
 ---
 
-## Posts with NO changes needed
+## Decisions Log (from Q&A)
 
-These are accurate and/or correctly simplified:
-- **J2** – `collectFields`, config shape, error JSON all match.
-- **J3** – TypeORM query-builder intro; no engine-specific snippets.
-- **M3** – `stableStringify`, `buildCacheKey`, `invalidate` all match exactly (prefix `qe:cache`, DEFAULT_TTL=60, `this.redis.del(...keys)`).
-- **M5** – FTS/trigram config shape, SQL, per-field type config all match.
-- **M6** – `getEffectiveSortFields`, `buildCursorWhereClause` logic and SQL patterns all match.
-- **S1** – 6-layer pipeline, design decision table, cost model all match.
-
----
-
-## Posts requiring edits
-
-### 1. `J1-cursor-pagination-why-offset-breaks.md`
-
-**Issue A – `buildCursorPage` signature is incomplete**
-- Blog shows 3 params: `buildCursorPage(rows, limit, sortFields)`
-- Actual has 5: `buildCursorPage<T>(rows: T[], limit: number, sortFields: SortField[], prevCursor: string | null = null, totalRecords?: number): CursorPage<T>`
-
-Fix: Add the two optional params to the signature in the code snippet.
-
-**Issue B – `meta` shape is missing `prevCursor`**
-- Blog meta: `{ nextCursor, hasMore, limit }`
-- Actual `CursorMeta`: `{ nextCursor, prevCursor, hasMore, limit, totalRecords? }`
-- The JSON response example in the post also omits `prevCursor`.
-
-Fix: Update the return statement in the snippet and the JSON example to include `prevCursor: null`.
-
----
-
-### 2. `M1-filter-dsl-lexer-parser-ast.md`
-
-**Issue – `ConditionNode` shows `operator:` but actual field is `op:`**
-
-The code example at the bottom of the post:
-```typescript
-{ type: 'CONDITION', field: 'status', operator: 'eq', value: 'active' }
-```
-must be:
-```typescript
-{ type: 'CONDITION', field: 'status', op: 'eq', value: 'active' }
-```
-This appears twice: once in the standalone condition node and once inside the logical node's children array.
-
-Note: `type: 'CONDITION'` is correct because `ASTNodeType` is a string enum (`ASTNodeType.CONDITION = 'CONDITION'`).
+| Topic | Decision |
+|---|---|
+| PatientVital FK | ManyToOne → Episode |
+| Episode.status | open / closed / locked / archived |
+| Encounter.type | triage / consultation / lab / imaging / pharmacy / discharge |
+| Encounter.data | jsonb snapshot (async, filled after event fires) |
+| LabOrder.type | internal / external |
+| Lab priority | routine / urgent / stat |
+| LabReferral.direction | inbound / outbound / internal_transfer |
+| LabOrderResult.value | varchar |
+| Prescription.status | pending / partial / fully_dispensed / cancelled |
+| PrescriptionItem dosage/freq/duration | Structured: separate value+unit columns |
+| Bill.type | walk_in / episode |
+| Bill.status | Add it — BillStatusEnum |
+| Payment.type | transaction direction: payment / refund / waiver |
+| Payment.paymentMethod | PaymentMethodEnum (cash / card / transfer / hmo / corporate) |
+| Payment.paymentHandler | Remove (redundant with staffId) |
+| Payment.staffId | FK to Staff (cashier) |
+| LabOrder.status | pending / collected / processing / completed / cancelled |
+| LabReferral.status | pending / sent / received / completed / cancelled |
+| Inventory.supplier | FK to new Supplier entity |
+| RestockRequest.requestedBy | FK to Staff |
+| PriceChange.requestedBy/approvedBy | FK to Staff |
+| HmoRules.logic | jsonb — array of compound conditions |
+| Shift.station | Enum — fixed role-based stations |
+| ShiftSchedule.day | DayOfWeekEnum (mon–sun) |
+| ShiftSchedule.timeOfDay | morning / afternoon / night |
+| EpisodeLog.actorType | staff / patient / system |
+| ProtocolBundleItems.serviceType | ServiceCategoryEnum |
+| Consultation.draftMetadata | jsonb — partial form snapshot |
+| PatientHmo FKs | Add patientId FK + hmoProviderId FK |
 
 ---
 
-### 3. `M2-complexity-scoring-budget.md`
+## Enums to Define (per file)
 
-**Issue A – `scoreComplexity` body uses wrong `ParsedQuery` field names**
-
-Blog shows:
-```typescript
-const filters = countLeafConditions(query.ast);
-const joins = countUniqueRelationPrefixes(query.joins);
-const search = query.searchTerms?.length ?? 0;
-const aggregations = query.groupBy?.length ? 1 : 0;
-```
-
-Actual `ParsedQuery` fields:
-- `query.ast` → `query.whereAst` (and also includes `query.havingAst`)
-- `query.joins` doesn't exist on `ParsedQuery`; join count is derived by walking the AST for relation prefixes + scanning `query.include` + `query.groupBy`
-- `query.searchTerms` → `query.search` (a `SearchInput[]`)
-- `query.groupBy?.length` is correct but aggregations also checks `query.aggregates.length`
-
-Fix: Replace the function body to match the actual implementation:
-```typescript
-export function scoreComplexity(query: ParsedQuery): ComplexityBreakdown {
-  const filterCount =
-    countLeafConditions(query.whereAst) + countLeafConditions(query.havingAst);
-
-  // Count unique relation prefixes from filters, include=, and groupBy
-  const relationPrefixes = collectAllRelationPrefixes(query);
-  const joinCount = relationPrefixes.size;
-
-  const searchCount = query.search.length;
-  const aggregationCount = query.aggregates.length + query.groupBy.length > 0 ? 1 : 0;
-
-  const filters = filterCount * COSTS.filter;
-  const joins = joinCount * COSTS.join;
-  const search = searchCount * COSTS.search;
-  const aggregations = aggregationCount * COSTS.aggregation;
-  const total = filters + joins + search + aggregations;
-
-  return { filters, joins, search, aggregations, total };
+### `episode.entity.ts`
+```ts
+export enum EpisodeStatusEnum {
+  OPEN = 'open', CLOSED = 'closed', LOCKED = 'locked', ARCHIVED = 'archived',
 }
 ```
 
-**Issue B – `ComplexityBreakdown` values are already-multiplied costs, not raw counts**
-
-The `breakdown` fields in the return value (and in error responses) are **costs already multiplied**, meaning:
-- `filters` = filterCount × 1  (equals filter count since cost = 1)
-- `joins` = joinCount × 3  (always a multiple of 3)
-- `search` = searchCount × 5  (always a multiple of 5)
-- `aggregations` = 0 or 6
-
-The M2 error response example:
-```json
-{ "score": 28, "breakdown": { "filters": 4, "joins": 5, "search": 2, "aggregations": 0 } }
-```
-Is doubly wrong:
-- `joins: 5` is impossible (must be a multiple of 3)
-- Sum: 4+5+2+0 = 11, not 28
-
-Fix: Replace with a mathematically valid example:
-```json
-{
-  "score": 28,
-  "breakdown": { "filters": 4, "joins": 9, "search": 15, "aggregations": 0 }
+### `encounter.entity.ts`
+```ts
+export enum EncounterTypeEnum {
+  TRIAGE = 'triage', CONSULTATION = 'consultation', LAB = 'lab',
+  IMAGING = 'imaging', PHARMACY = 'pharmacy', DISCHARGE = 'discharge',
 }
 ```
-(4 filter conditions × 1 = 4; 3 joins × 3 = 9; 3 search terms × 5 = 15; total = 28 ✓)
 
-**Issue C – "last of eight validation checks" → twelfth of thirteen**
-
-The gate section says: "The complexity score is the last of eight validation checks..."
-Actual: it is rule 12 out of 13 (rule 13 is field-path whitelisting).
-
-Fix: Change to "one of thirteen validation checks" or describe the gate accurately — the 5 additional rules cover aggregate fields, groupBy constraints, having constraints, cursor+aggregation incompatibility, and field-path whitelisting.
-
-The numbered gate diagram showing rules [1]-[8] should be expanded to [1]-[13]:
+### `appointment.entity.ts`
+```ts
+export enum AppointmentTypeEnum {
+  CONSULTATION = 'consultation', FOLLOW_UP = 'follow_up',
+  EMERGENCY = 'emergency', PROCEDURE = 'procedure', LAB_ONLY = 'lab_only',
+}
+export enum AppointmentStatusEnum {
+  SCHEDULED = 'scheduled', CONFIRMED = 'confirmed', CHECKED_IN = 'checked_in',
+  IN_PROGRESS = 'in_progress', COMPLETED = 'completed',
+  CANCELLED = 'cancelled', NO_SHOW = 'no_show',
+}
 ```
-[1]  Filter fields whitelist
-[2]  Filter count limit
-[3]  Relation depth per field
-[4]  Join count limit
-[5]  Sort fields whitelist
-[6]  Include relations whitelist
-[7]  Search fields whitelist
-[8]  Aggregate fields whitelist
-[9]  groupBy requires at least one aggregate
-[10] having requires groupBy
-[11] Cursor not supported with aggregation
-[12] Complexity score gate         <-- the gate
-[13] Explicit fields whitelist
+
+### `labOrder.entity.ts`
+```ts
+export enum LabOrderTypeEnum { INTERNAL = 'internal', EXTERNAL = 'external' }
+export enum LabOrderStatusEnum {
+  PENDING = 'pending', COLLECTED = 'collected', PROCESSING = 'processing',
+  COMPLETED = 'completed', CANCELLED = 'cancelled',
+}
+export enum LabPriorityEnum { ROUTINE = 'routine', URGENT = 'urgent', STAT = 'stat' }
+```
+
+### `labOrderItem.entity.ts`
+```ts
+// Re-export LabOrderStatusEnum from labOrder.entity.ts
+```
+
+### `labReferral.entity.ts`
+```ts
+export enum LabReferralDirectionEnum {
+  INBOUND = 'inbound', OUTBOUND = 'outbound', INTERNAL_TRANSFER = 'internal_transfer',
+}
+export enum LabReferralStatusEnum {
+  PENDING = 'pending', SENT = 'sent', RECEIVED = 'received',
+  COMPLETED = 'completed', CANCELLED = 'cancelled',
+}
+```
+
+### `prescription.entity.ts`
+```ts
+export enum PrescriptionStatusEnum {
+  PENDING = 'pending', PARTIAL = 'partial',
+  FULLY_DISPENSED = 'fully_dispensed', CANCELLED = 'cancelled',
+}
+```
+
+### `bill.entity.ts`
+```ts
+export enum BillTypeEnum { WALK_IN = 'walk_in', EPISODE = 'episode' }
+export enum BillStatusEnum {
+  PENDING = 'pending', PARTIAL = 'partial', PAID = 'paid',
+  WAIVED = 'waived', REFUNDED = 'refunded',
+}
+```
+
+### `payment.entity.ts`
+```ts
+export enum PaymentTransactionTypeEnum {
+  PAYMENT = 'payment', REFUND = 'refund', WAIVER = 'waiver',
+}
+export enum PaymentMethodEnum {
+  CASH = 'cash', CARD = 'card', TRANSFER = 'transfer',
+  HMO = 'hmo', CORPORATE = 'corporate',
+}
+```
+
+### `claim.entity.ts`
+```ts
+export enum ClaimStatusEnum {
+  DRAFT = 'draft', SUBMITTED = 'submitted', PROCESSING = 'processing',
+  APPROVED = 'approved', DENIED = 'denied', PAID = 'paid',
+  WITHDRAWN = 'withdrawn', RETRACTED = 'retracted',
+}
+```
+
+### `hmoContract.entity.ts`
+```ts
+export enum HMOCoverageTypeEnum {
+  FULL = 'full', PARTIAL_PERCENT = 'partial_percent',
+  PARTIAL_FLAT = 'partial_flat', NONE = 'none',
+}
+```
+
+### `priceChange.entity.ts`
+```ts
+export enum PriceChangeStatusEnum {
+  PENDING = 'pending', APPROVED = 'approved', REJECTED = 'rejected',
+}
+```
+
+### `restockRequest.entity.ts`
+```ts
+export enum RestockRequestStatusEnum {
+  PENDING = 'pending', APPROVED = 'approved',
+  REJECTED = 'rejected', FULFILLED = 'fulfilled',
+}
+```
+
+### `partnerLab.entity.ts`
+```ts
+export enum PartnerLabStatusEnum { ACTIVE = 'active', INACTIVE = 'inactive' }
+```
+
+### `shift.entity.ts`
+```ts
+export enum ShiftStatusEnum {
+  SCHEDULED = 'scheduled', IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed', CANCELLED = 'cancelled',
+}
+export enum ShiftStationEnum {
+  RECEPTION = 'reception', LAB = 'lab', PHARMACY = 'pharmacy',
+  NURSING_STATION = 'nursing_station', IMAGING = 'imaging', TRIAGE = 'triage',
+}
+```
+
+### `shiftSchedule.entity.ts`
+```ts
+export enum DayOfWeekEnum {
+  MONDAY = 'monday', TUESDAY = 'tuesday', WEDNESDAY = 'wednesday',
+  THURSDAY = 'thursday', FRIDAY = 'friday', SATURDAY = 'saturday', SUNDAY = 'sunday',
+}
+export enum ShiftTimeOfDayEnum { MORNING = 'morning', AFTERNOON = 'afternoon', NIGHT = 'night' }
+```
+
+### `episodeLog.entity.ts`
+```ts
+export enum EpisodeLogActorTypeEnum { STAFF = 'staff', PATIENT = 'patient', SYSTEM = 'system' }
+export enum EpisodeEventTypeEnum {
+  EPISODE_OPENED = 'episode_opened', EPISODE_CLOSED = 'episode_closed',
+  EPISODE_LOCKED = 'episode_locked', VITALS_RECORDED = 'vitals_recorded',
+  CONSULTATION_STARTED = 'consultation_started', CONSULTATION_COMPLETED = 'consultation_completed',
+  LAB_ORDERED = 'lab_ordered', LAB_RESULTED = 'lab_resulted',
+  PRESCRIPTION_ISSUED = 'prescription_issued', PRESCRIPTION_DISPENSED = 'prescription_dispensed',
+  BILL_CREATED = 'bill_created', PAYMENT_RECEIVED = 'payment_received',
+  CLAIM_SUBMITTED = 'claim_submitted',
+}
+```
+
+### `referenceRange.entity.ts`
+```ts
+export enum ReferenceGenderEnum { MALE = 'male', FEMALE = 'female', BOTH = 'both' }
 ```
 
 ---
 
-### 4. `M4-soft-delete-join-bug.md`
-
-**Issue – `JoinSpec` interface is missing the `isInclude` field**
-
-Blog shows:
-```typescript
-export interface JoinSpec {
-  type: 'LEFT';
-  parentAlias: string;
-  relationProperty: string;
-  alias: string;
-  depth: number;
-  hasDeletedAt: boolean;
-}
-```
-
-Actual has one additional field:
-```typescript
-  isInclude: boolean; // whether this join was registered via include= (needs SELECT)
-```
-
-Fix: Add `isInclude: boolean;` to the interface in the blog post, with a brief inline comment matching the actual code.
-
----
-
-### 5. `M7-filter-only-join-exists-subquery.md`
-
-**Issue A – `detectFilterOnlyAliases` has a wrong/simplified signature**
-
-Blog shows:
-```typescript
-function detectFilterOnlyAliases(filterAliases, selectedAliases) {
-  const filterOnly = [];
-  for (const alias of filterAliases) {
-    if (!selectedAliases.has(alias)) {
-      filterOnly.push(alias);
-    }
-  }
-  return filterOnly;
-}
-```
-
-Actual signature:
-```typescript
-export function detectFilterOnlyAliases(
-  joinSpecs: JoinSpec[],
-  filterPlan: FilterPlan,
-  selectedAliases: Set<string>,
-): Set<string>
-```
-
-The actual function derives `filterAliases` internally by iterating over `filterPlan.resolvedConditions`, then cross-checks those against the `joinSpecs` array. It returns a `Set<string>`, not an array.
-
-Fix: Update the snippet to show the actual signature with a note on what `FilterPlan` provides. The internal logic can remain conceptually simplified but the call signature must be right.
-
-**Issue B – `OptimizedJoinSpec` is missing `pushdownConditions` and `isInclude` fields**
-
-Blog shows the interface with only `useExists` added. Actual adds two fields to the base `JoinSpec`:
-```typescript
-export interface OptimizedJoinSpec extends JoinSpec {
-  useExists: boolean;
-  pushdownConditions: string[];  // raw SQL snippets for JOIN ON predicate pushdown
-}
-```
-
-Also `JoinSpec` itself has `isInclude: boolean` (already fixed in M4). The combined actual interface should show all fields.
-
-Fix: Add `pushdownConditions: string[];` to the `OptimizedJoinSpec` shown in M7.
-
----
-
-### 6. `M8-boolean-filter-api-guardrails.md`
-
-**Issue A – "eight validation rules" / "eight guardrails" throughout → 13**
-
-The intro says: "the answer was eight validation rules". The diagram, the section headers, the "layered defense" section all reference 8. Actual code has 13 rules.
-
-Fix: Change every mention of "eight" to "thirteen" where it refers to validation rule count. Update the diagram and the "layered defense" graphic to include all 13 rules (the 5 additions are aggregation-related: rules 8-11 + rule 13).
-
-New diagram to replace the 8-rule version:
-```
-[1]  Filter fields whitelist         --> 400: "Field 'x' not allowed"
-[2]  Filter count limit              --> 400: "Too many filters"
-[3]  Relation depth per field        --> 400: "Field 'x' exceeds max depth"
-[4]  Join count limit                --> 400: "Too many joins"
-[5]  Sort fields whitelist           --> 400: "Sort field 'x' not allowed"
-[6]  Include relations whitelist     --> 400: "Relation 'x' not allowed"
-[7]  Search fields whitelist         --> 400: "Search field 'x' not allowed"
-[8]  Aggregate fields whitelist      --> 400: "Aggregate field 'x' not allowed"
-[9]  groupBy requires aggregates     --> 400: "groupBy requires an aggregate"
-[10] having requires groupBy         --> 400: "having requires groupBy"
-[11] Cursor + aggregation blocked    --> 400: "cursor not supported with groupBy"
-[12] Complexity score gate           --> 400: "Query too complex"
-[13] Explicit fields whitelist       --> 400: "Field 'x' not allowed"
-```
-
-Layer diagram updates:
-```
-Layer 1: IDENTITY  (Rules 1, 5, 6, 7)   -- whitelists
-Layer 2: QUANTITY  (Rules 2, 3, 4)       -- caps
-Layer 3: AGGREGATE LOGIC (Rules 8–11)   -- aggregation guard rails
-Layer 4: COST GATE (Rule 12)            -- complexity score
-Layer 5: FIELD SCOPE (Rule 13)          -- explicit field whitelist
-```
-
-**Issue B – `collectFields` doesn't handle `AGGREGATE` nodes**
-
-Blog shows:
-```typescript
-if (node.type === 'CONDITION') fields.add(node.field);
-```
-
-Actual:
-```typescript
-if (node.type === ASTNodeType.CONDITION || node.type === ASTNodeType.AGGREGATE) {
-  fields.add(node.field);
-}
-```
-
-Fix: Add the AGGREGATE check to the snippet.
-
----
-
-### 7. `S2-query-optimizer-deep-dive.md`
-
-**Issue A – `detectFilterOnlyAliases` has the same wrong/simplified signature as in M7**
-
-Same fix as M7 Issue A. The S2 snippet should show the actual signature.
-
-**Issue B – `buildPushdownMap` has completely wrong signature and logic**
-
-Blog shows:
-```typescript
-function buildPushdownMap(ast, joinSpecs) {
-  const pushdown = new Map(); // alias -> conditions[]
-  for (const condition of leafConditions(ast)) {
-    const alias = extractAlias(condition.field);
-    ...
-  }
-}
-```
-
-Actual:
-```typescript
-function buildPushdownMap(filterPlan: FilterPlan, ast: ASTNode | null): Map<string, string[]>
-```
-
-Key differences from blog:
-1. Parameters are `(filterPlan, ast)` — not `(ast, joinSpecs)`. First arg is `FilterPlan`, not `ast`.
-2. Uses `filterPlan.resolvedConditions` (which maps each condition node to its `{alias, column}`) — not a raw `extractAlias(condition.field)` heuristic.
-3. Only processes **top-level** conditions (direct children of the root AND node), not all leaf conditions. This is intentional: only safe single-alias top-level conditions can be pushed down without changing semantics.
-4. Returns `Map<string, string[]>` where values are formatted SQL snippet strings (not raw condition nodes).
-
-Fix: Rewrite the snippet to match the actual parameters and explain the top-level-only constraint:
-
-```typescript
-function buildPushdownMap(
-  filterPlan: FilterPlan,
-  ast: ASTNode | null,
-): Map<string, string[]> {
-  const pushdown = new Map<string, string[]>();
-  if (!ast) return pushdown;
-
-  // Only top-level conditions (direct children of a root AND) are safe to push down.
-  // Nested conditions inside OR branches cannot be moved without changing semantics.
-  const candidates: ConditionNode[] = [];
-  if (ast.type === ASTNodeType.AND) {
-    for (const child of ast.children) {
-      if (child.type === ASTNodeType.CONDITION) candidates.push(child);
-    }
-  } else if (ast.type === ASTNodeType.CONDITION) {
-    candidates.push(ast);
-  }
-
-  for (const cond of candidates) {
-    const resolved = filterPlan.resolvedConditions.get(cond);
-    if (!resolved || resolved.alias === 'root') continue;
-
-    // This condition targets a single non-root alias — it can live on the JOIN ON
-    const snippet = formatConditionSnippet(resolved.alias, resolved.column, cond);
-    if (!pushdown.has(resolved.alias)) pushdown.set(resolved.alias, []);
-    pushdown.get(resolved.alias)!.push(snippet);
-  }
-
-  return pushdown;
+## New Entity: Supplier
+**File:** `deyon_be/src/modules/core/entities/supplier.entity.ts`
+```ts
+@Entity()
+export class Supplier extends BaseEntity {
+  @Column({ type: 'varchar' }) name: string;
+  @Column({ type: 'varchar', nullable: true }) contactPhone: string;
+  @Column({ type: 'varchar', nullable: true }) contactEmail: string;
+  @Column({ type: 'varchar', nullable: true }) address: string;
+  @Column({ type: 'boolean', default: true }) isActive: boolean;
+  @OneToMany(() => Inventory, inv => inv.supplier) inventory: Inventory[];
 }
 ```
 
 ---
 
-## Files to modify (in order of dependency)
+## Entity Changes
 
-1. `blog/junior/J1-cursor-pagination-why-offset-breaks.md`
-2. `blog/mid-level/M1-filter-dsl-lexer-parser-ast.md`
-3. `blog/mid-level/M2-complexity-scoring-budget.md`
-4. `blog/mid-level/M4-soft-delete-join-bug.md`
-5. `blog/mid-level/M7-filter-only-join-exists-subquery.md`
-6. `blog/mid-level/M8-boolean-filter-api-guardrails.md`
-7. `blog/senior/S2-query-optimizer-deep-dive.md`
+### `patientVitals.entity.ts`
+Add episodeId FK + typed columns:
+- `celsiusTemperature` → `numeric(5,2)`
+- `systolicBloodPressure` → `int`
+- `diastolicBloodPressure` → `int`
+- `heartRate` → `int`
+- `respiratoryRate` → `int`
+- `oxygenSaturation` → `numeric(5,2)`
+- `kilogramWeight` → `numeric(5,2)`
+- `centimetreHeight` → `numeric(5,2)`
+- ADD: `episodeId uuid` → `@ManyToOne(() => Episode, ep => ep.vitals)`
+
+### `episode.entity.ts`
+```
+patientId      uuid    ManyToOne → Patient
+episodeNumber  varchar unique
+status         enum    EpisodeStatusEnum
+totalBilled    numeric(10,2) default 0
+totalPaid      numeric(10,2) default 0
+totalBalance   numeric(10,2) default 0
+isLockedForAudit boolean default false
+notes          text nullable
+```
+Relations: OneToMany → PatientVital, Encounter, Consultation, LabOrder, Bill, EpisodeLog, Claim
+
+### `encounter.entity.ts`
+```
+episodeId  uuid  ManyToOne → Episode
+type       enum  EncounterTypeEnum
+staffId    uuid  ManyToOne → Staff
+data       jsonb nullable
+```
+Relations: OneToOne (inverse) → Consultation
+
+### `consultation.entity.ts`
+```
+encounterId          uuid  ManyToOne → Encounter (OneToOne from this side)
+patientId            uuid  ManyToOne → Patient
+episodeId            uuid  ManyToOne → Episode
+appointmentId        uuid  ManyToOne → Appointment nullable
+chiefComplaint       text
+presentIllnessBrief  text nullable
+treatmentPlan        text nullable
+followUpDate         timestamp with time zone nullable
+isDraft              boolean default false
+draftMetadata        jsonb nullable
+```
+
+### `appointment.entity.ts`
+```
+patientId         uuid  ManyToOne → Patient
+doctorId          uuid  ManyToOne → Staff
+appointmentType   enum  AppointmentTypeEnum
+status            enum  AppointmentStatusEnum
+reasonForVisit    text
+bookedBy          uuid  ManyToOne → Staff nullable
+checkedInBy       uuid  ManyToOne → Staff nullable
+scheduledDuration int   (minutes)
+checkedInAt       timestamp with time zone nullable
+startedAt         timestamp with time zone nullable
+startedBy         uuid  ManyToOne → Staff nullable
+endedAt           timestamp with time zone nullable
+endedBy           uuid  ManyToOne → Staff nullable
+scheduleDate      timestamp with time zone
+```
+Relations: OneToMany → Consultation
+
+### `labOrder.entity.ts`
+```
+patientId    uuid  ManyToOne → Patient
+doctorId     uuid  ManyToOne → Staff
+episodeId    uuid  ManyToOne → Episode nullable
+encounterId  uuid  ManyToOne → Encounter nullable
+type         enum  LabOrderTypeEnum
+status       enum  LabOrderStatusEnum default PENDING
+priority     enum  LabPriorityEnum default ROUTINE
+collectedAt  timestamp with time zone nullable
+processedBy  uuid  ManyToOne → Staff nullable
+completedAt  timestamp with time zone nullable
+```
+Relations: OneToMany → LabOrderItem
+
+### `labOrderItem.entity.ts`
+```
+labOrderId     uuid  ManyToOne → LabOrder
+serviceCodeId  uuid  ManyToOne → ServiceCodeCatalog
+status         enum  LabOrderStatusEnum default PENDING
+```
+Relations: OneToOne → LabOrderResult
+
+### `labOrderResult.entity.ts`
+```
+labOrderItemId  uuid    OneToOne → LabOrderItem
+value           varchar
+metadata        jsonb nullable
+notes           text nullable
+```
+
+### `labReferral.entity.ts`
+```
+direction           enum  LabReferralDirectionEnum
+patientId           uuid  ManyToOne → Patient
+patientPhoneNumber  varchar nullable (denormalized snapshot)
+partnerLabId        uuid  ManyToOne → PartnerLab nullable
+status              enum  LabReferralStatusEnum default PENDING
+referenceNumber     varchar unique
+trackingId          varchar nullable
+referredBy          uuid  ManyToOne → Staff
+notes               text nullable
+priority            enum  LabPriorityEnum default ROUTINE
+attachments         jsonb nullable (array of {name, url, mimeType})
+```
+Relations: OneToMany → LabReferralItem
+
+### `labReferralItem.entity.ts`
+```
+labReferralId  uuid     ManyToOne → LabReferral
+testName       varchar
+result         varchar nullable
+unit           varchar nullable
+isAbnormal     boolean default false
+```
+
+### `prescription.entity.ts`
+```
+patientId    uuid  ManyToOne → Patient
+doctorId     uuid  ManyToOne → Staff
+status       enum  PrescriptionStatusEnum default PENDING
+dispensedAt  timestamp with time zone nullable
+dispensedBy  uuid  ManyToOne → Staff nullable
+notes        text nullable
+auditLog     jsonb nullable
+```
+Relations: OneToMany → PrescriptionItem
+
+### `prescriptionItem.entity.ts`
+```
+prescriptionId      uuid           ManyToOne → Prescription
+drugId              uuid           ManyToOne → Inventory
+dosageValue         numeric(8,2)
+dosageUnit          varchar        (mg, ml, tablet, etc.)
+frequencyValue      numeric(5,2)   (e.g. 3)
+frequencyUnit       varchar        (e.g. 'times per day')
+durationValue       int
+durationUnit        varchar        (days, weeks, months)
+prescribedQuantity  int
+dispensedQuantity   int default 0
+substitutedMetadata jsonb nullable (reason, notes on substitution)
+substitutedDrugId   uuid nullable  ManyToOne → Inventory
+```
+
+### `bill.entity.ts`
+```
+billNumber   varchar unique
+code         varchar nullable (authorization/billing code)
+patientId    uuid  ManyToOne → Patient
+shiftId      uuid  ManyToOne → Shift nullable
+encounterId  uuid  ManyToOne → Encounter nullable
+type         enum  BillTypeEnum
+status       enum  BillStatusEnum default PENDING   ← ADD THIS
+episodeId    uuid  ManyToOne → Episode nullable
+claimId      uuid  ManyToOne → Claim nullable
+departmentId uuid  ManyToOne → Department
+createdBy    uuid  ManyToOne → Staff
+```
+Relations: OneToMany → BillItem, OneToMany → Payment
+
+### `billItem.entity.ts`
+```
+billId       uuid           ManyToOne → Bill
+serviceId    uuid           ManyToOne → MedicalService
+description  varchar        (denormalized service name)
+unitPrice    numeric(10,2)
+quantity     int
+taxAmount    numeric(10,2) default 0
+discount     numeric(10,2) default 0
+totalAmount  numeric(10,2)
+```
+
+### `payment.entity.ts`
+Remove `paymentHandler` column.
+```
+shiftId        uuid  ManyToOne → Shift nullable
+billId         uuid  ManyToOne → Bill
+receiptNumber  varchar unique
+patientId      uuid  ManyToOne → Patient
+type           enum  PaymentTransactionTypeEnum  (payment/refund/waiver)
+amount         numeric(10,2)
+paymentMethod  enum  PaymentMethodEnum
+staffId        uuid  ManyToOne → Staff  (cashier who recorded)
+```
+
+### `claim.entity.ts`
+```
+episodeId              uuid  ManyToOne → Episode
+hmoProviderId          uuid  ManyToOne → HmoProvider
+status                 enum  ClaimStatusEnum default DRAFT
+totalBilledAmount      numeric(10,2)
+primaryDiagnosisCode   varchar (ICD-10 code, e.g. 'I10')
+attachments            jsonb nullable (array of {name, url, type, uploadedAt})
+```
+Relations: OneToMany → Bill (via claimId on Bill)
+
+### `hmoContract.entity.ts`
+```
+coverageType             enum     HMOCoverageTypeEnum
+hmoProviderId            uuid     ManyToOne → HmoProvider
+serviceId                uuid     ManyToOne → MedicalService
+contractedPrice          numeric(10,2) nullable
+copayPercentage          numeric(5,2) nullable (0-100)
+isFullyCovered           boolean default false
+isActive                 boolean default true
+requiredPreAuthorization boolean default false
+```
+
+### `hmoRules.entity.ts`
+```
+hmoProviderId     uuid   ManyToOne → HmoProvider
+triggerServiceId  uuid   ManyToOne → MedicalService
+logic             jsonb  (array of condition objects: [{field, operator, value}, ...])
+errorMessage      varchar
+```
+
+### `patientHmo.entity.ts`
+Add missing FKs:
+```
+patientId    uuid  ManyToOne → Patient    ← ADD
+hmoProviderId uuid ManyToOne → HmoProvider ← ADD
+providerName varchar (keep as denormalized snapshot)
+enrollmentId varchar
+planType     varchar
+expiryDate   timestamp with time zone
+copayAmount  numeric(10,2)
+isActive     boolean
+```
+
+### `medicalService.entity.ts`
+```
+name                      varchar
+medicalServiceCategoryId  uuid  ManyToOne → MedicalServiceCategory
+defaultPrice              numeric(10,2)
+isActive                  boolean default true
+```
+Relations: OneToMany → BillItem, HmoContract, PriceChange, HmoRules, ServiceCodeCatalog
+
+### `medicalServiceCategory.entity.ts`
+```
+name  varchar unique
+```
+Relations: OneToMany → MedicalService
+
+### `inventory.entity.ts`
+Replace `supplier varchar` with `supplierId uuid FK → Supplier`.
+```
+categoryId    uuid  ManyToOne → InventoryCategory
+supplierId    uuid  ManyToOne → Supplier nullable  ← replace varchar supplier
+name          varchar
+unit          varchar (tablet, vial, bottle, piece, etc.)
+currentStock  int default 0
+reorderLevel  int default 0
+unitCost      numeric(10,2)
+expiryDate    timestamp with time zone nullable
+location      varchar nullable
+```
+Relations: OneToMany → PrescriptionItem (drugId), RestockRequestItem
+
+### `inventoryCategory.entity.ts`
+```
+name  varchar unique
+```
+Relations: OneToMany → Inventory
+
+### `restockRequest.entity.ts`
+```
+reason       text
+requestedBy  uuid  ManyToOne → Staff
+status       enum  RestockRequestStatusEnum default PENDING
+notes        text nullable
+```
+Relations: OneToMany → RestockRequestItem
+
+### `restockRequestItem.entity.ts`
+```
+restockRequestId   uuid  ManyToOne → RestockRequest
+inventoryId        uuid  ManyToOne → Inventory
+requestedQuantity  int
+approvedQuantity   int nullable
+```
+
+### `shift.entity.ts`
+```
+staffId       uuid  ManyToOne → Staff
+status        enum  ShiftStatusEnum
+station       enum  ShiftStationEnum
+startedAt     timestamp with time zone
+endedAt       timestamp with time zone nullable
+departmentId  uuid  ManyToOne → Department
+```
+Relations: OneToMany → Payment, Bill, StaffShiftSchedule
+
+### `shiftSchedule.entity.ts`
+```
+timeOfDay  enum  ShiftTimeOfDayEnum
+startTime  time  (PostgreSQL TIME type, e.g. '08:00:00')
+endTime    time  (PostgreSQL TIME type)
+day        enum  DayOfWeekEnum
+```
+Relations: OneToMany → StaffShiftSchedule
+
+### `staffShiftSchedule.entity.ts`
+Note: `shiftId` here refers to `ShiftSchedule` (template), not `Shift` (instance).
+```
+shiftScheduleId  uuid  ManyToOne → ShiftSchedule   ← rename shiftId for clarity
+staffId          uuid  ManyToOne → Staff
+```
+
+### `testCatalog.entity.ts`
+```
+serviceCodeId             uuid    OneToOne → ServiceCodeCatalog
+code                      varchar unique
+name                      varchar
+sampleType                varchar (blood, urine, stool, swab, tissue, etc.)
+methodology               varchar nullable
+preparationInstructions   text nullable
+defaultUnit               varchar
+```
+Relations: OneToMany → ReferenceRange
+
+### `referenceRange.entity.ts`
+```
+testId              uuid           ManyToOne → TestCatalog
+gender              enum           ReferenceGenderEnum (male/female/both)
+minAgeYears         int nullable
+maxAgeYears         int nullable
+lowerBound          numeric(10,4)
+upperBound          numeric(10,4)
+criticalLowerBound  numeric(10,4) nullable
+criticalUpperBound  numeric(10,4) nullable
+```
+
+### `partnerLab.entity.ts`
+```
+name              varchar
+code              varchar unique
+address           varchar nullable
+status            enum  PartnerLabStatusEnum default ACTIVE
+contactPhone      varchar (fix typo: contactphone → contactPhone)
+specializations   jsonb  (string array of specialization names)
+contactEmail      varchar nullable
+```
+Relations: OneToMany → LabReferral
+
+### `episodeLog.entity.ts`
+```
+episodeId   uuid  ManyToOne → Episode
+eventType   enum  EpisodeEventTypeEnum
+description text
+actorId     uuid nullable (polymorphic — Staff or Patient UUID)
+actorType   enum  EpisodeLogActorTypeEnum
+metadata    jsonb nullable
+```
+
+### `protocolBundles.entity.ts`
+```
+name          varchar
+medicalCodeId uuid  ManyToOne → MedicalCode
+```
+Relations: OneToMany → ProtocolBundleItems
+
+### `protocolBundleItems.entity.ts`
+```
+bundleId      uuid  ManyToOne → ProtocolBundle
+serviceType   enum  ServiceCategoryEnum (from bills.types.ts: consultation/lab/pharmacy/procedure/admission/other)
+serviceId     uuid  (polymorphic ref — resolved by serviceType at runtime, no enforced FK)
+isCompulsory  boolean default false
+```
+Note: `serviceId` is a bare UUID discriminated by `serviceType`. TypeORM does not support native polymorphic FKs; this is handled at application level.
+
+### `serviceCodeCatalog.entity.ts`
+```
+medicalCodeId   uuid  ManyToOne → MedicalCode
+serviceId       uuid  ManyToOne → MedicalService
+hmoProviderId   uuid  ManyToOne → HmoProvider nullable (null = global, not HMO-specific)
+```
+Relations: OneToMany → LabOrderItem (serviceCodeId), OneToOne (inverse) → TestCatalog
+
+### `codingStandard.entity.ts`
+```
+name         varchar unique (e.g. 'ICD-10', 'CPT', 'NHIS')
+description  text nullable
+```
+Relations: OneToMany → MedicalCode
+
+### `medicalCode.entity.ts`
+```
+standardId   uuid  ManyToOne → CodingStandard
+codeValue    varchar (e.g. 'I10', '99213')
+description  text
+```
+Relations: OneToMany → ServiceCodeCatalog, OneToMany → ProtocolBundle
+
+### `priceChange.entity.ts`
+```
+serviceId      uuid  ManyToOne → MedicalService
+description    text
+standardPrice  numeric(10,2)
+requestedBy    uuid  ManyToOne → Staff
+approvedBy     uuid  ManyToOne → Staff nullable
+status         enum  PriceChangeStatusEnum default PENDING
+isActive       boolean default false
+reason         text
+```
+
+---
+
+## Files to Modify
+
+All files under: `deyon_be/src/modules/core/entities/`
+
+| File | Change type |
+|---|---|
+| `patientVitals.entity.ts` | Add episodeId FK, type all numeric columns |
+| `episode.entity.ts` | Full rewrite with enums, columns, relations |
+| `encounter.entity.ts` | Full rewrite with enums, columns, relations |
+| `consultation.entity.ts` | Full rewrite with columns, relations |
+| `appointment.entity.ts` | Full rewrite with enums, columns, relations |
+| `labOrder.entity.ts` | Full rewrite with enums, columns, relations |
+| `labOrderItem.entity.ts` | Full rewrite with relations |
+| `labOrderResult.entity.ts` | Full rewrite with columns, relations |
+| `labReferral.entity.ts` | Full rewrite with enums, columns, relations |
+| `labReferralItem.entity.ts` | Full rewrite with columns, relations |
+| `prescription.entity.ts` | Full rewrite with enum, columns, relations |
+| `prescriptionItem.entity.ts` | Full rewrite — split dosage/freq/duration into value+unit pairs |
+| `bill.entity.ts` | Full rewrite — add status column, enums, relations |
+| `billItem.entity.ts` | Full rewrite with columns, relations |
+| `payment.entity.ts` | Full rewrite — remove paymentHandler, add enums, relations |
+| `claim.entity.ts` | Full rewrite with enum, columns, relations |
+| `hmoContract.entity.ts` | Full rewrite with enum, columns, relations |
+| `hmoRules.entity.ts` | Full rewrite with jsonb logic, relations |
+| `patientHmo.entity.ts` | Add patientId + hmoProviderId FK columns |
+| `medicalService.entity.ts` | Full rewrite with columns, relations |
+| `medicalServiceCategory.entity.ts` | Add column type, relations |
+| `inventory.entity.ts` | Replace supplier varchar → supplierId FK, type all columns |
+| `inventoryCategory.entity.ts` | Add column type, relations |
+| `restockRequest.entity.ts` | Full rewrite with enum, columns, relations |
+| `restockRequestItem.entity.ts` | Full rewrite with columns, relations |
+| `shift.entity.ts` | Full rewrite with enums, relations |
+| `shiftSchedule.entity.ts` | Full rewrite with enums, time type |
+| `staffShiftSchedule.entity.ts` | Rename shiftId → shiftScheduleId, add FKs |
+| `testCatalog.entity.ts` | Full rewrite with columns, relations |
+| `referenceRange.entity.ts` | Full rewrite with enum, numeric types, relations |
+| `partnerLab.entity.ts` | Full rewrite — fix typo, add enum, jsonb specializations |
+| `episodeLog.entity.ts` | Full rewrite with enums, relations |
+| `protocolBundles.entity.ts` | Full rewrite with columns, relations |
+| `protocolBundleItems.entity.ts` | Full rewrite with enum, polymorphic serviceId |
+| `serviceCodeCatalog.entity.ts` | Full rewrite with relations |
+| `codingStandard.entity.ts` | Add column types |
+| `medicalCode.entity.ts` | Full rewrite with columns, relations |
+| `priceChange.entity.ts` | Full rewrite with enum, FK columns |
+| `supplier.entity.ts` | **CREATE NEW** |
 
 ---
 
 ## Verification
-
-After making all edits:
-1. Re-read each changed snippet against the actual source file side-by-side.
-2. For math in error responses: sum the breakdown fields and confirm they equal `score`.
-3. For interface definitions: confirm every field matches the actual TypeScript interface.
-4. For function signatures: confirm param names/types match the actual exported function.
-5. Check that no "eight" → "thirteen" replacement was missed with a grep across M2 and M8.
+1. Run `npm run build` in `deyon_be/` — no TypeScript errors.
+2. Run TypeORM migration dry-run (`npx typeorm migration:generate`) — verify all tables/columns/FKs appear correctly.
+3. Check for circular import issues (entities importing each other).
+4. Verify each enum column renders as a PostgreSQL `ENUM` type in the generated SQL.

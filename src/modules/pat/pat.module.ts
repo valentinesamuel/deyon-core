@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { PersonalAccessToken } from '@modules/core/entities/personalAccessToken.entity';
 import { PersonalAccessTokenRepository } from '@adapters/repositories/personalAccessToken.repository';
 import { PatController } from './controllers/pat.controller';
 import { GeneratePatUsecase } from './usecases/generatePat.uc';
@@ -10,7 +8,7 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { Broker } from '@broker/broker';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PersonalAccessToken]), AuthModule],
+  imports: [AuthModule],
   controllers: [PatController],
   providers: [
     PersonalAccessTokenRepository,

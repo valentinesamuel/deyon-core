@@ -28,7 +28,7 @@ export class DeleteRoleUsecase extends Usecase<TDeleteRoleResult, TDeleteRolePar
   async execute(em: EntityManager, params: TDeleteRoleParams): Promise<TDeleteRoleResult> {
     const { id, metadata } = params;
     const { ipAddress, userAgent } = metadata.requestMetadata;
-    const actorId = this.requestContextService.getUser()?.publicId;
+    const actorId = this.requestContextService.getUser()?.id;
 
     const role = await this.roleRepository.findRoleById(id, em);
     if (!role) throw new NotFoundException('Role not found');
