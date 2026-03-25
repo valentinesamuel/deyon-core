@@ -36,7 +36,7 @@ export class UpdateRoleUsecase extends Usecase<TUpdateRoleResult, TUpdateRolePar
   async execute(em: EntityManager, params: TUpdateRoleParams): Promise<TUpdateRoleResult> {
     const { id, params: dto, metadata } = params;
     const { ipAddress, userAgent } = metadata.requestMetadata;
-    const actorId = this.requestContextService.getUser()?.publicId;
+    const actorId = this.requestContextService.getUser()?.id;
 
     const role = await this.roleRepository.findRoleById(id, em);
     if (!role) throw new NotFoundException('Role not found');

@@ -41,7 +41,7 @@ export class DeleteRoleWithIndividualReassignUsecase extends Usecase<
   ): Promise<TDeleteIndividualResult> {
     const { id, params: dto, metadata } = params;
     const { ipAddress, userAgent } = metadata.requestMetadata;
-    const actorId = this.requestContextService.getUser()?.publicId;
+    const actorId = this.requestContextService.getUser()?.id;
 
     const role = await this.roleRepository.findRoleById(id, em);
     if (!role) throw new NotFoundException('Role not found');

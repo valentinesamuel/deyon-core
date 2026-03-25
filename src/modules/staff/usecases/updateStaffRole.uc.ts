@@ -36,9 +36,9 @@ export class UpdateStaffRoleUsecase extends Usecase<
   ): Promise<TUpdateStaffRoleResult> {
     const { staffId, params: dto, metadata } = params;
     const { ipAddress, userAgent } = metadata.requestMetadata;
-    const actorId = this.requestContextService.getUser()?.publicId;
+    const actorId = this.requestContextService.getUser()?.id;
 
-    const staff = await this.staffRepository.findStaffAndFailIfNotExist(staffId);
+    const staff = await this.staffRepository.findOneOrFailIfNotExists({ where: { id: staffId } });
     if (!staff) throw new NotFoundException('Staff not found');
 
     const role = await this.roleRepository.findRoleById(dto.roleId, em);

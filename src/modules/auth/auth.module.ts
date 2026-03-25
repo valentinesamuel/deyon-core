@@ -1,14 +1,5 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
-
-// Entities
-import { Staff } from '@modules/core/entities/staff.entity';
-import { Permission } from '@modules/core/entities/permission.entity';
-import { RefreshToken } from '../core/entities/refreshToken.entity';
-import { MfaConfig } from '../core/entities/mfaConfig.entity';
-import { InviteToken } from '../core/entities/inviteToken.entity';
-import { EventLog } from '../core/entities/eventLog.entity';
 
 // Controller
 import { StaffAuthController } from './controller/staffAuth.controller';
@@ -49,13 +40,10 @@ import { EmailModule } from '@adapters/email/email.module';
 // Shared utilities
 import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility';
 import { EventLogRepository } from '@adapters/repositories/eventLog.repository';
+import { CoreModule } from '@modules/core/core.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Staff, Permission, RefreshToken, MfaConfig, InviteToken, EventLog]),
-    JwtModule.register({}),
-    EmailModule,
-  ],
+  imports: [JwtModule.register({}), EmailModule, CoreModule],
   controllers: [StaffAuthController],
   providers: [
     // Services
