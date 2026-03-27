@@ -1,6 +1,7 @@
 $kind: http-request
 url: "{{baseUrl}}hmo/providers"
 method: POST
+examples: .resources/Create HMO providers.resources/examples
 order: 1774473984951
 headers:
   Authorization: Bearer {{token}}
@@ -17,6 +18,6 @@ body:
       "address": "123 street, ikeja",
       "portalUrl": "http://test@test.com",
       "relationshipManagerPhone": "+2345833947328",
-      "defaultCopay": "12300",
+      "defaultCopay": 12300,
       "isActive": true
     }

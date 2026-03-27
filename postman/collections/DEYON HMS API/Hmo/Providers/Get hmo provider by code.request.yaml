@@ -1,0 +1,14 @@
+$kind: http-request
+name: Get hmo provider by code
+url: "{{baseUrl}}hmo/providers/:code"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+pathVariables:
+  code: 2FK4626
+auth:
+  credentials:
+    id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76
+  type: inherit
+examples: .resources/Get hmo provider by code.resources/examples
+order: 3486802919975721

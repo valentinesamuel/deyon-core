@@ -4,9 +4,17 @@ import { FetchAllHmoProvidersUsecase } from './usecases/fetchAllHmoProviders.uc'
 import { HmoProvidersController } from './controllers/hmoProviders.controller';
 import { CreateHmoProviderUsecase } from './usecases/createHmoProvider.uc';
 import { HmoProviderService } from './service/hmoProvider.service';
+import { HmoProviderRepository } from '@adapters/repositories/hmoProvider.repository';
+import { FetchHmoProviderByCodeUsecase } from './usecases/fetchHmoProviderByCode.uc';
 
 @Module({
   controllers: [HmoController, HmoProvidersController],
-  providers: [FetchAllHmoProvidersUsecase, CreateHmoProviderUsecase, HmoProviderService],
+  providers: [
+    FetchAllHmoProvidersUsecase,
+    CreateHmoProviderUsecase,
+    FetchHmoProviderByCodeUsecase,
+    HmoProviderService,
+    HmoProviderRepository,
+  ],
 })
 export class HmoModule {}

@@ -6,7 +6,7 @@ export class HmoProvider extends BaseEntity {
   @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', unique: true })
   code: string;
 
   @Column({ type: 'varchar' })

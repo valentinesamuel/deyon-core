@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
-import { CreateHmoProviderDto } from '../dto.createHmoProvider.dto';
+import { CreateHmoProviderDto } from '../dto/createHmoProvider.dto';
 import { HmoProviderService } from '../service/hmoProvider.service';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 
-type CreateHmoProviderResult = {
+type TCreateHmoProviderResult = {
   id: string;
   createdAt: Date;
   name: string;
@@ -24,7 +24,7 @@ type CreateHmoProviderResult = {
 
 @Injectable()
 export class CreateHmoProviderUsecase extends Usecase<
-  CreateHmoProviderResult,
+  TCreateHmoProviderResult,
   CreateHmoProviderDto
 > {
   constructor(
@@ -35,7 +35,19 @@ export class CreateHmoProviderUsecase extends Usecase<
     super();
   }
 
-  async execute(em: EntityManager, params: CreateHmoProviderDto): Promise<CreateHmoProviderResult> {
+  async execute(
+    em: EntityManager,
+    params: CreateHmoProviderDto,
+  ): Promise<TCreateHmoProviderResult> {
+    await this.hmoProviderService.getHmoProviderByData(
+      {
+        where: {
+          code: params.code,
+        },
+      },
+      em,
+    );
+
     const newHmoProvider = await this.hmoProviderService.createHmoProvider(params, em);
 
     const actorId = this.requestContextService.getUserId();
