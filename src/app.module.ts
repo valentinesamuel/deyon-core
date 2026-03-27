@@ -22,6 +22,7 @@ import { StaffModule } from '@modules/staff/staff.module';
 import { PatModule } from '@modules/pat/pat.module';
 import { CacheModule } from '@adapters/cache/cache.module';
 import { QueryEngineModule } from '@shared/queryEngine';
+import { HmoModule } from '@modules/hmo/hmo.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { QueryEngineModule } from '@shared/queryEngine';
     SetupModule,
     StaffModule,
     PatModule,
+    HmoModule,
   ],
   controllers: [AppController],
   providers: [

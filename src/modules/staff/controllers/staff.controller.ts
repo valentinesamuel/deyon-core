@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Logger, Param, Patch, Query, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Get, Logger, Param, Patch, Query } from '@nestjs/common';
 import { Broker } from '@broker/broker';
 import { RequirePermissions } from '@shared/decorators/requirePermission.decorator';
 import { PERMISSION } from '@shared/constants/permissions';
@@ -22,7 +21,7 @@ export class StaffController {
 
   @Get('')
   @RequirePermissions([PERMISSION.STAFF.READ, PERMISSION.STAFF.LIST])
-  fetchAllStaff(@Query() query: GetAllQueryDto, @Req() _req: Request) {
+  fetchAllStaff(@Query() query: GetAllQueryDto) {
     return this.serviceBroker.runUsecases([this.fetchAllStaffUsecase], { query });
   }
 
@@ -34,20 +33,10 @@ export class StaffController {
 
   @Patch(':id/role')
   @RequirePermissions([PERMISSION.STAFF.UPDATE])
-  updateStaffRole(
-    @Param('id') staffId: string,
-    @Body() dto: UpdateStaffRoleDto,
-    @Req() req: Request,
-  ) {
+  updateStaffRole(@Param('id') staffId: string, @Body() dto: UpdateStaffRoleDto) {
     return this.serviceBroker.runUsecases([this.updateStaffRoleUsecase], {
       staffId,
       params: dto,
-      metadata: {
-        requestMetadata: {
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        },
-      },
     });
   }
 }

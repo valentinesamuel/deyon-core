@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}hmo/providers"
+method: POST
+order: 1774473984951
+headers:
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "name": "Axa Manxard",
+      "code": "2FK4626",
+      "contactPhone": "+2345833947328",
+      "contactEmail": "test@test.com",
+      "claimsEmail": "test@test.com",
+      "retractionEmail": "test@test.com",
+      "address": "123 street, ikeja",
+      "portalUrl": "http://test@test.com",
+      "relationshipManagerPhone": "+2345833947328",
+      "defaultCopay": "12300",
+      "isActive": true
+    }

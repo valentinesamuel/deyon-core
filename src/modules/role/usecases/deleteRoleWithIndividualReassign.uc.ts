@@ -7,7 +7,6 @@ import {
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { IndividualReassignDto } from '@modules/role/dto/reassignStaff.dto';
-import { RequestMetadata } from '@shared/validations/reqMetadata.dto';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 import { RequestContextService } from '@shared/context/requestContext.service';
@@ -17,7 +16,6 @@ import { StaffRepository } from '@adapters/repositories/staff.repository';
 type TDeleteIndividualParams = {
   id: string;
   params: IndividualReassignDto;
-  metadata: RequestMetadata;
 };
 type TDeleteIndividualResult = { deleted: boolean; reassigned: number };
 
@@ -39,8 +37,7 @@ export class DeleteRoleWithIndividualReassignUsecase extends Usecase<
     em: EntityManager,
     params: TDeleteIndividualParams,
   ): Promise<TDeleteIndividualResult> {
-    const { id, params: dto, metadata } = params;
-    const { ipAddress, userAgent } = metadata.requestMetadata;
+    const { id, params: dto } = params;
     const actorId = this.requestContextService.getUser()?.id;
 
     const role = await this.roleRepository.findRoleById(id, em);
@@ -75,8 +72,8 @@ export class DeleteRoleWithIndividualReassignUsecase extends Usecase<
       actorId,
       event: EventType.ROLE_DELETED,
       module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
+      ipAddress: this.requestContextService.getIp(),
+      userAgent: this.requestContextService.getUserAgent(),
       metadata: { roleId: id, reassigned: dto.assignments.length },
     });
 
@@ -84,8 +81,8 @@ export class DeleteRoleWithIndividualReassignUsecase extends Usecase<
       actorId,
       event: EventType.STAFF_ROLE_REASSIGNED,
       module: EventModule.AUTH,
-      ipAddress,
-      userAgent,
+      ipAddress: this.requestContextService.getIp(),
+      userAgent: this.requestContextService.getUserAgent(),
       metadata: { fromRoleId: id, assignments: dto.assignments },
     });
 

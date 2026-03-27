@@ -1,0 +1,8 @@
+$kind: http-request
+name: List PATs
+method: GET
+url: "{{baseUrl}}pat"
+examples: .resources/List PATs.resources/examples
+order: 2000
+headers:
+  Authorization: Bearer {{token}}

@@ -19,6 +19,11 @@ export const PERMISSION = {
     UPDATE: 'department:update',
     DELETE: 'department:delete',
   },
+  HMO_PROVIDER: {
+    READ: 'hmo_provider:read',
+    LIST: 'hmo_provider:list',
+    CREATE: 'hmo_provider:create',
+  },
   PERMISSION: {
     READ: 'permission:read',
   },

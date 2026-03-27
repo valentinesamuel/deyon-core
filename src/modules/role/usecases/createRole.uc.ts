@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager, In } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { CreateRoleDto } from '@modules/role/dto/createRole.dto';
-import { RequestMetadata } from '@shared/validations/reqMetadata.dto';
 import { RoleService } from '@modules/role/service/role.service';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
@@ -10,9 +9,9 @@ import { Permission } from '@modules/core/entities/permission.entity';
 import { Role } from '@modules/core/entities/role.entity';
 import { RequestContextService } from '@shared/context/requestContext.service';
 
-type CreateRoleParams = { params: CreateRoleDto; metadata: RequestMetadata };
+type CreateRoleParams = { params: CreateRoleDto };
 
-export interface CreateRoleResult {
+export type CreateRoleResult = {
   name: string;
   alias: string;
   permissions: {
@@ -20,7 +19,7 @@ export interface CreateRoleResult {
     description: string;
     isActive: boolean;
   }[];
-}
+};
 
 @Injectable()
 export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParams> {
@@ -33,8 +32,7 @@ export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParam
   }
 
   async execute(em: EntityManager, params: CreateRoleParams): Promise<CreateRoleResult> {
-    const { params: dto, metadata } = params;
-    const { ipAddress, userAgent } = metadata.requestMetadata;
+    const { params: dto } = params;
     const actorId = this.requestContextService.getUser()?.id;
 
     // 1. Check role name doesn't exist
@@ -71,8 +69,8 @@ export class CreateRoleUsecase extends Usecase<CreateRoleResult, CreateRoleParam
         actorId,
         event: EventType.ROLE_CREATED,
         module: EventModule.AUTH,
-        ipAddress,
-        userAgent,
+        ipAddress: this.requestContextService.getIp(),
+        userAgent: this.requestContextService.getUserAgent(),
         metadata: { roleName: dto.name, permissions: permCodes },
       },
       em,
