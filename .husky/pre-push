@@ -1,1 +1,22 @@
+#!/usr/bin/env sh
+
+# ── Trivy secrets scan ────────────────────────────────────────────────────────
+# Fail immediately if Trivy is not installed
+if ! command -v trivy > /dev/null 2>&1; then
+  echo "ERROR: trivy is not installed. Install it before pushing."
+  echo "  macOS:  brew install trivy"
+  echo "  Other:  https://trivy.dev/latest/getting-started/installation/"
+  exit 1
+fi
+
+echo "[pre-push] Scanning for secrets..."
+trivy fs \
+  --scanners secret \
+  --severity HIGH,CRITICAL \
+  --skip-dirs node_modules,dist \
+  --exit-code 1 \
+  .
+echo "[pre-push] No secrets found."
+
+# ── Build + migrations ────────────────────────────────────────────────────────
 npm run build && npm run migration:run

@@ -41,6 +41,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/nestjs": "^10.45.0",
+    "@sonar/scan": "^4.3.5",
     "argon2": "^0.44.0",
     "awesome-phonenumber": "^7.7.0",
     "bcrypt": "^6.0.0",

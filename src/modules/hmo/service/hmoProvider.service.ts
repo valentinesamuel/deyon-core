@@ -15,7 +15,11 @@ export class HmoProviderService {
     return this.hmoProviderRepository.createHmoProvider(data, em);
   }
 
-  async getHmoProviderByData(data: FindResourceOptions<HmoProvider>, em: EntityManager) {
+  async getHmoProviderByData(data: FindResourceOptions<HmoProvider>, em?: EntityManager) {
     return this.hmoProviderRepository.findOneOrFailIfNotExists(data, em);
+  }
+
+  async updateHmoProvider(id: string, data: Partial<HmoProvider>, em?: EntityManager) {
+    return this.hmoProviderRepository.updateHmoProvider(id, data, em);
   }
 }

@@ -5,6 +5,5 @@
         "localstack"
     ],
     "postman.settings.dotenv-detection-notification-visibility": false,
-    "snyk.advanced.organization": "8da17d3a-cdc2-4989-91b7-29006028a192",
     "snyk.advanced.autoSelectOrganization": true
 }
