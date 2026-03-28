@@ -10,7 +10,11 @@ import { EventLogService } from '../services/eventLog.service';
 import { RefreshTokenRepository } from '@adapters/repositories/refreshToken.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
-import { RedisService } from '@shared/redis/redis.service';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RequestContextService } from '@shared/context/requestContext.service';
+
+const AUTH = { db: CacheDbType.AUTH };
 
 describe('VerifyMfaUsecase', () => {
   let usecase: VerifyMfaUsecase;
@@ -21,21 +25,17 @@ describe('VerifyMfaUsecase', () => {
   let refreshTokenRepo: ReturnType<typeof mock<RefreshTokenRepository>>;
   let mfaConfigRepo: ReturnType<typeof mock<MfaConfigRepository>>;
   let staffRepo: ReturnType<typeof mock<StaffRepository>>;
-  let redisService: ReturnType<typeof mock<RedisService>>;
+  let cacheAdapter: ReturnType<typeof mock<CacheAdapter>>;
   let configService: ReturnType<typeof mock<ConfigService>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
   let em: ReturnType<typeof mock<EntityManager>>;
 
   const mockStaff = { id: 'staff-1', firstName: 'John', lastName: 'Doe', role: { alias: 'admin' } };
   const mockMfaConfig = { encryptedSecret: 'enc-secret' };
-  const mockRes = { cookie: vi.fn() } as any;
 
   const params = {
-    mfaStaffId: 'staff-1',
     mfaToken: 'mfa-token-1',
     totpCode: '123456',
-    res: mockRes,
-    ipAddress: '127.0.0.1',
-    userAgent: 'test',
   };
 
   beforeEach(() => {
@@ -46,9 +46,14 @@ describe('VerifyMfaUsecase', () => {
     refreshTokenRepo = mock<RefreshTokenRepository>();
     mfaConfigRepo = mock<MfaConfigRepository>();
     staffRepo = mock<StaffRepository>();
-    redisService = mock<RedisService>();
+    cacheAdapter = mock<CacheAdapter>();
     configService = mock<ConfigService>();
+    requestContextService = mock<RequestContextService>();
     em = mock<EntityManager>();
+
+    requestContextService.getUserId.mockReturnValue('staff-1');
+    requestContextService.getIp.mockReturnValue('127.0.0.1');
+    requestContextService.getUserAgent.mockReturnValue('test');
 
     usecase = new VerifyMfaUsecase(
       mfaService,
@@ -58,8 +63,9 @@ describe('VerifyMfaUsecase', () => {
       refreshTokenRepo,
       mfaConfigRepo,
       staffRepo,
-      redisService,
+      cacheAdapter,
       configService,
+      requestContextService,
     );
 
     eventLogService.log.mockResolvedValue(undefined);
@@ -67,16 +73,15 @@ describe('VerifyMfaUsecase', () => {
     tokenService.signAccessToken.mockReturnValue('access-token');
     tokenService.generateOpaqueToken.mockReturnValue('opaque-token');
     tokenService.sha256.mockReturnValue('token-hash');
-    tokenService.setAuthCookies.mockReturnValue(undefined);
     configService.get.mockReturnValue(604800);
   });
 
-  it('should return staffId, role, firstName, lastName on valid TOTP', async () => {
+  it('should return accessToken, refreshToken and staff info on valid TOTP', async () => {
     staffRepo.findOne.mockResolvedValue(mockStaff as any);
     mfaConfigRepo.findByStaffId.mockResolvedValue(mockMfaConfig as any);
-    redisService.exists.mockResolvedValue(false); // not used before
+    cacheAdapter.exists.mockResolvedValue(false);
     mfaService.verifyTotp.mockResolvedValue(true);
-    redisService.set.mockResolvedValue(undefined);
+    cacheAdapter.set.mockResolvedValue(undefined);
     sessionService.enforceSessionLimit.mockResolvedValue(undefined);
     refreshTokenRepo.createToken.mockResolvedValue({} as any);
     sessionService.addSession.mockResolvedValue(undefined);
@@ -84,12 +89,20 @@ describe('VerifyMfaUsecase', () => {
 
     const result = await usecase.execute(em, params);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       staffId: 'staff-1',
       role: 'admin',
       firstName: 'John',
       lastName: 'Doe',
+      accessToken: 'access-token',
+      refreshToken: 'opaque-token',
     });
+    expect(cacheAdapter.exists).toHaveBeenCalledWith(expect.any(String), AUTH);
+    expect(cacheAdapter.set).toHaveBeenCalledWith(
+      expect.any(String),
+      '1',
+      expect.objectContaining({ db: CacheDbType.AUTH }),
+    );
   });
 
   it('should throw UnauthorizedException if staff not found', async () => {
@@ -106,14 +119,14 @@ describe('VerifyMfaUsecase', () => {
   it('should throw if TOTP code was already used (anti-replay)', async () => {
     staffRepo.findOne.mockResolvedValue(mockStaff as any);
     mfaConfigRepo.findByStaffId.mockResolvedValue(mockMfaConfig as any);
-    redisService.exists.mockResolvedValue(true); // already used
+    cacheAdapter.exists.mockResolvedValue(true);
     await expect(usecase.execute(em, params)).rejects.toThrow(UnauthorizedException);
   });
 
   it('should throw if TOTP code is invalid', async () => {
     staffRepo.findOne.mockResolvedValue(mockStaff as any);
     mfaConfigRepo.findByStaffId.mockResolvedValue(mockMfaConfig as any);
-    redisService.exists.mockResolvedValue(false);
+    cacheAdapter.exists.mockResolvedValue(false);
     mfaService.verifyTotp.mockResolvedValue(false);
     await expect(usecase.execute(em, params)).rejects.toThrow(UnauthorizedException);
   });

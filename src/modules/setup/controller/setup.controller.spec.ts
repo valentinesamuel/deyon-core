@@ -16,7 +16,7 @@ describe('SetupController', () => {
   const mockReq: any = {
     ip: '192.168.1.1',
     headers: { 'user-agent': 'test-agent' },
-    user: { publicId: 'staff-public-id-123' },
+    user: { id: 'staff-public-id-123' },
   };
 
   beforeEach(() => {
@@ -107,7 +107,7 @@ describe('SetupController', () => {
   });
 
   describe('bootstrap', () => {
-    it('should pass dto fields and publicId from req.user to broker', async () => {
+    it('should pass dto fields and id from req.user to broker', async () => {
       const dto = { totpCode: '123456' };
 
       broker.runUsecases.mockResolvedValue({ success: true } as any);

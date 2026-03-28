@@ -5,12 +5,14 @@ import { LoginStaffUsecase } from './loginStaff.uc';
 import { AuthService } from '../services/auth.service';
 import { EventLogService } from '../services/eventLog.service';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 describe('LoginStaffUsecase', () => {
   let usecase: LoginStaffUsecase;
   let authService: ReturnType<typeof mock<AuthService>>;
   let eventLogService: ReturnType<typeof mock<EventLogService>>;
   let staffRepository: ReturnType<typeof mock<StaffRepository>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
   let em: ReturnType<typeof mock<EntityManager>>;
 
   const mockStaff = {
@@ -28,8 +30,18 @@ describe('LoginStaffUsecase', () => {
     authService = mock<AuthService>();
     eventLogService = mock<EventLogService>();
     staffRepository = mock<StaffRepository>();
+    requestContextService = mock<RequestContextService>();
     em = mock<EntityManager>();
-    usecase = new LoginStaffUsecase(authService, eventLogService, staffRepository);
+
+    requestContextService.getIp.mockReturnValue('127.0.0.1');
+    requestContextService.getUserAgent.mockReturnValue('test-agent');
+
+    usecase = new LoginStaffUsecase(
+      authService,
+      eventLogService,
+      staffRepository,
+      requestContextService,
+    );
     eventLogService.log.mockResolvedValue(undefined);
   });
 

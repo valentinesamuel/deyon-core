@@ -16,8 +16,9 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 import { Staff } from '@modules/core/entities/staff.entity';
 import { SystemConfig } from '@modules/core/entities/systemConfig.entity';
-import { RedisService } from '@shared/redis/redis.service';
-import { RedisKeys } from '@shared/redis/redis.constants';
+import { CacheAdapter } from '@adapters/cache/cache.adapter';
+import { CacheDbType } from '@adapters/cache/providers/redis.provider';
+import { RedisKeys } from '@adapters/cache/cache.constants';
 
 export interface BootstrapSystemResult {
   success: boolean;
@@ -35,7 +36,7 @@ export class BootstrapSystemUsecase extends Usecase<BootstrapSystemResult> {
     private readonly roleRepository: RoleRepository,
     private readonly mfaService: MfaService,
     private readonly eventLogService: EventLogService,
-    private readonly redisService: RedisService,
+    private readonly cacheAdapter: CacheAdapter,
   ) {
     super();
   }
@@ -56,7 +57,7 @@ export class BootstrapSystemUsecase extends Usecase<BootstrapSystemResult> {
     }
 
     // 2. Load CMO's MFA config
-    const mfaConfig = await this.mfaConfigRepository.findByStaffId(staffId);
+    const mfaConfig = await this.mfaConfigRepository.findByStaffId(staffId, entityManager);
     if (!mfaConfig) {
       throw new UnauthorizedException('MFA not configured');
     }
@@ -90,17 +91,20 @@ export class BootstrapSystemUsecase extends Usecase<BootstrapSystemResult> {
     );
 
     // 7. Log event
-    await this.eventLogService.log({
-      actorId: staffId,
-      event: EventType.SETUP_COMPLETED,
-      module: EventModule.SETUP,
-      ipAddress,
-      userAgent,
-    });
+    await this.eventLogService.log(
+      {
+        actorId: staffId,
+        event: EventType.SETUP_COMPLETED,
+        module: EventModule.SETUP,
+        ipAddress,
+        userAgent,
+      },
+      entityManager,
+    );
 
     // 8. Invalidate Redis profile cache (fire-and-forget)
     try {
-      await this.redisService.del(RedisKeys.profile(staffId));
+      await this.cacheAdapter.del(RedisKeys.profile(staffId), { db: CacheDbType.AUTH });
     } catch (err) {
       this.logger.warn('Failed to invalidate profile cache', err);
     }

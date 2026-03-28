@@ -15,7 +15,7 @@ export class FetchAllStaffUsecase extends Usecase<CursorPage<Staff>, FetchAllSta
     super();
   }
 
-  async execute(_em: EntityManager, params: FetchAllStaffParams): Promise<CursorPage<Staff>> {
+  async execute(em: EntityManager, params: FetchAllStaffParams): Promise<CursorPage<Staff>> {
     return this.queryEngine.execute(Staff, params.query, STAFF_QUERY_CONFIG);
   }
 }

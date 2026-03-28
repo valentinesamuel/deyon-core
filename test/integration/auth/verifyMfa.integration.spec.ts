@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
@@ -6,9 +6,8 @@ import { createTestingModule } from '../../helpers/app.helper';
 import { truncateAllTables } from '../../helpers/database.helper';
 import { AuthService } from '../../../src/modules/auth/services/auth.service';
 import { VerifyMfaUsecase } from '../../../src/modules/auth/usecases/verifyMfa.uc';
-import { RedisService } from '../../../src/shared/redis/redis.service';
-import { RedisKeys } from '../../../src/shared/redis/redis.constants';
 import { EncryptionUtility } from '../../../src/shared/utility/encryption/encryption.utility';
+import { RequestContextService } from '../../../src/shared/context/requestContext.service';
 import { Staff } from '../../../src/modules/core/entities/staff.entity';
 import { MfaConfig } from '../../../src/modules/core/entities/mfaConfig.entity';
 import { RefreshToken } from '../../../src/modules/core/entities/refreshToken.entity';
@@ -20,8 +19,8 @@ describe('VerifyMfa Integration', () => {
   let dataSource: DataSource;
   let authService: AuthService;
   let verifyMfaUc: VerifyMfaUsecase;
-  let redisService: RedisService;
   let encryptionUtility: EncryptionUtility;
+  let requestContextService: RequestContextService;
   let testTotp: TOTP;
   let encryptedSecret: string;
   let passwordHash: string;
@@ -31,8 +30,8 @@ describe('VerifyMfa Integration', () => {
     dataSource = module.get(DataSource);
     authService = module.get(AuthService);
     verifyMfaUc = module.get(VerifyMfaUsecase);
-    redisService = module.get(RedisService);
     encryptionUtility = module.get(EncryptionUtility);
+    requestContextService = module.get(RequestContextService);
 
     testTotp = new TOTP({
       crypto: new NobleCryptoPlugin(),
@@ -74,22 +73,19 @@ describe('VerifyMfa Integration', () => {
   it('verifies TOTP and issues tokens', async () => {
     const staff = await seedStaffWithMfa();
 
-    // Issue ephemeral MFA token (places staffId in Redis)
+    // Set staff ID in context (normally done by MfaTokenGuard)
+    requestContextService.setUserId(staff.id);
+
     const mfaToken = await authService.issueEphemeralMfaToken(staff.id);
-
     const totpCode = await (testTotp as any).generate(PLAIN_SECRET);
-    const mockRes = { cookie: vi.fn(), clearCookie: vi.fn() } as any;
 
-    const result = await verifyMfaUc.execute(dataSource.manager, {
-      mfaStaffId: staff.id,
-      mfaToken,
-      totpCode,
-      res: mockRes,
-    });
+    const result = await verifyMfaUc.execute(dataSource.manager, { mfaToken, totpCode });
 
     expect(result.staffId).toBe(staff.id);
     expect(result.firstName).toBe('Test');
     expect(result.lastName).toBe('Staff');
+    expect(result.accessToken).toBeDefined();
+    expect(result.refreshToken).toBeDefined();
 
     // Refresh token row should be in DB
     const tokens = await dataSource.getRepository(RefreshToken).find({
@@ -97,20 +93,16 @@ describe('VerifyMfa Integration', () => {
     });
     expect(tokens).toHaveLength(1);
     expect(tokens[0].isRevoked).toBe(false);
-
-    // Cookie setter should have been called
-    expect(mockRes.cookie).toHaveBeenCalledTimes(2); // access + refresh
   });
 
   it('throws 401 for invalid TOTP code', async () => {
     const staff = await seedStaffWithMfa();
+    requestContextService.setUserId(staff.id);
 
     await expect(
       verifyMfaUc.execute(dataSource.manager, {
-        mfaStaffId: staff.id,
         mfaToken: 'any-token',
         totpCode: '000000',
-        res: { cookie: vi.fn(), clearCookie: vi.fn() } as any,
       }),
     ).rejects.toThrow();
   });
@@ -129,33 +121,27 @@ describe('VerifyMfa Integration', () => {
       }),
     );
 
+    requestContextService.setUserId(staff.id);
     const mfaToken = await authService.issueEphemeralMfaToken(staff.id);
     const totpCode = await (testTotp as any).generate(PLAIN_SECRET);
 
-    await expect(
-      verifyMfaUc.execute(dataSource.manager, {
-        mfaStaffId: staff.id,
-        mfaToken,
-        totpCode,
-        res: { cookie: vi.fn(), clearCookie: vi.fn() } as any,
-      }),
-    ).rejects.toThrow('MFA not configured');
+    await expect(verifyMfaUc.execute(dataSource.manager, { mfaToken, totpCode })).rejects.toThrow(
+      'MFA not configured',
+    );
   });
 
   it('stores session in Redis after successful verification', async () => {
     const staff = await seedStaffWithMfa();
+    requestContextService.setUserId(staff.id);
+
     const mfaToken = await authService.issueEphemeralMfaToken(staff.id);
     const totpCode = await (testTotp as any).generate(PLAIN_SECRET);
-    const mockRes = { cookie: vi.fn(), clearCookie: vi.fn() } as any;
 
-    await verifyMfaUc.execute(dataSource.manager, {
-      mfaStaffId: staff.id,
-      mfaToken,
-      totpCode,
-      res: mockRes,
+    await verifyMfaUc.execute(dataSource.manager, { mfaToken, totpCode });
+
+    const tokens = await dataSource.getRepository(RefreshToken).find({
+      where: { staffId: staff.id },
     });
-
-    const sessions = await redisService.smembers(RedisKeys.sessions(staff.id));
-    expect(sessions.length).toBeGreaterThan(0);
+    expect(tokens.length).toBeGreaterThan(0);
   });
 });

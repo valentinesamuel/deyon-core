@@ -1,0 +1,91 @@
+import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
+import { Usecase } from '@broker/types';
+import { CreateHmoProviderDto } from '../dto/createHmoProvider.dto';
+import { HmoProviderService } from '../service/hmoProvider.service';
+import { EventLogService } from '@modules/auth/services/eventLog.service';
+import { RequestContextService } from '@shared/context/requestContext.service';
+import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
+
+type TCreateHmoProviderResult = {
+  id: string;
+  createdAt: Date;
+  name: string;
+  code: string;
+  contactPhone: string;
+  contactEmail: string;
+  address: string;
+  defaultCopay: string;
+  isActive: string;
+  portalUrl: string;
+  claimsEmail: string;
+  retractionEmail: string;
+};
+
+@Injectable()
+export class CreateHmoProviderUsecase extends Usecase<
+  TCreateHmoProviderResult,
+  CreateHmoProviderDto
+> {
+  constructor(
+    private readonly hmoProviderService: HmoProviderService,
+    private readonly eventService: EventLogService,
+    private readonly requestContextService: RequestContextService,
+  ) {
+    super();
+  }
+
+  async execute(
+    em: EntityManager,
+    params: CreateHmoProviderDto,
+  ): Promise<TCreateHmoProviderResult> {
+    await this.hmoProviderService.getHmoProviderByData(
+      {
+        where: {
+          code: params.code,
+        },
+      },
+      em,
+    );
+
+    const newHmoProvider = await this.hmoProviderService.createHmoProvider(params, em);
+
+    const actorId = this.requestContextService.getUserId();
+
+    // 6. Log event
+    await this.eventService.log(
+      {
+        actorId,
+        event: EventType.HMO_PROVIDER_CREATED,
+        module: EventModule.HMO_PROVIDER,
+        ipAddress: this.requestContextService.getIp(),
+        userAgent: this.requestContextService.getUserAgent(),
+        metadata: {
+          name: params.name,
+          code: params.code,
+          contactPhone: params.contactPhone,
+          contactEmail: params.contactEmail,
+          claimsEmail: params.claimsEmail,
+          retractionEmail: params.retractionEmail,
+          defaultCopay: params.defaultCopay,
+        },
+      },
+      em,
+    );
+
+    return {
+      id: newHmoProvider.id,
+      address: newHmoProvider.address,
+      createdAt: newHmoProvider.createdAt,
+      name: newHmoProvider.name,
+      code: newHmoProvider.code,
+      contactPhone: newHmoProvider.contactPhone,
+      contactEmail: newHmoProvider.contactEmail,
+      defaultCopay: newHmoProvider.defaultCopay,
+      isActive: newHmoProvider.isActive,
+      portalUrl: newHmoProvider.portalUrl,
+      claimsEmail: newHmoProvider.claimsEmail,
+      retractionEmail: newHmoProvider.retractionEmail,
+    };
+  }
+}

@@ -1,8 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { SystemConfig } from '@modules/core/entities/systemConfig.entity';
-import { MfaConfig } from '@modules/core/entities/mfaConfig.entity';
-import { Role } from '@modules/core/entities/role.entity';
 import { AuthModule } from '@modules/auth/auth.module';
 import { SystemConfigRepository } from '@adapters/repositories/systemConfig.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
@@ -17,7 +13,7 @@ import { Broker } from '@broker/broker';
 import { CoreModule } from '@modules/core/core.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SystemConfig, MfaConfig, Role]), AuthModule, CoreModule],
+  imports: [AuthModule, CoreModule],
   controllers: [SetupController],
   providers: [
     Broker,

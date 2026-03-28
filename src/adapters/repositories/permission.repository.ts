@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { Permission } from '@modules/core/entities/permission.entity';
+import { BaseRepository } from './base.repository';
 
 @Injectable()
-export class PermissionRepository extends Repository<Permission> {
+export class PermissionRepository extends BaseRepository<Permission> {
   private readonly logger = new Logger(PermissionRepository.name);
 
   constructor(
@@ -14,11 +15,17 @@ export class PermissionRepository extends Repository<Permission> {
     super(repo.target, repo.manager, repo.queryRunner);
   }
 
-  async findByCode(code: string): Promise<Permission | null> {
-    return this.repo.findOne({ where: { code } });
+  async findByCode(code: string, em?: EntityManager): Promise<Permission | null> {
+    const repo = em ? em.getRepository(Permission) : this;
+    return repo.findOne({ where: { code } });
   }
 
-  async findAllActive(): Promise<Permission[]> {
-    return this.repo.find({ where: { isActive: true } });
+  async findAllActive(em?: EntityManager): Promise<Permission[]> {
+    const repo = em ? em.getRepository(Permission) : this;
+    return repo.find({ where: { isActive: true } });
+  }
+
+  async findByCodes(codes: string[]): Promise<Permission[]> {
+    return this.repo.find({ where: { code: In(codes), isActive: true } });
   }
 }

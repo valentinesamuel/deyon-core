@@ -1,6 +1,5 @@
 import { Broker } from '@broker/broker';
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { Public } from '@shared/decorators/isPublic.decorator';
 import { SetupNotCompleteGuard } from '../guards/setupNotComplete.guard';
 import { SystemConfigRepository } from '@adapters/repositories/systemConfig.repository';
@@ -29,22 +28,13 @@ export class SetupController {
   @Public()
   @UseGuards(SetupNotCompleteGuard)
   @Post('register')
-  register(@Body() dto: RegisterCmoDto, @Req() req: Request) {
-    return this.serviceBroker.runUsecases([this.registerCmoUc], {
-      ...dto,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  register(@Body() dto: RegisterCmoDto) {
+    return this.serviceBroker.runUsecases([this.registerCmoUc], dto);
   }
 
   @UseGuards(SetupNotCompleteGuard)
   @Post('bootstrap')
-  bootstrap(@Body() dto: BootstrapSystemDto, @Req() req: Request & { user: { publicId: string } }) {
-    return this.serviceBroker.runUsecases([this.bootstrapSystemUc], {
-      ...dto,
-      staffId: req.user.publicId,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  bootstrap(@Body() dto: BootstrapSystemDto) {
+    return this.serviceBroker.runUsecases([this.bootstrapSystemUc], dto);
   }
 }
