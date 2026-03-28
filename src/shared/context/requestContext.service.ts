@@ -1,9 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { RequestUser } from './requestContext.type';
 
 const CLS_KEY_USER = 'user';
 const CLS_KEY_ABORT_SIGNAL = 'abortSignal';
+const CLS_KEY_IP = 'ip';
+const CLS_KEY_USER_AGENT = 'userAgent';
+
+export type TRequestUser = {
+  id: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  role: {
+    id: string;
+    name: string;
+    alias: string;
+    isActive: boolean;
+    isSystemRole: boolean;
+    permissions: any[];
+  };
+};
 
 /**
  * Typed wrapper over ClsService for accessing the authenticated user context
@@ -16,24 +32,44 @@ const CLS_KEY_ABORT_SIGNAL = 'abortSignal';
 export class RequestContextService {
   constructor(private readonly cls: ClsService) {}
 
-  setUser(user: RequestUser): void {
+  setUser(user: TRequestUser): void {
     this.cls.set(CLS_KEY_USER, user);
   }
 
-  getUser(): RequestUser | null {
+  setUserId(id: string): void {
+    this.cls.set(CLS_KEY_USER, { id } as TRequestUser);
+  }
+
+  getUser(): TRequestUser | null {
     return this.cls.get(CLS_KEY_USER) ?? null;
   }
 
   /**
-   * Returns the user's publicId, or 'SYSTEM' when there is no authenticated user
+   * Returns the user's id, or 'SYSTEM' when there is no authenticated user
    * (cron jobs, migrations, system operations).
    */
   getUserId(): string {
-    return this.getUser()?.publicId ?? 'SYSTEM';
+    return this.getUser()?.id ?? 'SYSTEM';
   }
 
   isAuthenticated(): boolean {
     return this.getUser() !== null;
+  }
+
+  setIp(ip: string): void {
+    this.cls.set(CLS_KEY_IP, ip);
+  }
+
+  getIp() {
+    return this.cls.get(CLS_KEY_IP) ?? '';
+  }
+
+  setUserAgent(ua: string): void {
+    this.cls.set(CLS_KEY_USER_AGENT, ua);
+  }
+
+  getUserAgent() {
+    return this.cls.get(CLS_KEY_USER_AGENT) ?? '';
   }
 
   setAbortSignal(signal: AbortSignal): void {

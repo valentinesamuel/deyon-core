@@ -1,1 +1,38 @@
+#!/usr/bin/env sh
+
+# ── Trivy secrets scan ────────────────────────────────────────────────────────
+# Fail immediately if Trivy is not installed
+if ! command -v trivy > /dev/null 2>&1; then
+  echo "ERROR: trivy is not installed. Install it before pushing."
+  echo "  macOS:  brew install trivy"
+  echo "  Other:  https://trivy.dev/latest/getting-started/installation/"
+  exit 1
+fi
+
+echo "[pre-push] Scanning for secrets..."
+trivy fs \
+  --scanners secret \
+  --severity HIGH,CRITICAL \
+  --skip-dirs node_modules,dist \
+  --skip-files '.env' \
+  --exit-code 1 \
+  .
+echo "[pre-push] No secrets found."
+
+# ── Snyk dependency vulnerability scan ───────────────────────────────────────
+if ! command -v snyk > /dev/null 2>&1; then
+  echo "ERROR: snyk is not installed. Install it before pushing."
+  echo "  macOS:  brew install snyk-cli"
+  echo "  Other:  npm install -g snyk  OR  https://docs.snyk.io/snyk-cli/install-or-update-the-snyk-cli"
+  exit 1
+fi
+
+echo "[pre-push] Scanning all dependencies for vulnerabilities (all severities)..."
+snyk test --all-projects || true
+
+echo "[pre-push] Checking for HIGH/CRITICAL vulnerabilities..."
+snyk test --all-projects --severity-threshold=high
+echo "[pre-push] No HIGH/CRITICAL dependency vulnerabilities found."
+
+# ── Build + migrations ────────────────────────────────────────────────────────
 npm run build && npm run migration:run

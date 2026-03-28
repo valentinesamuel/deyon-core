@@ -1,9 +1,10 @@
 import { Broker } from '@broker/broker';
-import { Body, Controller, Get, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Public } from '@shared/decorators/isPublic.decorator';
 import { MfaTokenGuard } from '@shared/guards/mfaToken.guard';
 import { MfaSetupTokenGuard } from '@shared/guards/mfaSetupToken.guard';
+import { TokenService } from '../services/token.service';
 
 // DTOs
 import { StaffLoginDto } from '../dto/staffLogin.dto';
@@ -34,10 +35,9 @@ import { GetMeUsecase } from '../usecases/getMe.uc';
 
 @Controller('staff/auth')
 export class StaffAuthController {
-  private readonly logger = new Logger(StaffAuthController.name);
-
   constructor(
     private readonly serviceBroker: Broker,
+    private readonly tokenService: TokenService,
     private readonly loginStaffUc: LoginStaffUsecase,
     private readonly verifyMfaUc: VerifyMfaUsecase,
     private readonly verifyBackupCodeUc: VerifyBackupCodeUsecase,
@@ -63,155 +63,133 @@ export class StaffAuthController {
   // ── Step 1: Login (credentials only, returns mfaToken) ──────────────────────
   @Public()
   @Post('login')
-  loginStaff(@Body() dto: StaffLoginDto, @Req() req: Request) {
-    return this.serviceBroker.runUsecases([this.loginStaffUc], {
-      ...dto,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  loginStaff(@Body() dto: StaffLoginDto) {
+    return this.serviceBroker.runUsecases([this.loginStaffUc], { ...dto });
   }
 
   // ── Step 2a: Verify TOTP (issues cookies) ───────────────────────────────────
   @Public()
   @UseGuards(MfaTokenGuard)
   @Post('login/mfa-verify')
-  verifyMfa(
-    @Body() dto: MfaVerifyDto,
-    @Req() req: Request & { mfaStaffId: string },
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    return this.serviceBroker.runUsecases([this.verifyMfaUc], {
-      ...dto,
-      mfaStaffId: req.mfaStaffId,
+  async verifyMfa(@Body() dto: MfaVerifyDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.serviceBroker.runUsecases([this.verifyMfaUc], { ...dto });
+    this.tokenService.setAuthCookies(
       res,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+      result['accessToken'] as string,
+      result['refreshToken'] as string,
+    );
+    const { accessToken: _at, refreshToken: _rt, ...rest } = result as Record<string, unknown>;
+    return rest;
   }
 
   // ── Step 2b: Verify backup code (issues cookies) ─────────────────────────────
   @Public()
   @UseGuards(MfaTokenGuard)
   @Post('login/mfa-backup')
-  verifyBackupCode(
+  async verifyBackupCode(
     @Body() dto: MfaBackupVerifyDto,
-    @Req() req: Request & { mfaStaffId: string },
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.serviceBroker.runUsecases([this.verifyBackupCodeUc], {
-      ...dto,
-      mfaStaffId: req.mfaStaffId,
+    const result = await this.serviceBroker.runUsecases([this.verifyBackupCodeUc], { ...dto });
+    this.tokenService.setAuthCookies(
       res,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+      result['accessToken'] as string,
+      result['refreshToken'] as string,
+    );
+    const { accessToken: _at, refreshToken: _rt, ...rest } = result as Record<string, unknown>;
+    return rest;
   }
 
   // ── Token refresh ────────────────────────────────────────────────────────────
   @Public()
   @Post('refresh')
-  refreshToken(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    return this.serviceBroker.runUsecases([this.refreshTokenUc], {
-      req,
-      res,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  async refreshToken(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies['refresh_token'] as string;
+    try {
+      const result = await this.serviceBroker.runUsecases([this.refreshTokenUc], { refreshToken });
+      this.tokenService.setAuthCookies(
+        res,
+        result['accessToken'] as string,
+        result['newRefreshToken'] as string,
+      );
+      return { refreshed: true };
+    } catch (err) {
+      this.tokenService.clearAuthCookies(res);
+      throw err;
+    }
   }
 
   // ── Logout ───────────────────────────────────────────────────────────────────
   @Post('logout')
-  logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    return this.serviceBroker.runUsecases([this.logoutUc], {
-      req,
-      res,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const accessToken = req.cookies['access_token'] as string;
+    const refreshToken = req.cookies['refresh_token'] as string;
+    const result = await this.serviceBroker.runUsecases([this.logoutUc], {
+      accessToken,
+      refreshToken,
     });
+    this.tokenService.clearAuthCookies(res);
+    return result;
   }
 
   @Post('logout-all')
-  logoutAll(
-    @Req() req: Request & { user: { publicId: string } },
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    return this.serviceBroker.runUsecases([this.logoutAllUc], {
-      req,
-      res,
-      staffId: req.user?.publicId,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  async logoutAll(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const accessToken = req.cookies['access_token'] as string;
+    const result = await this.serviceBroker.runUsecases([this.logoutAllUc], { accessToken });
+    this.tokenService.clearAuthCookies(res);
+    return result;
   }
 
   // ── Admin invite ─────────────────────────────────────────────────────────────
   @Post('invite')
-  invite(@Body() dto: StaffInviteDto, @Req() req: Request & { user: { publicId: string } }) {
+  invite(@Body() dto: StaffInviteDto) {
     return this.serviceBroker.runUsecases([this.createInviteUc, this.sendInviteEmailUc], {
       ...dto,
-      invitedById: req.user?.publicId,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
     });
   }
 
   // ── Accept invite ────────────────────────────────────────────────────────────
   @Public()
   @Post('invite/accept')
-  acceptInvite(@Body() dto: AcceptInviteDto, @Req() req: Request) {
-    return this.serviceBroker.runUsecases([this.acceptInviteUc], {
-      ...dto,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  acceptInvite(@Body() dto: AcceptInviteDto) {
+    return this.serviceBroker.runUsecases([this.acceptInviteUc], { ...dto });
   }
 
   // ── MFA setup (post-invite) ──────────────────────────────────────────────────
   @Public()
   @UseGuards(MfaSetupTokenGuard)
   @Post('mfa/setup')
-  setupMfa(@Body() dto: MfaSetupDto, @Req() req: Request & { mfaStaffId: string }) {
-    return this.serviceBroker.runUsecases([this.setupMfaUc], {
-      ...dto,
-      mfaStaffId: req.mfaStaffId,
-    });
+  setupMfa(@Body() dto: MfaSetupDto) {
+    return this.serviceBroker.runUsecases([this.setupMfaUc], { ...dto });
   }
 
   @Public()
   @UseGuards(MfaSetupTokenGuard)
   @Post('mfa/setup/confirm')
-  confirmMfaSetup(
+  async confirmMfaSetup(
     @Body() dto: MfaSetupConfirmDto,
-    @Req() req: Request & { mfaStaffId: string },
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.serviceBroker.runUsecases([this.confirmMfaSetupUc], {
-      ...dto,
-      mfaStaffId: req.mfaStaffId,
+    const result = await this.serviceBroker.runUsecases([this.confirmMfaSetupUc], { ...dto });
+    this.tokenService.setAuthCookies(
       res,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+      result['accessToken'] as string,
+      result['refreshToken'] as string,
+    );
+    const { accessToken: _at, refreshToken: _rt, ...rest } = result as Record<string, unknown>;
+    return rest;
   }
 
   // ── Forgot / Reset password ──────────────────────────────────────────────────
   @Public()
   @Post('forgot-password')
-  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
-    return this.serviceBroker.runUsecases([this.forgotPasswordUc], {
-      ...dto,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.serviceBroker.runUsecases([this.forgotPasswordUc], { ...dto });
   }
 
   @Public()
   @Post('reset-password')
-  resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
-    return this.serviceBroker.runUsecases([this.resetPasswordUc], {
-      ...dto,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.serviceBroker.runUsecases([this.resetPasswordUc], { ...dto });
   }
 }

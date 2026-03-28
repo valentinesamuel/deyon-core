@@ -1,8 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { SystemConfig } from '@modules/core/entities/systemConfig.entity';
-import { MfaConfig } from '@modules/core/entities/mfaConfig.entity';
-import { Role } from '@modules/core/entities/role.entity';
 import { AuthModule } from '@modules/auth/auth.module';
 import { SystemConfigRepository } from '@adapters/repositories/systemConfig.repository';
 import { MfaConfigRepository } from '@adapters/repositories/mfaConfig.repository';
@@ -14,9 +10,10 @@ import { RegisterCmoUsecase } from './usecases/registerCmo.uc';
 import { BootstrapSystemUsecase } from './usecases/bootstrapSystem.uc';
 import { SetupController } from './controller/setup.controller';
 import { Broker } from '@broker/broker';
+import { CoreModule } from '@modules/core/core.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SystemConfig, MfaConfig, Role]), AuthModule],
+  imports: [AuthModule, CoreModule],
   controllers: [SetupController],
   providers: [
     Broker,

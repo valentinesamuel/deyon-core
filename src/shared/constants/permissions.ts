@@ -19,7 +19,16 @@ export const PERMISSION = {
     UPDATE: 'department:update',
     DELETE: 'department:delete',
   },
+  HMO_PROVIDER: {
+    READ: 'hmo_provider:read',
+    LIST: 'hmo_provider:list',
+    CREATE: 'hmo_provider:create',
+    UPDATE: 'hmo_provider:update',
+  },
   PERMISSION: {
     READ: 'permission:read',
+  },
+  PAT: {
+    GENERATE: 'pat:generate',
   },
 } as const;

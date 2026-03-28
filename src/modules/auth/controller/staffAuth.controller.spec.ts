@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mock } from 'vitest-mock-extended';
 import { StaffAuthController } from './staffAuth.controller';
 import { Broker } from '@broker/broker';
+import { TokenService } from '../services/token.service';
 import { LoginStaffUsecase } from '../usecases/loginStaff.uc';
 import { VerifyMfaUsecase } from '../usecases/verifyMfa.uc';
 import { VerifyBackupCodeUsecase } from '../usecases/verifyBackupCode.uc';
@@ -15,10 +16,12 @@ import { SetupMfaUsecase } from '../usecases/setupMfa.uc';
 import { ConfirmMfaSetupUsecase } from '../usecases/confirmMfaSetup.uc';
 import { ForgotPasswordUsecase } from '../usecases/forgotPassword.uc';
 import { ResetPasswordUsecase } from '../usecases/resetPassword.uc';
+import { GetMeUsecase } from '../usecases/getMe.uc';
 
 describe('StaffAuthController', () => {
   let controller: StaffAuthController;
   let broker: ReturnType<typeof mock<Broker>>;
+  let tokenService: ReturnType<typeof mock<TokenService>>;
   let loginStaffUc: ReturnType<typeof mock<LoginStaffUsecase>>;
   let verifyMfaUc: ReturnType<typeof mock<VerifyMfaUsecase>>;
   let verifyBackupCodeUc: ReturnType<typeof mock<VerifyBackupCodeUsecase>>;
@@ -32,17 +35,20 @@ describe('StaffAuthController', () => {
   let confirmMfaSetupUc: ReturnType<typeof mock<ConfirmMfaSetupUsecase>>;
   let forgotPasswordUc: ReturnType<typeof mock<ForgotPasswordUsecase>>;
   let resetPasswordUc: ReturnType<typeof mock<ResetPasswordUsecase>>;
+  let getMeUc: ReturnType<typeof mock<GetMeUsecase>>;
 
   const mockReq: any = {
     ip: '127.0.0.1',
     headers: { 'user-agent': 'test-agent' },
-    user: { publicId: 'staff-public-id-1' },
+    cookies: { access_token: 'access-tok', refresh_token: 'refresh-tok' },
+    user: { id: 'staff-public-id-1' },
   };
 
-  const mockRes: any = {};
+  const mockRes: any = { cookie: vi.fn(), clearCookie: vi.fn() };
 
   beforeEach(() => {
     broker = mock<Broker>();
+    tokenService = mock<TokenService>();
     loginStaffUc = mock<LoginStaffUsecase>();
     verifyMfaUc = mock<VerifyMfaUsecase>();
     verifyBackupCodeUc = mock<VerifyBackupCodeUsecase>();
@@ -56,9 +62,11 @@ describe('StaffAuthController', () => {
     confirmMfaSetupUc = mock<ConfirmMfaSetupUsecase>();
     forgotPasswordUc = mock<ForgotPasswordUsecase>();
     resetPasswordUc = mock<ResetPasswordUsecase>();
+    getMeUc = mock<GetMeUsecase>();
 
     controller = new StaffAuthController(
       broker,
+      tokenService,
       loginStaffUc,
       verifyMfaUc,
       verifyBackupCodeUc,
@@ -72,24 +80,20 @@ describe('StaffAuthController', () => {
       confirmMfaSetupUc,
       forgotPasswordUc,
       resetPasswordUc,
+      getMeUc,
     );
   });
 
   describe('loginStaff', () => {
-    it('should pass LoginDto, ip, and userAgent to broker', async () => {
+    it('should pass LoginDto to broker', async () => {
       const dto = { email: 'user@test.com', password: 'pass' };
       broker.runUsecases.mockResolvedValue({ mfaToken: 'token' } as any);
 
-      await controller.loginStaff(dto as any, mockReq);
+      await controller.loginStaff(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [loginStaffUc],
-        expect.objectContaining({
-          email: 'user@test.com',
-          password: 'pass',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ email: 'user@test.com', password: 'pass' }),
       );
     });
 
@@ -98,112 +102,99 @@ describe('StaffAuthController', () => {
       const expected = { mfaToken: 'abc123' };
       broker.runUsecases.mockResolvedValue(expected as any);
 
-      const result = await controller.loginStaff(dto as any, mockReq);
+      const result = await controller.loginStaff(dto as any);
 
       expect(result).toEqual(expected);
     });
   });
 
   describe('verifyMfa', () => {
-    it('should pass MfaVerifyDto, mfaStaffId, and res to broker', async () => {
+    it('should pass MfaVerifyDto to broker and set auth cookies', async () => {
       const dto = { mfaToken: 'token', totpCode: '123456' };
-      const reqWithMfaId: any = { ...mockReq, mfaStaffId: 'staff-mfa-id' };
-      broker.runUsecases.mockResolvedValue({} as any);
+      broker.runUsecases.mockResolvedValue({
+        accessToken: 'at',
+        refreshToken: 'rt',
+        staffId: 's1',
+      } as any);
 
-      await controller.verifyMfa(dto as any, reqWithMfaId, mockRes);
+      await controller.verifyMfa(dto as any, mockRes);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [verifyMfaUc],
-        expect.objectContaining({
-          mfaToken: 'token',
-          totpCode: '123456',
-          mfaStaffId: 'staff-mfa-id',
-          res: mockRes,
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ mfaToken: 'token', totpCode: '123456' }),
       );
-    });
-
-    it('should return broker result', async () => {
-      const dto = { mfaToken: 'token', totpCode: '123456' };
-      const reqWithMfaId: any = { ...mockReq, mfaStaffId: 'staff-mfa-id' };
-      const expected = { accessToken: 'jwt' };
-      broker.runUsecases.mockResolvedValue(expected as any);
-
-      const result = await controller.verifyMfa(dto as any, reqWithMfaId, mockRes);
-
-      expect(result).toEqual(expected);
+      expect(tokenService.setAuthCookies).toHaveBeenCalledWith(mockRes, 'at', 'rt');
     });
   });
 
   describe('verifyBackupCode', () => {
-    it('should pass backup code, mfaStaffId, and res to broker', async () => {
+    it('should pass backup code to broker and set auth cookies', async () => {
       const dto = { mfaToken: 'token', backupCode: 'ABCDE12345' };
-      const reqWithMfaId: any = { ...mockReq, mfaStaffId: 'staff-mfa-id' };
-      broker.runUsecases.mockResolvedValue({} as any);
+      broker.runUsecases.mockResolvedValue({
+        accessToken: 'at',
+        refreshToken: 'rt',
+        staffId: 's1',
+      } as any);
 
-      await controller.verifyBackupCode(dto as any, reqWithMfaId, mockRes);
+      await controller.verifyBackupCode(dto as any, mockRes);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [verifyBackupCodeUc],
-        expect.objectContaining({
-          backupCode: 'ABCDE12345',
-          mfaStaffId: 'staff-mfa-id',
-          res: mockRes,
-        }),
+        expect.objectContaining({ backupCode: 'ABCDE12345' }),
       );
+      expect(tokenService.setAuthCookies).toHaveBeenCalledWith(mockRes, 'at', 'rt');
     });
   });
 
   describe('refreshToken', () => {
-    it('should pass req and res to broker', async () => {
-      broker.runUsecases.mockResolvedValue({} as any);
+    it('should extract refresh token cookie and call setAuthCookies on success', async () => {
+      broker.runUsecases.mockResolvedValue({
+        accessToken: 'new-at',
+        newRefreshToken: 'new-rt',
+      } as any);
 
       await controller.refreshToken(mockReq, mockRes);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [refreshTokenUc],
-        expect.objectContaining({
-          req: mockReq,
-          res: mockRes,
-        }),
+        expect.objectContaining({ refreshToken: 'refresh-tok' }),
       );
+      expect(tokenService.setAuthCookies).toHaveBeenCalledWith(mockRes, 'new-at', 'new-rt');
+    });
+
+    it('should clear cookies and rethrow on error', async () => {
+      broker.runUsecases.mockRejectedValue(new Error('Expired'));
+
+      await expect(controller.refreshToken(mockReq, mockRes)).rejects.toThrow('Expired');
+      expect(tokenService.clearAuthCookies).toHaveBeenCalledWith(mockRes);
     });
   });
 
   describe('logout', () => {
-    it('should pass req and res to broker', async () => {
-      broker.runUsecases.mockResolvedValue({} as any);
+    it('should extract cookies, call broker, then clear auth cookies', async () => {
+      broker.runUsecases.mockResolvedValue({ loggedOut: true } as any);
 
       await controller.logout(mockReq, mockRes);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [logoutUc],
-        expect.objectContaining({
-          req: mockReq,
-          res: mockRes,
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ accessToken: 'access-tok', refreshToken: 'refresh-tok' }),
       );
+      expect(tokenService.clearAuthCookies).toHaveBeenCalledWith(mockRes);
     });
   });
 
   describe('logoutAll', () => {
-    it('should extract ip, userAgent, and req.user.publicId', async () => {
-      broker.runUsecases.mockResolvedValue({} as any);
+    it('should extract access token cookie, call broker, then clear auth cookies', async () => {
+      broker.runUsecases.mockResolvedValue({ loggedOut: true } as any);
 
       await controller.logoutAll(mockReq, mockRes);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [logoutAllUc],
-        expect.objectContaining({
-          staffId: 'staff-public-id-1',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ accessToken: 'access-tok' }),
       );
+      expect(tokenService.clearAuthCookies).toHaveBeenCalledWith(mockRes);
     });
   });
 
@@ -216,40 +207,17 @@ describe('StaffAuthController', () => {
       };
       broker.runUsecases.mockResolvedValue({} as any);
 
-      await controller.invite(dto as any, mockReq);
+      await controller.invite(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [createInviteUc, sendInviteEmailUc],
         expect.any(Object),
       );
     });
-
-    it('should pass invitedById from req.user.publicId', async () => {
-      const dto = {
-        email: 'newstaff@hospital.com',
-        roleId: 'role-uuid',
-        departmentId: 'dept-uuid',
-      };
-      broker.runUsecases.mockResolvedValue({} as any);
-
-      await controller.invite(dto as any, mockReq);
-
-      expect(broker.runUsecases).toHaveBeenCalledWith(
-        expect.any(Array),
-        expect.objectContaining({
-          invitedById: 'staff-public-id-1',
-          email: 'newstaff@hospital.com',
-          roleId: 'role-uuid',
-          departmentId: 'dept-uuid',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
-      );
-    });
   });
 
   describe('acceptInvite', () => {
-    it('should pass dto, ipAddress, and userAgent to broker', async () => {
+    it('should pass dto to broker', async () => {
       const dto = {
         token: 'invite-token',
         firstName: 'John',
@@ -259,102 +227,73 @@ describe('StaffAuthController', () => {
       };
       broker.runUsecases.mockResolvedValue({} as any);
 
-      await controller.acceptInvite(dto as any, mockReq);
+      await controller.acceptInvite(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [acceptInviteUc],
-        expect.objectContaining({
-          ...dto,
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ token: 'invite-token' }),
       );
     });
   });
 
   describe('setupMfa', () => {
-    it('should extract mfaStaffId from guard and pass to broker', async () => {
+    it('should pass dto to broker', async () => {
       const dto = { setupToken: 'setup-token' };
-      const reqWithMfaId: any = { ...mockReq, mfaStaffId: 'setup-staff-id' };
       broker.runUsecases.mockResolvedValue({} as any);
 
-      await controller.setupMfa(dto as any, reqWithMfaId);
+      await controller.setupMfa(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [setupMfaUc],
-        expect.objectContaining({
-          setupToken: 'setup-token',
-          mfaStaffId: 'setup-staff-id',
-        }),
+        expect.objectContaining({ setupToken: 'setup-token' }),
       );
     });
   });
 
   describe('confirmMfaSetup', () => {
-    it('should extract mfaStaffId from guard and pass with dto and res', async () => {
+    it('should pass dto to broker and set auth cookies', async () => {
       const dto = { setupToken: 'setup-token', totpCode: '123456' };
-      const reqWithMfaId: any = { ...mockReq, mfaStaffId: 'setup-staff-id' };
-      broker.runUsecases.mockResolvedValue({} as any);
+      broker.runUsecases.mockResolvedValue({
+        accessToken: 'at',
+        refreshToken: 'rt',
+        accessGranted: true,
+        backupCodes: ['CODE1'],
+      } as any);
 
-      await controller.confirmMfaSetup(dto as any, reqWithMfaId, mockRes);
+      await controller.confirmMfaSetup(dto as any, mockRes);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [confirmMfaSetupUc],
-        expect.objectContaining({
-          setupToken: 'setup-token',
-          totpCode: '123456',
-          mfaStaffId: 'setup-staff-id',
-          res: mockRes,
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ setupToken: 'setup-token', totpCode: '123456' }),
       );
+      expect(tokenService.setAuthCookies).toHaveBeenCalledWith(mockRes, 'at', 'rt');
     });
   });
 
   describe('forgotPassword', () => {
-    it('should pass email and request metadata to broker', async () => {
+    it('should pass email to broker', async () => {
       const dto = { email: 'staff@hospital.com' };
       broker.runUsecases.mockResolvedValue({} as any);
 
-      await controller.forgotPassword(dto as any, mockReq);
+      await controller.forgotPassword(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [forgotPasswordUc],
-        expect.objectContaining({
-          email: 'staff@hospital.com',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ email: 'staff@hospital.com' }),
       );
-    });
-
-    it('should return broker result', async () => {
-      const dto = { email: 'staff@hospital.com' };
-      const expected = { sent: true };
-      broker.runUsecases.mockResolvedValue(expected as any);
-
-      const result = await controller.forgotPassword(dto as any, mockReq);
-
-      expect(result).toEqual(expected);
     });
   });
 
   describe('resetPassword', () => {
-    it('should pass token, new password, and request metadata to broker', async () => {
+    it('should pass token and new password to broker', async () => {
       const dto = { token: 'reset-token', newPassword: 'NewStr0ng!Pass#2024' };
       broker.runUsecases.mockResolvedValue({} as any);
 
-      await controller.resetPassword(dto as any, mockReq);
+      await controller.resetPassword(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [resetPasswordUc],
-        expect.objectContaining({
-          token: 'reset-token',
-          newPassword: 'NewStr0ng!Pass#2024',
-          ipAddress: '127.0.0.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ token: 'reset-token', newPassword: 'NewStr0ng!Pass#2024' }),
       );
     });
   });

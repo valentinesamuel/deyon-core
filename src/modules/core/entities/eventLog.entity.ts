@@ -2,6 +2,7 @@ import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 
 export enum EventType {
+  HMO_PROVIDER_CREATED = 'HMO_PROVIDER_CREATED',
   LOGIN_SUCCESS = 'LOGIN_SUCCESS',
   LOGIN_FAILED = 'LOGIN_FAILED',
   LOGIN_LOCKED = 'LOGIN_LOCKED',
@@ -18,6 +19,9 @@ export enum EventType {
   INVITE_SENT = 'INVITE_SENT',
   INVITE_ACCEPTED = 'INVITE_ACCEPTED',
   ROLE_CREATED = 'ROLE_CREATED',
+  ROLE_UPDATED = 'ROLE_UPDATED',
+  ROLE_DELETED = 'ROLE_DELETED',
+  STAFF_ROLE_REASSIGNED = 'STAFF_ROLE_REASSIGNED',
   CMO_REGISTERED = 'CMO_REGISTERED',
   SETUP_COMPLETED = 'SETUP_COMPLETED',
 }
@@ -25,6 +29,7 @@ export enum EventType {
 export enum EventModule {
   AUTH = 'permissions',
   SETUP = 'setup',
+  HMO_PROVIDER = 'hmo_provider',
 }
 
 @Entity()

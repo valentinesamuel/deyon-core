@@ -62,7 +62,11 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
   }
 
   // Handles error response
-  errorHandler(exception: HttpException | Error, context: ExecutionContext, startTime: number) {
+  errorHandler(
+    exception: HttpException | Error,
+    context: ExecutionContext,
+    startTime: number,
+  ): HttpException | Error {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
@@ -99,7 +103,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
           duration: Date.now() - startTime,
         });
 
-        return response.status(status).json({
+        response.status(status).json({
           statusCode: status,
           success: false,
           message: 'Bad Request',
@@ -107,13 +111,21 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
           path: request.path,
           duration: Date.now() - startTime,
         });
+
+        return exception;
       }
     }
+
+    const logMessage = Array.isArray(message)
+      ? `${message.length} validation error(s)`
+      : typeof message === 'string'
+        ? message
+        : 'Request failed';
 
     // Concise error logging to prevent memory bloat
     this.logger.error({
       statusCode: status,
-      message: message ?? 'Request failed',
+      message: logMessage,
       errorName: exception.name,
       url: request.url,
       method: request.method,
@@ -130,10 +142,12 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
     response.status(status).json({
       statusCode: status,
       success: false,
-      message: message ?? 'Request failed',
+      message: logMessage,
       errors: [],
       path: request.url,
       duration: Date.now() - startTime,
     });
+
+    return exception;
   }
 }

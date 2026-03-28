@@ -31,15 +31,18 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@nestjs/common": "^11.0.1",
+    "@nestjs/common": "^11.1.17",
     "@nestjs/config": "^4.0.2",
-    "@nestjs/core": "^11.0.1",
+    "@nestjs/core": "^11.1.17",
     "@nestjs/jwt": "^11.0.2",
-    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-express": "^11.1.15",
     "@nestjs/swagger": "^11.2.1",
+    "@nestjs/terminus": "^11.1.1",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.0",
     "@sendgrid/mail": "^8.1.6",
+    "@sentry/nestjs": "^10.45.0",
+    "@sonar/scan": "^4.3.5",
     "argon2": "^0.44.0",
     "awesome-phonenumber": "^7.7.0",
     "bcrypt": "^6.0.0",
@@ -48,19 +51,21 @@
     "cookie-parser": "^1.4.7",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
-    "handlebars": "^4.7.8",
+    "handlebars": "^4.7.9",
     "helmet": "^8.1.0",
     "ioredis": "^5.10.0",
     "joi": "^18.0.1",
+    "nest-winston": "^1.10.2",
     "nestjs-cls": "^6.0.1",
-    "nodemailer": "^8.0.1",
+    "nodemailer": "^8.0.4",
     "otplib": "^13.3.0",
     "pg": "^8.16.3",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.27",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
@@ -110,7 +115,12 @@
     "onlyBuiltDependencies": [
       "@swc/core",
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "path-to-regexp": ">=8.4.0",
+      "node-forge": ">=1.4.0",
+      "brace-expansion@>=5.0.0 <6.0.0": "5.0.5"
+    }
   },
   "lint-staged": {
     "*.{ts,tsx}": [

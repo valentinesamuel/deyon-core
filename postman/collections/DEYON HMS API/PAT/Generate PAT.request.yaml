@@ -1,0 +1,19 @@
+$kind: http-request
+method: POST
+url: "{{baseUrl}}pat"
+auth:
+  type: inherit
+  credentials:
+    id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76
+examples: .resources/Generate PAT.resources/examples
+order: 1000
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "My API Token",
+      "expiresAt": "2026-04-30T23:59:59.000Z"
+    }

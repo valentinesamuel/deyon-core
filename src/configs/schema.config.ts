@@ -59,6 +59,7 @@ export default {
 
     // Redis
     REDIS_URL: Joi.string().required(),
+    REDIS_PERMISSION_CACHE_DB: Joi.number().required(),
 
     // Email
     EMAIL_PROVIDER: Joi.string().valid('mailpit', 'sendgrid').default('mailpit'),
@@ -79,5 +80,8 @@ export default {
 
     // Frontend URL (for email links)
     FRONTEND_URL: Joi.string().required(),
+
+    //Sentry
+    SENTRY_DSN: Joi.string().required(),
   }),
 };

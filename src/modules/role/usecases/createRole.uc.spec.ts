@@ -39,7 +39,7 @@ describe('CreateRoleUsecase', () => {
     usecase = new CreateRoleUsecase(roleService, eventLogService, requestContextService);
 
     eventLogService.log.mockResolvedValue(undefined);
-    requestContextService.getUser.mockReturnValue({ publicId: 'admin-1' } as any);
+    requestContextService.getUser.mockReturnValue({ id: 'admin-1' } as any);
 
     // Mock EntityManager query builder
     const qb = {

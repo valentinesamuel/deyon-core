@@ -1,8 +1,10 @@
+import './instrument';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -65,7 +67,8 @@ function buildAPIDocumentation(app: TNestApp, configService: ConfigService) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
   // Express 5.x defaults to 'simple' query parser (Node.js querystring module),
   // which does not support bracket notation like filter[isActive][eq]=false.
   // Switch to 'extended' (qs) so nested bracket params are parsed as objects.

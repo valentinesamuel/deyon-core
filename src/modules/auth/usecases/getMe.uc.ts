@@ -1,4 +1,4 @@
-import { Usecase } from '@broker/types';
+import { Usecase, UsecaseConfig } from '@broker/types';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { StaffRepository } from '@adapters/repositories/staff.repository';
@@ -20,6 +20,7 @@ export interface StaffMeResult {
 
 @Injectable()
 export class GetMeUsecase extends Usecase<StaffMeResult> {
+  config?: UsecaseConfig = { requiresTransaction: false };
   constructor(
     private readonly staffRepository: StaffRepository,
     private readonly requestContextService: RequestContextService,

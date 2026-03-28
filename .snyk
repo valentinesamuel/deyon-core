@@ -1,0 +1,9 @@
+version: v1.25.0
+ignore:
+  SNYK-JS-BRACEEXPANSION-15789759:
+    - '*':
+        reason: >
+          No fix available in the brace-expansion@2.x line. The suggested fix
+          (v5.0.5) is a different major version incompatible with minimatch@9.
+          Will remediate when typeorm releases a version that drops this chain.
+        expires: '2026-12-31T00:00:00.000Z'
