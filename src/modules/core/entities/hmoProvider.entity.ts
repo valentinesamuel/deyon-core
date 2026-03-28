@@ -1,4 +1,4 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, Index } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 
 @Entity()
@@ -7,6 +7,7 @@ export class HmoProvider extends BaseEntity {
   name: string;
 
   @Column({ type: 'varchar', unique: true })
+  @Index()
   code: string;
 
   @Column({ type: 'varchar' })

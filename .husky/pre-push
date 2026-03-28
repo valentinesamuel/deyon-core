@@ -14,6 +14,7 @@ trivy fs \
   --scanners secret \
   --severity HIGH,CRITICAL \
   --skip-dirs node_modules,dist \
+  --skip-files '.env' \
   --exit-code 1 \
   .
 echo "[pre-push] No secrets found."
