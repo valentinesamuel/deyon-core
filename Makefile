@@ -72,6 +72,10 @@ security-trivy:
 	trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --skip-dirs node_modules,dist --exit-code 1 .
 	@echo "[Trivy] Scanning Dockerfile..."
 	trivy config --severity HIGH,CRITICAL --exit-code 1 Dockerfile
+	@echo "[Snyk] Scanning all dependencies (all severities)..."
+	snyk test --all-projects || true
+	@echo "[Snyk] Checking for HIGH/CRITICAL vulnerabilities..."
+	snyk test --all-projects --severity-threshold=high
 
 security-renovate: security-trivy security-scan
 	@chmod +x scripts/renovate-local.sh && ./scripts/renovate-local.sh
@@ -115,7 +119,7 @@ help:
 	@echo "  security-logs     Tail SonarQube logs"
 	@echo "  security-restart  Restart SonarQube"
 	@echo "  security-scan     Run sonar-scanner against src/ (requires SONAR_TOKEN in .env)"
-	@echo "  security-trivy    Run Trivy SAST + Dockerfile scan (HIGH/CRITICAL)"
+	@echo "  security-trivy    Run Trivy SAST + Dockerfile scan + Snyk dependency scan (HIGH/CRITICAL)"
 	@echo "  security-renovate Full security scan (Trivy + SonarQube) then open Renovate PRs"
 	@echo ""
 	@echo "Docker"
