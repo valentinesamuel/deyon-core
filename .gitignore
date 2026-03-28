@@ -46,6 +46,9 @@ lerna-debug.log*
 .temp
 .tmp
 
+# SonarQube scanner output
+.scannerwork/
+
 # Runtime data
 pids
 *.pid

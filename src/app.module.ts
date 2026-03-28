@@ -23,6 +23,12 @@ import { PatModule } from '@modules/pat/pat.module';
 import { CacheModule } from '@adapters/cache/cache.module';
 import { QueryEngineModule } from '@shared/queryEngine';
 import { HmoModule } from '@modules/hmo/hmo.module';
+import { WinstonModule } from 'nest-winston';
+import * as winston from 'winston';
+import { utilities as nestWinstonModuleUtilities } from 'nest-winston';
+import { TerminusModule } from '@nestjs/terminus';
+import { RedisHealthIndicator } from '@shared/observability/redis.health';
+import { RedisProvider } from '@adapters/cache/providers/redis.provider';
 
 @Module({
   imports: [
@@ -31,12 +37,39 @@ import { HmoModule } from '@modules/hmo/hmo.module';
       load: [common, typeorm, cacheConfig],
       ...configSchema,
     }),
+    WinstonModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const isDevelopment = configService.get<boolean>('common.isDevelopment');
+        return {
+          transports: [
+            new winston.transports.Console({
+              format: isDevelopment
+                ? winston.format.combine(
+                    winston.format.timestamp(),
+                    winston.format.ms(),
+                    nestWinstonModuleUtilities.format.nestLike(
+                      configService.get('common.appName'),
+                      { prettyPrint: true, colors: true },
+                    ),
+                  )
+                : winston.format.combine(
+                    winston.format.timestamp(),
+                    winston.format.ms(),
+                    winston.format.json(),
+                  ),
+            }),
+          ],
+        };
+      },
+    }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => configService.get('typeormConfig')!,
     }),
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
+    TerminusModule,
     CacheModule,
     QueryEngineModule,
     AuthModule,
@@ -70,6 +103,8 @@ import { HmoModule } from '@modules/hmo/hmo.module';
       useClass: ClsContextGuard,
     },
     RequestContextService,
+    RedisHealthIndicator,
+    RedisProvider,
   ],
   exports: [Broker],
 })

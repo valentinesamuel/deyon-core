@@ -27,7 +27,7 @@ export class CreateHmoProviderDto {
   retractionEmail: string;
 
   @ApiProperty({ example: '123 street, ikeja' })
-  @IsEmail()
+  @IsString()
   address: string;
 
   @ApiProperty({ example: 'http://test@test.com' })

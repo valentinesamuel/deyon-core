@@ -1,5 +1,4 @@
 $kind: http-request
-name: Get all HMO providers
 url: "{{baseUrl}}hmo/providers"
 method: GET
 headers:

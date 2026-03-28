@@ -4,6 +4,7 @@ import {
   FindOptionsSelect,
   FindOptionsWhere,
   ObjectLiteral,
+  QueryDeepPartialEntity,
   Repository,
 } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
@@ -35,5 +36,23 @@ export abstract class BaseRepository<T extends ObjectLiteral> extends Repository
     }
 
     return repo.findOne(options);
+  }
+
+  async updateExistingRecord(
+    criteria: FindOptionsWhere<T> | FindOptionsWhere<T>[],
+    partialData: QueryDeepPartialEntity<T>,
+    em?: EntityManager,
+  ): Promise<T> {
+    const repo = em ? em.getRepository(this.target) : this;
+
+    const exists = await repo.existsBy(criteria);
+    if (!exists) {
+      throw new NotFoundException('Resource not found');
+    }
+
+    await repo.update(criteria, partialData);
+
+    const where = Array.isArray(criteria) ? criteria[0] : criteria;
+    return repo.findOne({ where }) as Promise<T>;
   }
 }

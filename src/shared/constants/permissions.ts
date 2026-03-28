@@ -23,6 +23,7 @@ export const PERMISSION = {
     READ: 'hmo_provider:read',
     LIST: 'hmo_provider:list',
     CREATE: 'hmo_provider:create',
+    UPDATE: 'hmo_provider:update',
   },
   PERMISSION: {
     READ: 'permission:read',
