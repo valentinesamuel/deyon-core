@@ -419,6 +419,14 @@ export class RedisProvider implements CacheInterface, OnModuleDestroy {
     }
   }
 
+  async ping(): Promise<void> {
+    const client = this.getClient(CacheDbType.PERMISSION);
+    const result = await client.ping();
+    if (result !== 'PONG') {
+      throw new Error('Redis ping failed');
+    }
+  }
+
   async onModuleDestroy() {
     for (const client of this.clients.values()) {
       await client.quit();

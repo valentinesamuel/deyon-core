@@ -15,10 +15,10 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
   exit 1
 fi
 
-echo "Running Renovate locally against valentinesamuel/deyon_be..."
+echo "Running Renovate locally against valentinesamuel/deyon-core..."
 
 docker run --rm \
   -e LOG_LEVEL=debug \
   -e RENOVATE_TOKEN="$GITHUB_TOKEN" \
   renovate/renovate:latest \
-  valentinesamuel/deyon_be
+  valentinesamuel/deyon-core

@@ -1,26 +1,38 @@
-import { Controller, Get, HttpCode, HttpStatus, Logger } from '@nestjs/common';
-import { ApiInternalServerErrorResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  HealthCheck,
+  HealthCheckService,
+  MemoryHealthIndicator,
+  TypeOrmHealthIndicator,
+} from '@nestjs/terminus';
 import { Public } from '@shared/decorators/isPublic.decorator';
 import { SkipAbortCheck } from '@shared/decorators/skipAbortCheck.decorator';
+import { RedisHealthIndicator } from '@shared/observability/redis.health';
+
+const HEAP_THRESHOLD_BYTES = 500 * 1024 * 1024; // 500 MB
 
 @Controller('health')
 export class AppController {
-  private readonly logger = new Logger(AppController.name);
-
-  constructor() {}
+  constructor(
+    private readonly health: HealthCheckService,
+    private readonly db: TypeOrmHealthIndicator,
+    private readonly memory: MemoryHealthIndicator,
+    private readonly redis: RedisHealthIndicator,
+  ) {}
 
   @Get('/')
-  @HttpCode(HttpStatus.OK)
   @Public()
   @SkipAbortCheck()
+  @HealthCheck()
   @ApiOperation({ operationId: 'checkHealth', summary: 'Check health of the service' })
-  @ApiResponse({ status: 201, description: 'The record has been successfully created.' })
-  @ApiInternalServerErrorResponse()
+  @ApiResponse({ status: 200, description: 'Service is healthy.' })
+  @ApiResponse({ status: 503, description: 'Service is unhealthy.' })
   check() {
-    throw new Error('My first Sentry error!');
-    this.logger.log('Checking health of the service...');
-    return {
-      message: 'Service is up and running',
-    };
+    return this.health.check([
+      () => this.db.pingCheck('database'),
+      () => this.redis.isHealthy('redis'),
+      () => this.memory.checkHeap('memory', HEAP_THRESHOLD_BYTES),
+    ]);
   }
 }
