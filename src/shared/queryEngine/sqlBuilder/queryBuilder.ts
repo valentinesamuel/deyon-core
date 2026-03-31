@@ -74,20 +74,7 @@ export class QueryBuilderOrchestrator {
 
     const qb = repository.createQueryBuilder('root') as SelectQueryBuilder<T>;
 
-    // Apply joins with optional soft-delete filter on JOIN ON clause
-    for (const joinSpec of joinPlanner.getJoins()) {
-      const joinPath = `${joinSpec.parentAlias}.${joinSpec.relationProperty}`;
-      if (joinSpec.hasDeletedAt) {
-        qb.leftJoin(joinPath, joinSpec.alias, `${joinSpec.alias}.deletedAt IS NULL`);
-      } else {
-        qb.leftJoin(joinPath, joinSpec.alias);
-      }
-    }
-
-    // Apply root soft-delete unless withDeleted=true
-    if (!query.withDeleted) {
-      qb.andWhere('root.deletedAt IS NULL');
-    }
+    this.applyJoins(qb, joinPlanner, query.withDeleted);
 
     // Apply where filters
     this.filterBuilder.apply(qb, query.whereAst, filterPlan);
@@ -109,39 +96,81 @@ export class QueryBuilderOrchestrator {
     // Apply sort using effective sort fields for stable ordering
     this.sortBuilder.apply(qb, effectiveSortFields, joinPlanner);
 
-    // Apply field selection
+    this.applyFieldSelection(qb, query, joinPlanner, isAggregating);
+
+    // Apply cursor pagination (sets limit+1 and cursor WHERE clause)
+    applyCursorPagination(
+      qb,
+      query.cursor,
+      effectiveSortFields,
+      query.limit,
+      (field) => joinPlanner.registerPath(field),
+      isAggregating,
+    );
+
+    return { qb, effectiveSortFields };
+  }
+
+  private applyJoins<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    joinPlanner: JoinPlanner,
+    withDeleted: boolean,
+  ): void {
+    for (const joinSpec of joinPlanner.getJoins()) {
+      const joinPath = `${joinSpec.parentAlias}.${joinSpec.relationProperty}`;
+      if (joinSpec.hasDeletedAt) {
+        qb.leftJoin(joinPath, joinSpec.alias, `${joinSpec.alias}.deletedAt IS NULL`);
+      } else {
+        qb.leftJoin(joinPath, joinSpec.alias);
+      }
+    }
+
+    if (!withDeleted) {
+      qb.andWhere('root.deletedAt IS NULL');
+    }
+  }
+
+  private buildExplicitSelections(
+    fields: ParsedQuery['fields'],
+    joinPlanner: JoinPlanner,
+  ): string[] {
+    const selectPlan = this.selectPlanner.plan(fields);
+    const selections: string[] = [];
+    for (const [alias, cols] of selectPlan.columns.entries()) {
+      const resolvedAlias =
+        alias === 'root' ? 'root' : (joinPlanner.getAliasForPath(alias) ?? alias);
+      for (const col of cols) {
+        selections.push(`${resolvedAlias}.${col}`);
+      }
+    }
+    return selections;
+  }
+
+  private buildGroupBySelections(groupBy: string[], joinPlanner: JoinPlanner): string[] {
+    return groupBy.map((gb) => {
+      const parts = gb.split('.');
+      const column = parts.at(-1)!;
+      const relationParts = parts.slice(0, -1);
+      if (relationParts.length === 0) return `root.${column}`;
+      const alias = joinPlanner.getAliasForPath(relationParts.join('.'));
+      return `${alias ?? 'root'}.${column}`;
+    });
+  }
+
+  private applyFieldSelection<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    query: ParsedQuery,
+    joinPlanner: JoinPlanner,
+    isAggregating: boolean,
+  ): void {
     if (Object.keys(query.fields).length > 0) {
-      const selectPlan = this.selectPlanner.plan(query.fields);
-      const selections: string[] = [];
-
-      for (const [alias, cols] of selectPlan.columns.entries()) {
-        const resolvedAlias =
-          alias === 'root' ? 'root' : (joinPlanner.getAliasForPath(alias) ?? alias);
-        for (const col of cols) {
-          selections.push(`${resolvedAlias}.${col}`);
-        }
-      }
-
-      if (selections.length > 0) {
-        qb.select(selections);
-      }
+      const selections = this.buildExplicitSelections(query.fields, joinPlanner);
+      if (selections.length > 0) qb.select(selections);
     } else if (isAggregating) {
-      // When aggregating without explicit fields, select only the GROUP BY columns.
-      // Aggregate expressions (COUNT, SUM, etc.) are already added via addSelect in AggregationBuilder.
-      // Without this, TypeORM defaults to SELECT * which violates GROUP BY in PostgreSQL.
-      const groupBySelections = query.groupBy.map((gb) => {
-        const parts = gb.split('.');
-        const column = parts[parts.length - 1];
-        const relationParts = parts.slice(0, -1);
-        if (relationParts.length === 0) {
-          return `root.${column}`;
-        }
-        const alias = joinPlanner.getAliasForPath(relationParts.join('.'));
-        return `${alias ?? 'root'}.${column}`;
-      });
-      if (groupBySelections.length > 0) {
-        qb.select(groupBySelections);
-      }
+      // When aggregating without explicit fields, select only GROUP BY columns.
+      // Aggregate expressions are already added via addSelect in AggregationBuilder.
+      const groupBySelections = this.buildGroupBySelections(query.groupBy, joinPlanner);
+      if (groupBySelections.length > 0) qb.select(groupBySelections);
     }
 
     // Select all columns for include= joins not already covered by explicit fields.
@@ -158,17 +187,5 @@ export class QueryBuilderOrchestrator {
         }
       }
     }
-
-    // Apply cursor pagination (sets limit+1 and cursor WHERE clause)
-    applyCursorPagination(
-      qb,
-      query.cursor,
-      effectiveSortFields,
-      query.limit,
-      (field) => joinPlanner.registerPath(field),
-      isAggregating,
-    );
-
-    return { qb, effectiveSortFields };
   }
 }

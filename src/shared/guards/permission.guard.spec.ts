@@ -126,4 +126,26 @@ describe('PermissionGuard', () => {
     };
     expect(() => guard.canActivate(makeCtx(user))).toThrow(ForbiddenException);
   });
+
+  it('should extract permissions from singular role property', () => {
+    reflector.getAllAndOverride
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce({ permissions: ['staff:read'], mode: PermissionCheckMode.ANY });
+
+    const user = {
+      role: { permissions: [{ code: 'staff:read', isActive: true }] },
+    };
+    expect(guard.canActivate(makeCtx(user))).toBe(true);
+  });
+
+  it('should handle role with no permissions array gracefully', () => {
+    reflector.getAllAndOverride
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce({ permissions: ['staff:read'], mode: PermissionCheckMode.ANY });
+
+    const user = {
+      roles: [{ name: 'admin' }], // no permissions field
+    };
+    expect(() => guard.canActivate(makeCtx(user))).toThrow(ForbiddenException);
+  });
 });

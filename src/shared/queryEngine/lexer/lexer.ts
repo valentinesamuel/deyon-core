@@ -24,160 +24,188 @@ export class LexerError extends Error {
 
 const OPERATOR_CHARS = new Set(['=', '!', '<', '>']);
 
+const KEYWORD_TOKENS = new Map<string, Token>([
+  ['AND', { type: TokenType.AND, value: 'AND' }],
+  ['OR', { type: TokenType.OR, value: 'OR' }],
+  ['IN', { type: TokenType.OP, value: 'IN' }],
+  ['LIKE', { type: TokenType.OP, value: 'LIKE' }],
+  ['ILIKE', { type: TokenType.OP, value: 'ILIKE' }],
+  ['BETWEEN', { type: TokenType.OP, value: 'BETWEEN' }],
+  ['NULL', { type: TokenType.VALUE, value: 'null' }],
+  ['TRUE', { type: TokenType.VALUE, value: 'true' }],
+  ['FALSE', { type: TokenType.VALUE, value: 'false' }],
+]);
+
+function tokenizeOperator(input: string, pos: number): { token: Token; newPos: number } {
+  let op = input[pos];
+  pos++;
+  if (pos < input.length && input[pos] === '=') {
+    op += '=';
+    pos++;
+  }
+  return { token: { type: TokenType.OP, value: op }, newPos: pos };
+}
+
+function tokenizeString(input: string, pos: number): { token: Token; newPos: number } {
+  pos++; // skip opening quote
+  let str = '';
+  while (pos < input.length && input[pos] !== "'") {
+    if (input[pos] === '\\' && pos + 1 < input.length) {
+      pos++;
+      str += input[pos];
+    } else {
+      str += input[pos];
+    }
+    pos++;
+  }
+  if (pos >= input.length) {
+    throw new LexerError('Unterminated string literal');
+  }
+  pos++; // skip closing quote
+  return { token: { type: TokenType.VALUE, value: str }, newPos: pos };
+}
+
+function tokenizeNumber(input: string, pos: number): { token: Token; newPos: number } {
+  let num = input[pos] === '-' ? '-' : '';
+  if (input[pos] === '-') pos++;
+  while (pos < input.length && /[\d.]/.test(input[pos])) {
+    num += input[pos];
+    pos++;
+  }
+  return { token: { type: TokenType.VALUE, value: num }, newPos: pos };
+}
+
+function resolveIsKeyword(input: string, pos: number): { token: Token; newPos: number } | null {
+  while (pos < input.length && /\s/.test(input[pos])) pos++;
+  let next = '';
+  while (pos < input.length && /[a-zA-Z]/.test(input[pos])) {
+    next += input[pos];
+    pos++;
+  }
+  if (next.toUpperCase() === 'NULL') {
+    return { token: { type: TokenType.OP, value: 'IS NULL' }, newPos: pos };
+  }
+  if (next.toUpperCase() === 'NOT') {
+    while (pos < input.length && /\s/.test(input[pos])) pos++;
+    let notNext = '';
+    while (pos < input.length && /[a-zA-Z]/.test(input[pos])) {
+      notNext += input[pos];
+      pos++;
+    }
+    if (notNext.toUpperCase() === 'NULL') {
+      return { token: { type: TokenType.OP, value: 'IS NOT NULL' }, newPos: pos };
+    }
+    throw new LexerError(`Unexpected token after IS NOT: "${notNext}"`);
+  }
+  return null; // treat as IDENT (caller will use original pos)
+}
+
+function resolveNotKeyword(input: string, pos: number): { token: Token; newPos: number } | null {
+  while (pos < input.length && /\s/.test(input[pos])) pos++;
+  let next = '';
+  while (pos < input.length && /[a-zA-Z]/.test(input[pos])) {
+    next += input[pos];
+    pos++;
+  }
+  if (next.toUpperCase() === 'IN') {
+    return { token: { type: TokenType.OP, value: 'NOT IN' }, newPos: pos };
+  }
+  return null;
+}
+
+function tokenizeIdentifierOrKeyword(input: string, pos: number): { token: Token; newPos: number } {
+  let ident = '';
+  while (pos < input.length && /[a-zA-Z0-9_.%@-]/.test(input[pos])) {
+    ident += input[pos];
+    pos++;
+  }
+
+  const upper = ident.toUpperCase();
+  const simpleToken = KEYWORD_TOKENS.get(upper);
+  if (simpleToken) return { token: simpleToken, newPos: pos };
+
+  if (upper === 'IS') {
+    const result = resolveIsKeyword(input, pos);
+    if (result) return result;
+    return { token: { type: TokenType.IDENT, value: ident }, newPos: pos };
+  }
+
+  if (upper === 'NOT') {
+    const result = resolveNotKeyword(input, pos);
+    if (result) return result;
+    return { token: { type: TokenType.IDENT, value: ident }, newPos: pos };
+  }
+
+  return { token: { type: TokenType.IDENT, value: ident }, newPos: pos };
+}
+
 export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let pos = 0;
 
   while (pos < input.length) {
+    const ch = input[pos];
+
     // Skip whitespace
-    if (/\s/.test(input[pos])) {
+    if (/\s/.test(ch)) {
       pos++;
       continue;
     }
 
     // Left paren
-    if (input[pos] === '(') {
+    if (ch === '(') {
       tokens.push({ type: TokenType.LPAREN, value: '(' });
       pos++;
       continue;
     }
 
     // Right paren
-    if (input[pos] === ')') {
+    if (ch === ')') {
       tokens.push({ type: TokenType.RPAREN, value: ')' });
       pos++;
       continue;
     }
 
     // Comma
-    if (input[pos] === ',') {
+    if (ch === ',') {
       tokens.push({ type: TokenType.COMMA, value: ',' });
       pos++;
       continue;
     }
 
     // Operators: =, !=, >, >=, <, <=
-    if (OPERATOR_CHARS.has(input[pos])) {
-      let op = input[pos];
-      pos++;
-      if (pos < input.length && input[pos] === '=') {
-        op += '=';
-        pos++;
-      }
-      tokens.push({ type: TokenType.OP, value: op });
+    if (OPERATOR_CHARS.has(ch)) {
+      const result = tokenizeOperator(input, pos);
+      tokens.push(result.token);
+      pos = result.newPos;
       continue;
     }
 
     // String value (single-quoted)
-    if (input[pos] === "'") {
-      pos++; // skip opening quote
-      let str = '';
-      while (pos < input.length && input[pos] !== "'") {
-        if (input[pos] === '\\' && pos + 1 < input.length) {
-          pos++;
-          str += input[pos];
-        } else {
-          str += input[pos];
-        }
-        pos++;
-      }
-      if (pos >= input.length) {
-        throw new LexerError('Unterminated string literal');
-      }
-      pos++; // skip closing quote
-      tokens.push({ type: TokenType.VALUE, value: str });
+    if (ch === "'") {
+      const result = tokenizeString(input, pos);
+      tokens.push(result.token);
+      pos = result.newPos;
       continue;
     }
 
-    // Number value or identifier/keyword
-    if (/[0-9]/.test(input[pos]) || (input[pos] === '-' && /[0-9]/.test(input[pos + 1] ?? ''))) {
-      let num = input[pos] === '-' ? '-' : '';
-      if (input[pos] === '-') pos++;
-      while (pos < input.length && /[0-9.]/.test(input[pos])) {
-        num += input[pos];
-        pos++;
-      }
-      tokens.push({ type: TokenType.VALUE, value: num });
+    // Number value
+    if (/\d/.test(ch) || (ch === '-' && /\d/.test(input[pos + 1] ?? ''))) {
+      const result = tokenizeNumber(input, pos);
+      tokens.push(result.token);
+      pos = result.newPos;
       continue;
     }
 
-    // NULL keyword or boolean or identifier/keyword
-    if (/[a-zA-Z_]/.test(input[pos])) {
-      let ident = '';
-      while (pos < input.length && /[a-zA-Z0-9_.%@-]/.test(input[pos])) {
-        ident += input[pos];
-        pos++;
-      }
-
-      const upper = ident.toUpperCase();
-      if (upper === 'AND') {
-        tokens.push({ type: TokenType.AND, value: 'AND' });
-      } else if (upper === 'OR') {
-        tokens.push({ type: TokenType.OR, value: 'OR' });
-      } else if (upper === 'IN') {
-        tokens.push({ type: TokenType.OP, value: 'IN' });
-      } else if (upper === 'LIKE') {
-        tokens.push({ type: TokenType.OP, value: 'LIKE' });
-      } else if (upper === 'ILIKE') {
-        tokens.push({ type: TokenType.OP, value: 'ILIKE' });
-      } else if (upper === 'IS') {
-        // Peek ahead for IS NULL / IS NOT NULL
-        const saved = pos;
-        while (pos < input.length && /\s/.test(input[pos])) pos++;
-        let next = '';
-        while (pos < input.length && /[a-zA-Z]/.test(input[pos])) {
-          next += input[pos];
-          pos++;
-        }
-        if (next.toUpperCase() === 'NULL') {
-          tokens.push({ type: TokenType.OP, value: 'IS NULL' });
-        } else if (next.toUpperCase() === 'NOT') {
-          while (pos < input.length && /\s/.test(input[pos])) pos++;
-          let notNext = '';
-          while (pos < input.length && /[a-zA-Z]/.test(input[pos])) {
-            notNext += input[pos];
-            pos++;
-          }
-          if (notNext.toUpperCase() === 'NULL') {
-            tokens.push({ type: TokenType.OP, value: 'IS NOT NULL' });
-          } else {
-            throw new LexerError(`Unexpected token after IS NOT: "${notNext}"`);
-          }
-        } else {
-          // Restore and treat as IDENT
-          pos = saved;
-          tokens.push({ type: TokenType.IDENT, value: ident });
-        }
-      } else if (upper === 'NULL') {
-        tokens.push({ type: TokenType.VALUE, value: 'null' });
-      } else if (upper === 'TRUE') {
-        tokens.push({ type: TokenType.VALUE, value: 'true' });
-      } else if (upper === 'FALSE') {
-        tokens.push({ type: TokenType.VALUE, value: 'false' });
-      } else if (upper === 'BETWEEN') {
-        tokens.push({ type: TokenType.OP, value: 'BETWEEN' });
-      } else if (upper === 'NOT') {
-        // Check for NOT IN
-        const saved = pos;
-        while (pos < input.length && /\s/.test(input[pos])) pos++;
-        let next = '';
-        while (pos < input.length && /[a-zA-Z]/.test(input[pos])) {
-          next += input[pos];
-          pos++;
-        }
-        if (next.toUpperCase() === 'IN') {
-          tokens.push({ type: TokenType.OP, value: 'NOT IN' });
-        } else {
-          pos = saved;
-          tokens.push({ type: TokenType.IDENT, value: ident });
-        }
-      } else {
-        tokens.push({ type: TokenType.IDENT, value: ident });
-      }
+    // Identifier or keyword
+    if (/[a-zA-Z_]/.test(ch)) {
+      const result = tokenizeIdentifierOrKeyword(input, pos);
+      tokens.push(result.token);
+      pos = result.newPos;
       continue;
     }
 
-    throw new LexerError(`Unexpected character: "${input[pos]}" at position ${pos}`);
+    throw new LexerError(`Unexpected character: "${ch}" at position ${pos}`);
   }
 
   tokens.push({ type: TokenType.EOF, value: '' });

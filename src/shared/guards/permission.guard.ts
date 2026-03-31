@@ -88,11 +88,7 @@ export class PermissionGuard {
 
     if (!hasPermission) {
       throw new ForbiddenException({
-        // statusCode: 403,
-        // error: 'INSUFFICIENT_PERMISSIONS',
         message: 'ERR_DYN_8',
-        // required: requiredPermissions,
-        // mode,
       });
     }
 
@@ -107,24 +103,27 @@ export class PermissionGuard {
     const permissionSet = new Set<string>();
 
     // Support singular role shape (TRequestUser) and plural roles shape (legacy)
-    const roles: any[] =
-      (user as any).roles && Array.isArray((user as any).roles)
-        ? (user as any).roles
-        : (user as any).role
-          ? [(user as any).role]
-          : [];
+    let roles: any[] = [];
+    if ((user as any).roles && Array.isArray((user as any).roles)) {
+      roles = (user as any).roles;
+    } else if ((user as any).role) {
+      roles = [(user as any).role];
+    }
 
     for (const role of roles) {
-      if (role.permissions && Array.isArray(role.permissions)) {
-        for (const permission of role.permissions) {
-          if (permission.code && permission.isActive !== false) {
-            permissionSet.add(permission.code);
-          }
-        }
+      for (const code of this.extractPermissionsFromRole(role)) {
+        permissionSet.add(code);
       }
     }
 
     return Array.from(permissionSet);
+  }
+
+  private extractPermissionsFromRole(role: any): string[] {
+    if (!role.permissions || !Array.isArray(role.permissions)) return [];
+    return role.permissions
+      .filter((p: any) => p.code && p.isActive !== false)
+      .map((p: any) => p.code as string);
   }
 
   /**

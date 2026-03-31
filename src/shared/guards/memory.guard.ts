@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request } from 'express';
-import * as v8 from 'v8';
+import * as v8 from 'node:v8';
 import { ConfigService } from '@nestjs/config';
 
 function getHeapLimitMB(): number {

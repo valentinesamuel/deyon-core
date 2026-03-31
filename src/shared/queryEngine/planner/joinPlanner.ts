@@ -18,15 +18,70 @@ export interface JoinSpec {
 }
 
 export class JoinPlanner {
-  private joins: Map<string, JoinSpec> = new Map();
-  private pathToAlias: Map<string, string> = new Map();
-  private aliasToMetadata: Map<string, EntityMetadata> = new Map();
+  private readonly joins: Map<string, JoinSpec> = new Map();
+  private readonly pathToAlias: Map<string, string> = new Map();
+  private readonly aliasToMetadata: Map<string, EntityMetadata> = new Map();
 
   constructor(
     private readonly dataSource: DataSource,
     private readonly rootEntityClass: EntityTarget<object>,
     private readonly maxJoins: number = 8,
   ) {}
+
+  /**
+   * Register a single hop in the relation chain at index `i` of `parts`.
+   * Returns the new alias and metadata for the registered relation, or the
+   * existing ones if the hop was already registered.
+   */
+  private registerSingleHop(
+    parts: string[],
+    i: number,
+    isInclude: boolean,
+    currentMetadata: EntityMetadata,
+    currentAlias: string,
+  ): { alias: string; metadata: EntityMetadata } {
+    const relationName = parts[i];
+    const pathSoFar = parts.slice(0, i + 1).join('.');
+    const newAlias = 'root_' + parts.slice(0, i + 1).join('_');
+
+    if (!this.pathToAlias.has(pathSoFar)) {
+      const relation = currentMetadata.relations.find((r) => r.propertyName === relationName);
+      if (!relation) {
+        throw new JoinPlannerError(
+          `Relation "${relationName}" not found on entity "${currentMetadata.name}"`,
+        );
+      }
+
+      const targetMetadata = relation.inverseEntityMetadata;
+      const hasDeletedAt = targetMetadata.columns.some((c) => c.propertyName === 'deletedAt');
+
+      if (this.joins.size >= this.maxJoins) {
+        throw new JoinPlannerError(`Maximum join limit of ${this.maxJoins} exceeded`);
+      }
+
+      const joinSpec: JoinSpec = {
+        type: 'LEFT',
+        parentAlias: currentAlias,
+        relationProperty: relationName,
+        alias: newAlias,
+        depth: i + 1,
+        hasDeletedAt,
+        isInclude,
+      };
+
+      this.joins.set(newAlias, joinSpec);
+      this.pathToAlias.set(pathSoFar, newAlias);
+      this.aliasToMetadata.set(newAlias, targetMetadata);
+      return { alias: newAlias, metadata: targetMetadata };
+    }
+
+    // Join already registered — upgrade isInclude if this call is for an include= path
+    if (isInclude) {
+      const existing = this.joins.get(newAlias);
+      if (existing) existing.isInclude = true;
+    }
+    return { alias: newAlias, metadata: this.aliasToMetadata.get(newAlias)! };
+  }
 
   /**
    * Internal: walk a chain of relation names, registering joins for each.
@@ -40,49 +95,9 @@ export class JoinPlanner {
     let currentAlias = 'root';
 
     for (let i = 0; i < parts.length; i++) {
-      const relationName = parts[i];
-      const pathSoFar = parts.slice(0, i + 1).join('.');
-      const newAlias = 'root_' + parts.slice(0, i + 1).join('_');
-
-      if (!this.pathToAlias.has(pathSoFar)) {
-        const relation = currentMetadata.relations.find((r) => r.propertyName === relationName);
-        if (!relation) {
-          throw new JoinPlannerError(
-            `Relation "${relationName}" not found on entity "${currentMetadata.name}"`,
-          );
-        }
-
-        const targetMetadata = relation.inverseEntityMetadata;
-        const hasDeletedAt = targetMetadata.columns.some((c) => c.propertyName === 'deletedAt');
-
-        if (this.joins.size >= this.maxJoins) {
-          throw new JoinPlannerError(`Maximum join limit of ${this.maxJoins} exceeded`);
-        }
-
-        const joinSpec: JoinSpec = {
-          type: 'LEFT',
-          parentAlias: currentAlias,
-          relationProperty: relationName,
-          alias: newAlias,
-          depth: i + 1,
-          hasDeletedAt,
-          isInclude,
-        };
-
-        this.joins.set(newAlias, joinSpec);
-        this.pathToAlias.set(pathSoFar, newAlias);
-        this.aliasToMetadata.set(newAlias, targetMetadata);
-        currentMetadata = targetMetadata;
-      } else {
-        // Join already registered — upgrade isInclude if this call is for an include= path
-        if (isInclude) {
-          const existing = this.joins.get(newAlias);
-          if (existing) existing.isInclude = true;
-        }
-        currentMetadata = this.aliasToMetadata.get(newAlias)!;
-      }
-
-      currentAlias = newAlias;
+      const result = this.registerSingleHop(parts, i, isInclude, currentMetadata, currentAlias);
+      currentMetadata = result.metadata;
+      currentAlias = result.alias;
     }
 
     return { alias: currentAlias, metadata: currentMetadata };
@@ -96,7 +111,7 @@ export class JoinPlanner {
    */
   registerPath(path: string): { alias: string; column: string } {
     const parts = path.split('.');
-    const column = parts[parts.length - 1];
+    const column = parts.at(-1)!;
     const relationParts = parts.slice(0, -1);
 
     if (relationParts.length === 0) {

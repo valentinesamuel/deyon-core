@@ -207,7 +207,7 @@ export function buildCursorPage<T extends Record<string, unknown>>(
 
   let nextCursor: string | null = null;
   if (hasMore && data.length > 0) {
-    const lastRow = data[data.length - 1];
+    const lastRow = data.at(-1)!;
     const cursorValues = extractCursorValues(lastRow as Record<string, unknown>, sortFields);
     nextCursor = encodeCursor(cursorValues);
   }
@@ -217,7 +217,7 @@ export function buildCursorPage<T extends Record<string, unknown>>(
     prevCursor,
     hasMore,
     limit,
-    ...(totalRecords !== undefined ? { totalRecords } : {}),
+    ...(totalRecords === undefined ? {} : { totalRecords }),
   };
 
   return { data, meta };

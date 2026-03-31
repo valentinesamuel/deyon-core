@@ -1,5 +1,5 @@
 import { Usecase } from '@broker/types';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { ForgotPasswordDto } from '../dto/forgotPassword.dto';
 import { TokenService } from '../services/token.service';
@@ -10,7 +10,6 @@ import { CacheDbType } from '@adapters/cache/providers/redis.provider';
 import { RedisKeys, RedisTTL } from '@adapters/cache/cache.constants';
 import { EventModule, EventType } from '../../core/entities/eventLog.entity';
 import { IEmailProvider, EMAIL_PROVIDER_TOKEN } from '@adapters/email/email.interface';
-import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RequestContextService } from '@shared/context/requestContext.service';
 
@@ -85,6 +84,6 @@ export class ForgotPasswordUsecase extends Usecase<{ message: string }> {
       em,
     );
 
-    return SAME_RESPONSE;
+    return { message: 'If this email is registered, a reset link has been sent.' };
   }
 }

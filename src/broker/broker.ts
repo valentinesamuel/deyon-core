@@ -22,7 +22,7 @@ export class Broker {
   // Default isolation level
   private readonly DEFAULT_ISOLATION = 'READ COMMITTED' as IsolationLevel;
 
-  constructor(@InjectEntityManager() private entityManager: EntityManager) {}
+  constructor(@InjectEntityManager() private readonly entityManager: EntityManager) {}
 
   /**
    * Run usecases with intelligent batching based on transaction requirements.
@@ -315,7 +315,7 @@ export class Broker {
   private safeStringify(obj: unknown): string {
     try {
       const seen = new WeakSet();
-      return JSON.stringify(obj, (key, value) => {
+      return JSON.stringify(obj, (_key, value) => {
         if (typeof value === 'object' && value !== null) {
           if (seen.has(value)) {
             return '[Circular Reference]';

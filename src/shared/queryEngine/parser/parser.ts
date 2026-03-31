@@ -36,7 +36,7 @@ const OP_MAP: Record<string, Operator> = {
 const AGGREGATE_FNS = new Set<string>(['count', 'sum', 'avg', 'min', 'max']);
 
 export class Parser {
-  private tokens: Token[];
+  private readonly tokens: Token[];
   private pos = 0;
 
   constructor(tokens: Token[]) {
@@ -154,9 +154,12 @@ export class Parser {
     if (op === 'between') {
       const lo = this.parseSingleValue();
       // Optionally consume AND keyword between BETWEEN values
-      if (this.peek().type === TokenType.AND) {
-        this.consume();
-      } else if (this.peek().type === TokenType.COMMA) {
+      // if (this.peek().type === TokenType.AND) {
+      //   this.consume();
+      // } else if (this.peek().type === TokenType.COMMA) {
+      //   this.consume();
+      // }
+      if (this.peek().type === TokenType.COMMA || this.peek().type === TokenType.AND) {
         this.consume();
       }
       const hi = this.parseSingleValue();
@@ -193,7 +196,7 @@ export class Parser {
 
     const valueToken = this.expect(TokenType.VALUE);
     const value = Number(valueToken.value);
-    if (isNaN(value)) {
+    if (Number.isNaN(value)) {
       throw new ParseError(`Aggregate condition value must be numeric, got "${valueToken.value}"`);
     }
 
@@ -230,7 +233,7 @@ export class Parser {
       if (raw === 'true') return 'true';
       if (raw === 'false') return 'false';
       const num = Number(raw);
-      if (!isNaN(num) && raw !== '') return num;
+      if (!Number.isNaN(num) && raw !== '') return num;
       return raw;
     }
     // Allow IDENT as a bare string value (e.g., status=active without quotes)

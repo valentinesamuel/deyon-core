@@ -40,8 +40,6 @@ export class RequestTrackerService {
   private readonly HIGH_COST_MEMORY_THRESHOLD_MB = 50;
   private readonly HIGH_COST_CPU_THRESHOLD_MS = 500;
 
-  constructor() {}
-
   startRequest(metrics: RequestMetrics): void {
     this.activeRequests.set(metrics.requestId, metrics);
   }
@@ -142,7 +140,7 @@ export class RequestTrackerService {
     const active = this.getActiveRequests();
     if (active.length === 0) return 'No active requests';
 
-    return active
+    return [...active]
       .sort((a, b) => b.durationMs - a.durationMs) // Longest running first
       .slice(0, 10) // Top 10
       .map(

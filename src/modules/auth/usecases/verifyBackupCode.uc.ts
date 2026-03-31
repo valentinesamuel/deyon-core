@@ -51,7 +51,7 @@ export class VerifyBackupCodeUsecase extends Usecase<VerifyBackupCodeResult> {
     if (!staff) throw new UnauthorizedException('Staff not found');
 
     const mfaConfig = await this.mfaConfigRepository.findByStaffId(mfaStaffId, em);
-    if (!mfaConfig || !mfaConfig.backupCodeHashes) {
+    if (!mfaConfig?.backupCodeHashes) {
       throw new UnauthorizedException('Backup codes not configured');
     }
 

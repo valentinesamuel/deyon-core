@@ -37,7 +37,7 @@ export class IsStrongPasswordConstraint implements ValidatorConstraintInterface 
     }
 
     // Check for at least one number
-    if (!/[0-9]/.test(password)) {
+    if (!/\d/.test(password)) {
       return false;
     }
 

@@ -83,11 +83,27 @@ export class QueryValidator {
     const maxComplexityScore =
       config.maxComplexityScore ?? MODEL_QUERY_CONFIG_DEFAULTS.maxComplexityScore;
 
-    // --- 1. Validate filter fields against allowedFilters whitelist ---
     const filterFields = new Set<string>();
     collectFields(query.whereAst, filterFields);
     collectFields(query.havingAst, filterFields);
 
+    this.validateFilterFields(filterFields, config);
+    this.validateFilterCount(
+      countConditions(query.whereAst) + countConditions(query.havingAst),
+      maxFilters,
+    );
+    this.validateRelationDepths(filterFields, maxRelationDepth);
+    this.validateJoinCount(query, maxJoins);
+    this.validateSortFields(query, config);
+    this.validateIncludeRelations(query, config);
+    this.validateSearchFields(query, config);
+    this.validateAggregateFields(query, config);
+    this.validateGroupByConsistency(query);
+    this.validateComplexityScore(query, maxComplexityScore);
+    this.validateAllowedFields(query, config);
+  }
+
+  private validateFilterFields(filterFields: Set<string>, config: ModelQueryConfig): void {
     for (const field of filterFields) {
       if (!config.allowedFilters.includes(field)) {
         throw new QueryValidationError(`Filter field "${field}" is not allowed`, {
@@ -96,17 +112,18 @@ export class QueryValidator {
         });
       }
     }
+  }
 
-    // --- 2. Validate filter count ---
-    const filterCount = countConditions(query.whereAst) + countConditions(query.havingAst);
+  private validateFilterCount(filterCount: number, maxFilters: number): void {
     if (filterCount > maxFilters) {
       throw new QueryValidationError(
         `Too many filters: ${filterCount} exceeds maximum ${maxFilters}`,
         { filterCount, maxFilters },
       );
     }
+  }
 
-    // --- 3. Validate relation depth per field path ---
+  private validateRelationDepths(filterFields: Set<string>, maxRelationDepth: number): void {
     for (const field of filterFields) {
       const depth = maxDepthOfField(field);
       if (depth > maxRelationDepth) {
@@ -116,8 +133,9 @@ export class QueryValidator {
         );
       }
     }
+  }
 
-    // --- 4. Validate join count (unique relation prefixes from all sources) ---
+  private validateJoinCount(query: ParsedQuery, maxJoins: number): void {
     const relationPrefixes = new Set<string>();
     collectRelationPrefixes(query.whereAst, relationPrefixes);
     collectRelationPrefixes(query.havingAst, relationPrefixes);
@@ -139,8 +157,9 @@ export class QueryValidator {
         { joinCount: relationPrefixes.size, maxJoins },
       );
     }
+  }
 
-    // --- 5. Validate sort fields ---
+  private validateSortFields(query: ParsedQuery, config: ModelQueryConfig): void {
     for (const sortField of query.sort) {
       if (!config.allowedSort.includes(sortField.field)) {
         throw new QueryValidationError(`Sort field "${sortField.field}" is not allowed`, {
@@ -149,8 +168,9 @@ export class QueryValidator {
         });
       }
     }
+  }
 
-    // --- 6. Validate include relations ---
+  private validateIncludeRelations(query: ParsedQuery, config: ModelQueryConfig): void {
     for (const rel of query.include) {
       if (!config.allowedRelations.includes(rel)) {
         throw new QueryValidationError(`Relation "${rel}" is not allowed for include`, {
@@ -159,8 +179,9 @@ export class QueryValidator {
         });
       }
     }
+  }
 
-    // --- 7. Validate search fields ---
+  private validateSearchFields(query: ParsedQuery, config: ModelQueryConfig): void {
     for (const s of query.search) {
       const allowed = config.allowedSearch.find((a) => a.field === s.field && a.type === s.type);
       if (!allowed) {
@@ -170,8 +191,9 @@ export class QueryValidator {
         );
       }
     }
+  }
 
-    // --- 8. Validate aggregate fields against allowedFilters ---
+  private validateAggregateFields(query: ParsedQuery, config: ModelQueryConfig): void {
     for (const agg of query.aggregates) {
       if (!config.allowedFilters.includes(agg.field)) {
         throw new QueryValidationError(`Aggregate field "${agg.field}" is not allowed`, {
@@ -180,8 +202,9 @@ export class QueryValidator {
         });
       }
     }
+  }
 
-    // --- 9. groupBy requires at least one aggregate ---
+  private validateGroupByConsistency(query: ParsedQuery): void {
     if (query.groupBy.length > 0 && query.aggregates.length === 0) {
       throw new QueryValidationError(
         'groupBy requires at least one aggregate function (e.g. aggregate[count]=id)',
@@ -189,12 +212,10 @@ export class QueryValidator {
       );
     }
 
-    // --- 10. having requires groupBy ---
     if (query.havingAst && query.groupBy.length === 0) {
       throw new QueryValidationError('having requires groupBy to be specified', {});
     }
 
-    // --- 11. cursor not supported with aggregation ---
     const isAggregating =
       query.groupBy.length > 0 || query.aggregates.length > 0 || !!query.havingAst;
     if (isAggregating && query.cursor) {
@@ -203,26 +224,26 @@ export class QueryValidator {
         {},
       );
     }
+  }
 
-    // --- 12. Complexity score gate ---
+  private validateComplexityScore(query: ParsedQuery, maxComplexityScore: number): void {
     const breakdown = scoreComplexity(query);
     if (breakdown.total > maxComplexityScore) {
       throw new QueryTooComplexError(breakdown.total, maxComplexityScore);
     }
+  }
 
-    // --- 13. Validate fields against allowedFields whitelist ---
-    if (config.allowedFields && config.allowedFields.length > 0) {
-      for (const [alias, cols] of Object.entries(query.fields)) {
-        for (const col of cols) {
-          // 'id' is always allowed for FK integrity
-          if (col === 'id') continue;
-          const fieldPath = alias === 'root' ? col : `${alias}.${col}`;
-          if (!config.allowedFields.includes(fieldPath)) {
-            throw new QueryValidationError(`Field "${fieldPath}" is not allowed`, {
-              field: fieldPath,
-              allowedFields: config.allowedFields,
-            });
-          }
+  private validateAllowedFields(query: ParsedQuery, config: ModelQueryConfig): void {
+    if (!config.allowedFields || config.allowedFields.length === 0) return;
+    for (const [alias, cols] of Object.entries(query.fields)) {
+      for (const col of cols) {
+        if (col === 'id') continue;
+        const fieldPath = alias === 'root' ? col : `${alias}.${col}`;
+        if (!config.allowedFields.includes(fieldPath)) {
+          throw new QueryValidationError(`Field "${fieldPath}" is not allowed`, {
+            field: fieldPath,
+            allowedFields: config.allowedFields,
+          });
         }
       }
     }

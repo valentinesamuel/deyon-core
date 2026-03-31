@@ -8,11 +8,11 @@ import {
 import { DataSource, EntityManager, ObjectLiteral } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { QueryInput, ParsedQuery, SortField } from './types/query.types';
-import { ModelQueryConfig } from './types/modelConfig.types';
+import { ModelQueryConfig, MODEL_QUERY_CONFIG_DEFAULTS } from './types/modelConfig.types';
 import { CursorPage } from './types/result.types';
 import { parseWhereClause, ParseError } from './parser/parser';
 import { parseBracketFilter, mergeAsts, BracketParseError } from './parser/bracketParser';
-import { QueryValidator } from './validation/queryValidator';
+import { QueryValidator, QueryValidationError } from './validation/queryValidator';
 import { scoreComplexity } from './validation/complexityScorer';
 import { QueryBuilderOrchestrator } from './sqlBuilder/queryBuilder';
 import { SortBuilder } from './sqlBuilder/sortBuilder';
@@ -20,8 +20,6 @@ import { buildCursorPage, buildRawPage } from './pagination/cursorPagination';
 import { QueryCache } from './cache/queryCache';
 import { QueryAnalytics } from './analytics/queryAnalytics';
 import { GetOneQueryDto } from './dto/getOneQuery.dto';
-import { QueryValidationError } from './validation/queryValidator';
-import { MODEL_QUERY_CONFIG_DEFAULTS } from './types/modelConfig.types';
 import { JoinPlannerError } from './planner/joinPlanner';
 
 @Injectable()
@@ -234,11 +232,13 @@ export class QueryEngineService {
         .filter(Boolean)) {
         const dotIdx = token.indexOf('.');
         if (dotIdx === -1) {
-          (fieldsByAlias['root'] ??= []).push(token);
+          fieldsByAlias['root'] ??= [];
+          fieldsByAlias['root'].push(token);
         } else {
           const rel = token.slice(0, dotIdx);
           const col = token.slice(dotIdx + 1);
-          (fieldsByAlias[rel] ??= []).push(col);
+          fieldsByAlias[rel] ??= [];
+          fieldsByAlias[rel].push(col);
         }
       }
     }

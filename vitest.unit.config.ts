@@ -10,11 +10,11 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@adapters': '/Users/valentinesamuel/Desktop/deyon_be/src/adapters',
-      '@broker': '/Users/valentinesamuel/Desktop/deyon_be/src/broker',
-      '@config': '/Users/valentinesamuel/Desktop/deyon_be/src/configs',
-      '@modules': '/Users/valentinesamuel/Desktop/deyon_be/src/modules',
-      '@shared': '/Users/valentinesamuel/Desktop/deyon_be/src/shared',
+      '@adapters': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/adapters',
+      '@broker': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/broker',
+      '@config': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/configs',
+      '@modules': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/modules',
+      '@shared': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/shared',
       express:
         '/Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm/express@5.2.1/node_modules/express/index.js',
     },
@@ -28,6 +28,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reportsDirectory: 'coverage/unit',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      reportOnFailure: true,
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.spec.ts', 'src/main.ts', 'src/migrations/**', 'src/**/*.module.ts'],
       all: true,

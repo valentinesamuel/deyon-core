@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-// import { SlackService } from './slack.service';
 import { RequestTrackerService } from './requestTracker.service';
 import * as v8 from 'node:v8';
 
@@ -21,7 +20,7 @@ export class MemoryMonitorService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MemoryMonitorService.name);
   private monitorInterval: NodeJS.Timeout | null = null;
   private lastWarningTime = 0;
-  private memoryHistory: MemorySnapshot[] = [];
+  private readonly memoryHistory: MemorySnapshot[] = [];
 
   // Previous values for delta calculations
   private previousHeapUsedMB = 0;
@@ -38,7 +37,6 @@ export class MemoryMonitorService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService,
-    // private readonly slackService: SlackService,
     private readonly requestTracker?: RequestTrackerService,
   ) {}
 

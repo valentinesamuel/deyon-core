@@ -29,7 +29,6 @@ interface ValidationErrorItem {
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> {
   private readonly logger = new Logger(ResponseInterceptor.name);
-  constructor() {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<TResponse<T>> {
     const startTime = Date.now();
@@ -75,7 +74,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
     const message =
       rawResponse && typeof rawResponse === 'object' && 'message' in rawResponse
         ? (rawResponse as { message: string | ValidationErrorItem[] }).message
-        : (exception as Error).message;
+        : exception.message;
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
@@ -116,11 +115,14 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
       }
     }
 
-    const logMessage = Array.isArray(message)
-      ? `${message.length} validation error(s)`
-      : typeof message === 'string'
-        ? message
-        : 'Request failed';
+    let logMessage: string;
+    if (Array.isArray(message)) {
+      logMessage = `${message.length} validation error(s)`;
+    } else if (typeof message === 'string') {
+      logMessage = message;
+    } else {
+      logMessage = 'Request failed';
+    }
 
     // Concise error logging to prevent memory bloat
     this.logger.error({
@@ -131,13 +133,6 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
       method: request.method,
       duration: Date.now() - startTime,
     });
-
-    // Send to Slack for 500+ errors
-    // if (status >= 500) {
-    //   this.slackService.sendErrorNotification(exception, request, response).catch((error) => {
-    //     this.logger.error('Failed to send Slack notification:', error);
-    //   });
-    // }
 
     response.status(status).json({
       statusCode: status,

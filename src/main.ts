@@ -134,6 +134,7 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error: Error) => {
+  // NOSONAR
   Logger.error('Unhandled startup error', { error });
   process.exit(1);
 });

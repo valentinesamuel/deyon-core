@@ -147,7 +147,7 @@ export class JwtAuthGuard implements CanActivate {
    */
   private extractBearerToken(req: any): string | null {
     const authHeader: string | undefined = req?.headers?.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+    if (!authHeader?.startsWith('Bearer ')) return null;
     const token = authHeader.slice(7);
     // "ey" prefix is characteristic of Base64-encoded JWTs — not opaque PATs
     if (token.startsWith('ey')) return null;

@@ -1,6 +1,5 @@
 import {
   FindOptionsOrder,
-  FindOptionsRelationByString,
   FindOptionsRelations,
   FindOptionsSelect,
   FindOptionsWhere,
@@ -16,7 +15,7 @@ export interface IPaginationFilterParam<T extends ObjectLiteral> {
   repository: Repository<T>;
   query: IQuery;
   qWhere?: FindOptionsWhere<T>;
-  relations?: FindOptionsRelations<T> | FindOptionsRelationByString;
+  relations?: FindOptionsRelations<T>;
   select?: (keyof T)[] | FindOptionsSelect<T>;
   options?: { withDeleted?: boolean };
 }
@@ -93,24 +92,21 @@ export function convertQueryParamsToObject(
       obj[key] = false;
     } else if (qVal === 'null') {
       obj[key] = null;
-    } else if (typeof qVal === 'string' && /^[0-9\.]+$/.test(qVal)) {
+    } else if (typeof qVal === 'string' && /^[0-9.]+$/.test(qVal)) {
       obj[key] = Number(qVal);
     } else if (
       (typeof qVal == 'string' &&
         qVal &&
-        qVal.trim().charAt(0) === '{' &&
-        qVal.trim().charAt(qVal.trim().length - 1) === '}') ||
-      (typeof qVal == 'string' &&
-        qVal &&
-        qVal.trim().charAt(0) === '[' &&
-        qVal.trim().charAt(qVal.trim().length - 1) === ']')
+        qVal.trim().startsWith('{') &&
+        qVal.trim().endsWith('}')) ||
+      (typeof qVal == 'string' && qVal && qVal.trim().startsWith('[') && qVal.trim().endsWith(']'))
     ) {
       if (typeof qVal === 'string' && qVal.trim().charAt(1) === '"') {
         obj[key] = JSON.parse(qVal);
       } else if (typeof qVal === 'string' && qVal.trim().charAt(1) !== '"') {
         obj[key] = qVal
           .trim()
-          .replace(/[\[\]']+/g, '')
+          .replaceAll(/[[\]']+/g, '')
           .split(',')
           .map((e: string) => e.trim());
       }
@@ -132,11 +128,7 @@ export function sanitizeOrder(order: Record<string, unknown>): Record<string, un
           if (typeof value === 'string' && value.trim() === '') {
             return [key, undefined]; // Remove empty strings
           }
-          if (
-            typeof value === 'object' &&
-            value !== null &&
-            Object.keys(value as object).length === 0
-          ) {
+          if (typeof value === 'object' && value !== null && Object.keys(value).length === 0) {
             return [key, undefined]; // Remove empty objects
           }
           if (typeof value === 'object' && value !== null) {
@@ -196,7 +188,6 @@ export async function findAndPaginate<T extends ObjectLiteral>(
 
   const take = requestedLimit;
   const skip = query.page * take || 0;
-  // const whereAnd = { ...qWhere, ...formatQuery(query.filterAnd) };
   const whereAnd = {
     ...qWhere,
     ...Object.fromEntries(
@@ -228,14 +219,14 @@ export async function findAndPaginate<T extends ObjectLiteral>(
         for (const nestedKey of Object.keys(nested)) {
           const searchValue = nested[nestedKey];
           // Replace spaces with `+` for cases where `+` is intended
-          const sanitizedValue = searchValue?.replace(/\s/g, '+');
+          const sanitizedValue = searchValue?.replaceAll(/\s/g, '+');
           ((where as Record<string, unknown>)[key] as Record<string, unknown>)[nestedKey] = ILike(
             `%${sanitizedValue}%`,
           );
         }
       } else {
         const searchValue = searchEntry[key] as string;
-        const sanitizedValue = searchValue?.replace(/\s/g, '+');
+        const sanitizedValue = searchValue?.replaceAll(/\s/g, '+');
         (where as Record<string, unknown>)[key] = ILike(`%${sanitizedValue}%`);
       }
     });
