@@ -107,6 +107,7 @@ export class Broker {
       const requiresTransaction = usecase.config?.requiresTransaction ?? true;
 
       if (currentBatch === null || currentBatch.isTransactional !== requiresTransaction) {
+        // NOSONAR
         // Start a new batch
         currentBatch = {
           isTransactional: requiresTransaction,

@@ -80,7 +80,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
 
     if (exception instanceof BadRequestException) {
       if (Array.isArray(message)) {
-        const responseMsr = (message as ValidationErrorItem[]).map((data) => {
+        const responseMsr = message.map((data) => {
           const errors: string[] = [];
           for (const key of Object.keys(data.constraints)) {
             errors.push(data.constraints[key]);

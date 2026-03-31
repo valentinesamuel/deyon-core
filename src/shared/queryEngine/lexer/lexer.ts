@@ -24,6 +24,12 @@ export class LexerError extends Error {
 
 const OPERATOR_CHARS = new Set(['=', '!', '<', '>']);
 
+const SINGLE_CHAR_TOKENS = new Map<string, Token>([
+  ['(', { type: TokenType.LPAREN, value: '(' }],
+  [')', { type: TokenType.RPAREN, value: ')' }],
+  [',', { type: TokenType.COMMA, value: ',' }],
+]);
+
 const KEYWORD_TOKENS = new Map<string, Token>([
   ['AND', { type: TokenType.AND, value: 'AND' }],
   ['OR', { type: TokenType.OR, value: 'OR' }],
@@ -152,23 +158,10 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
-    // Left paren
-    if (ch === '(') {
-      tokens.push({ type: TokenType.LPAREN, value: '(' });
-      pos++;
-      continue;
-    }
-
-    // Right paren
-    if (ch === ')') {
-      tokens.push({ type: TokenType.RPAREN, value: ')' });
-      pos++;
-      continue;
-    }
-
-    // Comma
-    if (ch === ',') {
-      tokens.push({ type: TokenType.COMMA, value: ',' });
+    // Single-character tokens: ( ) ,
+    const singleCharToken = SINGLE_CHAR_TOKENS.get(ch);
+    if (singleCharToken) {
+      tokens.push(singleCharToken);
       pos++;
       continue;
     }

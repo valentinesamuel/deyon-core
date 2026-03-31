@@ -72,7 +72,7 @@ export class QueryBuilderOrchestrator {
       ? entityManager.getRepository(entityClass)
       : dataSource.getRepository(entityClass);
 
-    const qb = repository.createQueryBuilder('root') as SelectQueryBuilder<T>;
+    const qb = repository.createQueryBuilder('root');
 
     this.applyJoins(qb, joinPlanner, query.withDeleted);
 

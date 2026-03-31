@@ -134,19 +134,23 @@ export class QueryEngineService {
 
       return page;
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      if (error instanceof ParseError || error instanceof BracketParseError) {
-        throw new BadRequestException(`Invalid query syntax: ${(error as Error).message}`);
-      }
-      if (error instanceof JoinPlannerError) {
-        throw new BadRequestException(`Invalid query: ${(error as Error).message}`);
-      }
-      this.logger.error(
-        'Query execution error',
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw new InternalServerErrorException('An error occurred while processing your request');
+      this.handleExecuteError(error);
     }
+  }
+
+  private handleExecuteError(error: unknown): never {
+    if (error instanceof HttpException) throw error;
+    if (error instanceof ParseError || error instanceof BracketParseError) {
+      throw new BadRequestException(`Invalid query syntax: ${(error as Error).message}`);
+    }
+    if (error instanceof JoinPlannerError) {
+      throw new BadRequestException(`Invalid query: ${(error as Error).message}`);
+    }
+    this.logger.error(
+      'Query execution error',
+      error instanceof Error ? error.stack : String(error),
+    );
+    throw new InternalServerErrorException('An error occurred while processing your request');
   }
 
   /**
