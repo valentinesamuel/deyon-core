@@ -23,7 +23,7 @@ export class HmoProvider extends BaseEntity {
   defaultCopay: string;
 
   @Column({ type: 'boolean' })
-  isActive: string;
+  isActive: boolean;
 
   @Column({ type: 'varchar' })
   portalUrl: string;

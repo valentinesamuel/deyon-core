@@ -38,11 +38,11 @@ export class CreateHmoProviderDto {
   @IsString()
   relationshipManagerPhone: string;
 
-  @ApiProperty({ example: '12300' })
+  @ApiProperty({ example: 12300 })
   @IsNumber()
-  defaultCopay: string;
+  defaultCopay: number;
 
   @ApiProperty({ example: true })
   @IsBoolean()
-  isActive: string;
+  isActive: boolean;
 }
