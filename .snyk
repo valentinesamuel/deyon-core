@@ -7,3 +7,17 @@ ignore:
           (v5.0.5) is a different major version incompatible with minimatch@9.
           Will remediate when typeorm releases a version that drops this chain.
         expires: '2026-12-31T00:00:00.000Z'
+  SNYK-JS-LODASH-15869625:
+    - '*':
+        reason: >
+          Transitive dependency via @nestjs/config@4.0.3 > lodash@4.17.23.
+          No upgrade or patch is available upstream. Will remediate when
+          @nestjs/config releases a version that upgrades or removes lodash.
+        expires: '2026-12-31T00:00:00.000Z'
+  SNYK-JS-LODASH-15869619:
+    - '*':
+        reason: >
+          Transitive dependency via @nestjs/config@4.0.3 > lodash@4.17.23.
+          No upgrade or patch is available upstream. Will remediate when
+          @nestjs/config releases a version that upgrades or removes lodash.
+        expires: '2026-12-31T00:00:00.000Z'
