@@ -39,6 +39,7 @@ describe('RefreshTokenRepository Integration', () => {
         firstName: 'Token',
         lastName: 'Test',
         email: 'tokentest@hospital.com',
+        phoneNumber: '+2348077777777',
         passwordHash: await authService.hashPassword('TestPassword1!'),
         isActive: true,
         isApproved: true,

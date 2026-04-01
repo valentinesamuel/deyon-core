@@ -68,6 +68,7 @@ describe('CreateInviteUsecase', () => {
         email: 'newstaff@example.com',
         roleId: 'role-uuid',
       }),
+      em,
     );
   });
 
@@ -85,6 +86,7 @@ describe('CreateInviteUsecase', () => {
     await usecase.execute(em, params);
     expect(eventLogService.log).toHaveBeenCalledWith(
       expect.objectContaining({ actorId: 'admin-uuid' }),
+      em,
     );
   });
 });

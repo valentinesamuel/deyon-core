@@ -14,7 +14,6 @@ export async function truncateAllTables(dataSource: DataSource): Promise<void> {
       'refresh_token',
       'mfa_config',
       'invite_token',
-      'staff_permissions',
       'staff',
       'role_permission',
       'permission',
@@ -73,10 +72,24 @@ export async function seedPermissionsAndRoles(dataSource: DataSource): Promise<v
   `);
 
   await dataSource.query(`
+    INSERT INTO "role" ("name", "alias", "is_active", "is_system_role")
+    SELECT 'Cmo', 'cmo', true, true
+    WHERE NOT EXISTS (SELECT 1 FROM "role" WHERE "alias" = 'cmo')
+  `);
+
+  await dataSource.query(`
     INSERT INTO "role_permission" ("role_id", "permission_id")
     SELECT r.id, p.id
     FROM "role" r, "permission" p
     WHERE r.alias = 'super_admin' AND p.code = '*:*'
+    ON CONFLICT DO NOTHING
+  `);
+
+  await dataSource.query(`
+    INSERT INTO "role_permission" ("role_id", "permission_id")
+    SELECT r.id, p.id
+    FROM "role" r, "permission" p
+    WHERE r.alias = 'cmo' AND p.code = '*:*'
     ON CONFLICT DO NOTHING
   `);
 
@@ -87,7 +100,6 @@ export async function seedPermissionsAndRoles(dataSource: DataSource): Promise<v
       ('Pharmacy',       'pharmacy'),
       ('HR',             'hr'),
       ('Finance',        'finance')
-    ON CONFLICT ("alias") DO NOTHING
   `);
 
   await dataSource.query(`

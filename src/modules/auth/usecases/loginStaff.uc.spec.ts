@@ -84,6 +84,7 @@ describe('LoginStaffUsecase', () => {
         success: false,
         metadata: { reason: 'staff_not_found' },
       }),
+      em,
     );
   });
 
@@ -121,7 +122,11 @@ describe('LoginStaffUsecase', () => {
     await expect(
       usecase.execute(em, { email: 'test@example.com', password: 'WrongPass' }),
     ).rejects.toThrow(UnauthorizedException);
-    expect(authService.recordFailedAttempt).toHaveBeenCalledWith('test@example.com', 'staff-uuid');
+    expect(authService.recordFailedAttempt).toHaveBeenCalledWith(
+      'test@example.com',
+      'staff-uuid',
+      em,
+    );
     expect(eventLogService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: 'staff-uuid',
@@ -129,6 +134,7 @@ describe('LoginStaffUsecase', () => {
         success: false,
         metadata: { reason: 'invalid_password' },
       }),
+      em,
     );
   });
 });

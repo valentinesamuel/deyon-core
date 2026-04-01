@@ -46,6 +46,7 @@ describe('Logout Integration', () => {
         firstName: 'Logout',
         lastName: 'Test',
         email: 'logout@hospital.com',
+        phoneNumber: '+2348022222222',
         passwordHash,
         isActive: true,
         isApproved: true,

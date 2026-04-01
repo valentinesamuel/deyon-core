@@ -1,14 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestingModule, createTestApp } from '../../helpers/app.helper';
 import { truncateAllTables } from '../../helpers/database.helper';
 import { AuthService } from '../../../src/modules/auth/services/auth.service';
 import { TokenService } from '../../../src/modules/auth/services/token.service';
-import { RedisService } from '../../../src/shared/redis/redis.service';
-import { RedisKeys, RedisTTL } from '../../../src/shared/redis/redis.constants';
+import { CacheAdapter } from '../../../src/adapters/cache/cache.adapter';
+import { CacheDbType } from '../../../src/adapters/cache/providers/redis.provider';
+import { RedisKeys, RedisTTL } from '../../../src/adapters/cache/cache.constants';
 import { Staff } from '../../../src/modules/core/entities/staff.entity';
 import { API_KEY_HEADER } from './auth.e2e-helper';
 
@@ -20,7 +21,7 @@ describe('Auth Password Reset E2E', () => {
   let dataSource: DataSource;
   let authService: AuthService;
   let tokenService: TokenService;
-  let redisService: RedisService;
+  let cacheAdapter: CacheAdapter;
   let staffId: string;
 
   beforeAll(async () => {
@@ -29,7 +30,7 @@ describe('Auth Password Reset E2E', () => {
     dataSource = module.get(DataSource);
     authService = module.get(AuthService);
     tokenService = module.get(TokenService);
-    redisService = module.get(RedisService);
+    cacheAdapter = module.get(CacheAdapter);
   });
 
   afterAll(async () => {
@@ -39,7 +40,7 @@ describe('Auth Password Reset E2E', () => {
   beforeEach(async () => {
     await truncateAllTables(dataSource);
     // Clear rate-limit key
-    await redisService.del(RedisKeys.pwResetRate(TEST_EMAIL));
+    await cacheAdapter.del(RedisKeys.pwResetRate(TEST_EMAIL), { db: CacheDbType.AUTH });
 
     const repo = dataSource.getRepository(Staff);
     const passwordHash = await authService.hashPassword('OldPassword1!');
@@ -48,6 +49,7 @@ describe('Auth Password Reset E2E', () => {
         firstName: 'Reset',
         lastName: 'Test',
         email: TEST_EMAIL,
+        phoneNumber: '+2348055500001',
         passwordHash,
         isActive: true,
         isApproved: true,
@@ -60,7 +62,11 @@ describe('Auth Password Reset E2E', () => {
   async function storePwResetToken(): Promise<string> {
     const plainToken = tokenService.generateOpaqueToken();
     const hash = tokenService.sha256(plainToken);
-    await redisService.setJson(RedisKeys.pwReset(hash), { staffId }, RedisTTL.pwReset);
+    await cacheAdapter.set(
+      RedisKeys.pwReset(hash),
+      { staffId },
+      { db: CacheDbType.AUTH, ttl: RedisTTL.pwReset },
+    );
     return plainToken;
   }
 

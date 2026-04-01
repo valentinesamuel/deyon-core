@@ -25,19 +25,20 @@ export class GeneratePatUsecase extends Usecase<GeneratePatResult> {
     super();
   }
 
-  async execute(em: EntityManager, params: CreatePatDto): Promise<GeneratePatResult> {
+  async execute(em: EntityManager, params: { params: CreatePatDto }): Promise<GeneratePatResult> {
     const staffId = this.requestContextService.getUserId();
+    const dto = params.params;
 
     const rawToken = this.tokenService.generateOpaqueToken();
     const tokenHash = this.tokenService.sha256(rawToken);
 
-    const expiresAt = params.expiresAt ? new Date(params.expiresAt) : null;
+    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
 
     const saved = await this.patRepository.createToken(
       {
         tokenHash,
         staffId,
-        name: params.name,
+        name: dto.name,
         expiresAt,
         isRevoked: false,
       },

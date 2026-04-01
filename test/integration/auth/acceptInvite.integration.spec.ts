@@ -114,6 +114,7 @@ describe('AcceptInvite Integration', () => {
         firstName: 'Existing',
         lastName: 'Staff',
         email: 'duplicate@hospital.com',
+        phoneNumber: '+2348099999999',
         passwordHash: await authService.hashPassword('SomePass1!'),
         isActive: true,
         isApproved: true,

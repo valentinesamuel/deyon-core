@@ -3,7 +3,7 @@ import { Repository } from 'typeorm';
 import { MfaConfigRepository } from './mfaConfig.repository';
 import { MfaConfig } from '@modules/core/entities/mfaConfig.entity';
 
-https: describe('MfaConfigRepository', () => {
+describe('MfaConfigRepository', () => {
   let repo: MfaConfigRepository;
   let innerRepo: ReturnType<typeof mock<Repository<MfaConfig>>>;
 
@@ -11,6 +11,7 @@ https: describe('MfaConfigRepository', () => {
     innerRepo = mock<Repository<MfaConfig>>();
     repo = Object.create(MfaConfigRepository.prototype);
     (repo as any)['repo'] = innerRepo;
+    (repo as any)['findOne'] = innerRepo.findOne.bind(innerRepo);
     (repo as any)['create'] = innerRepo.create;
     (repo as any)['save'] = innerRepo.save;
   });

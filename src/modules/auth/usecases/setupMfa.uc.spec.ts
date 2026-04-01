@@ -45,6 +45,7 @@ describe('SetupMfaUsecase', () => {
     expect(mfaConfigRepo.saveOrUpdate).toHaveBeenCalledWith(
       'staff-1',
       expect.objectContaining({ encryptedSecret: 'enc' }),
+      em,
     );
   });
 

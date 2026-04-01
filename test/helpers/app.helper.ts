@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
 import { AuthorizationGuard } from '../../src/shared/guards/authorization.guard';
 import { ResponseInterceptor } from '../../src/shared/interceptors/response.interceptor';

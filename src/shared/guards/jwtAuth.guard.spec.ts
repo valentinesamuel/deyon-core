@@ -93,7 +93,14 @@ describe('JwtAuthGuard', () => {
       lastName: 'Doe',
       isActive: true,
       isApproved: true,
-      role: null,
+      role: {
+        id: 'role-uuid',
+        name: 'Admin',
+        isActive: true,
+        alias: 'admin',
+        isSystemRole: false,
+        permissions: [],
+      },
     });
 
     const { ctx, request } = makeContext({ access_token: 'valid' });
@@ -118,7 +125,14 @@ describe('JwtAuthGuard', () => {
       lastName: 'Doe',
       isActive: true,
       isApproved: true,
-      role: null,
+      role: {
+        id: 'role-uuid',
+        name: 'Admin',
+        isActive: true,
+        alias: 'admin',
+        isSystemRole: false,
+        permissions: [],
+      },
     } as any);
 
     const { ctx } = makeContext({ access_token: 'valid' });

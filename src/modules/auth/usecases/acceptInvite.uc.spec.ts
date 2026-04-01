@@ -74,7 +74,7 @@ describe('AcceptInviteUsecase', () => {
 
   it('should create staff and return setupToken', async () => {
     inviteTokenRepo.findByTokenHashAndFailIfNotExist.mockResolvedValue(validInvite as any);
-    staffRepo.findOne.mockResolvedValue(null);
+    staffRepo.findOneOrFailIfExists.mockResolvedValue(undefined);
     authService.hashPassword.mockResolvedValue('hashed-pw');
     staffRepo.createStaff.mockResolvedValue({ id: 'staff-new' } as any);
     inviteTokenRepo.markAsUsed.mockResolvedValue(undefined);
@@ -111,7 +111,9 @@ describe('AcceptInviteUsecase', () => {
 
   it('should throw ConflictException if email already registered', async () => {
     inviteTokenRepo.findByTokenHashAndFailIfNotExist.mockResolvedValue(validInvite as any);
-    staffRepo.findOne.mockResolvedValue({ id: 'existing-staff' } as any);
+    staffRepo.findOneOrFailIfExists.mockRejectedValue(
+      new ConflictException('Email already registered'),
+    );
 
     await expect(usecase.execute(em, params)).rejects.toThrow(ConflictException);
   });

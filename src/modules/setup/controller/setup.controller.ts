@@ -7,6 +7,7 @@ import { RegisterCmoDto } from '../dto/registerCmo.dto';
 import { BootstrapSystemDto } from '../dto/bootstrapSystem.dto';
 import { RegisterCmoUsecase } from '../usecases/registerCmo.uc';
 import { BootstrapSystemUsecase } from '../usecases/bootstrapSystem.uc';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 @Controller('setup')
 export class SetupController {
@@ -15,6 +16,7 @@ export class SetupController {
     private readonly systemConfigRepository: SystemConfigRepository,
     private readonly registerCmoUc: RegisterCmoUsecase,
     private readonly bootstrapSystemUc: BootstrapSystemUsecase,
+    private readonly requestContextService: RequestContextService,
   ) {}
 
   @Public()
@@ -35,6 +37,7 @@ export class SetupController {
   @UseGuards(SetupNotCompleteGuard)
   @Post('bootstrap')
   bootstrap(@Body() dto: BootstrapSystemDto) {
-    return this.serviceBroker.runUsecases([this.bootstrapSystemUc], dto);
+    const staffId = this.requestContextService.getUserId();
+    return this.serviceBroker.runUsecases([this.bootstrapSystemUc], { ...dto, staffId });
   }
 }

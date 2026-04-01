@@ -11,6 +11,7 @@ import { BootstrapSystemUsecase } from './usecases/bootstrapSystem.uc';
 import { SetupController } from './controller/setup.controller';
 import { Broker } from '@broker/broker';
 import { CoreModule } from '@modules/core/core.module';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 @Module({
   imports: [AuthModule, CoreModule],
@@ -22,6 +23,7 @@ import { CoreModule } from '@modules/core/core.module';
     SystemConfigRepository,
     MfaConfigRepository,
     RoleRepository,
+    RequestContextService,
     SetupNotCompleteGuard,
     RegisterCmoUsecase,
     BootstrapSystemUsecase,

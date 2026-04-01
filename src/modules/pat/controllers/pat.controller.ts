@@ -7,7 +7,7 @@ import { ListPatsUsecase } from '../usecases/listPats.uc';
 import { RevokePatUsecase } from '../usecases/revokePat.uc';
 import { CreatePatDto } from '../dto/createPat.dto';
 
-@Controller('pat')
+@Controller('staff/pat')
 export class PatController {
   private readonly logger = new Logger(PatController.name);
 
@@ -21,7 +21,7 @@ export class PatController {
   @Post()
   @RequirePermissions([PERMISSION.PAT.GENERATE])
   generatePat(@Body() dto: CreatePatDto) {
-    return this.broker.runUsecases([this.generatePatUsecase], dto);
+    return this.broker.runUsecases([this.generatePatUsecase], { params: dto });
   }
 
   @Get('')

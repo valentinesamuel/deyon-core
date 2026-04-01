@@ -1,6 +1,6 @@
 import * as Joi from 'joi';
 
-const NODE_ENVIRONMENTS: string[] = ['development', 'staging', 'production'];
+const NODE_ENVIRONMENTS: string[] = ['development', 'staging', 'production', 'test'];
 const DEFAULT_NODE_ENV: string = NODE_ENVIRONMENTS[0];
 const DEFAULT_APP_PORT: number = 3000;
 const DEFAULT_DATABASE_PORT: number = 5432;

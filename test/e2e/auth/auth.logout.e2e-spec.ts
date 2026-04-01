@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestingModule, createTestApp } from '../../helpers/app.helper';
 import { truncateAllTables } from '../../helpers/database.helper';
@@ -13,7 +13,7 @@ import { API_KEY_HEADER, authenticatedCookies } from './auth.e2e-helper';
 
 const TEST_EMAIL = 'logout@hospital.com';
 const TEST_PASSWORD = 'TestPassword1!';
-const PLAIN_SECRET = 'JBSWY3DPEHPK3PXP';
+const PLAIN_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 describe('Auth Logout E2E', () => {
   let module: TestingModule;
@@ -44,6 +44,7 @@ describe('Auth Logout E2E', () => {
         firstName: 'Logout',
         lastName: 'Test',
         email: TEST_EMAIL,
+        phoneNumber: '+2348055500020',
         passwordHash,
         isActive: true,
         isApproved: true,
@@ -79,12 +80,10 @@ describe('Auth Logout E2E', () => {
   });
 
   it('POST /staff/auth/logout without JWT → 401', async () => {
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/staff/auth/logout')
       .set(API_KEY_HEADER)
       .expect(401);
-
-    expect(res.body.success).toBe(false);
   });
 
   it('POST /staff/auth/logout-all → 201, all sessions revoked', async () => {

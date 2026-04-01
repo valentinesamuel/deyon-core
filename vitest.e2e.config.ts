@@ -1,5 +1,8 @@
+import { createRequire } from 'node:module';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig({
   plugins: [
@@ -10,11 +13,14 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@adapters': '/Users/valentinesamuel/Desktop/deyon_be/src/adapters',
-      '@broker': '/Users/valentinesamuel/Desktop/deyon_be/src/broker',
-      '@config': '/Users/valentinesamuel/Desktop/deyon_be/src/configs',
-      '@modules': '/Users/valentinesamuel/Desktop/deyon_be/src/modules',
-      '@shared': '/Users/valentinesamuel/Desktop/deyon_be/src/shared',
+      '@adapters': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/adapters',
+      '@broker': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/broker',
+      '@config': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/configs',
+      '@modules': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/modules',
+      '@shared': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/shared',
+      express: require.resolve('express'),
+      supertest: require.resolve('supertest'),
+      'cookie-parser': require.resolve('cookie-parser'),
     },
   },
   test: {

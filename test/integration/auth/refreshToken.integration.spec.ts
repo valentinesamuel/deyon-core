@@ -47,6 +47,7 @@ describe('RefreshToken Integration', () => {
         firstName: 'Refresh',
         lastName: 'Test',
         email: 'refresh@hospital.com',
+        phoneNumber: '+2348033333333',
         passwordHash,
         isActive: true,
         isApproved: true,

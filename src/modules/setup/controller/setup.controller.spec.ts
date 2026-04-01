@@ -5,6 +5,7 @@ import { Broker } from '@broker/broker';
 import { SystemConfigRepository } from '@adapters/repositories/systemConfig.repository';
 import { RegisterCmoUsecase } from '../usecases/registerCmo.uc';
 import { BootstrapSystemUsecase } from '../usecases/bootstrapSystem.uc';
+import { RequestContextService } from '@shared/context/requestContext.service';
 
 describe('SetupController', () => {
   let controller: SetupController;
@@ -12,6 +13,7 @@ describe('SetupController', () => {
   let systemConfigRepository: ReturnType<typeof mock<SystemConfigRepository>>;
   let registerCmoUc: ReturnType<typeof mock<RegisterCmoUsecase>>;
   let bootstrapSystemUc: ReturnType<typeof mock<BootstrapSystemUsecase>>;
+  let requestContextService: ReturnType<typeof mock<RequestContextService>>;
 
   const mockReq: any = {
     ip: '192.168.1.1',
@@ -24,12 +26,15 @@ describe('SetupController', () => {
     systemConfigRepository = mock<SystemConfigRepository>();
     registerCmoUc = mock<RegisterCmoUsecase>();
     bootstrapSystemUc = mock<BootstrapSystemUsecase>();
+    requestContextService = mock<RequestContextService>();
+    requestContextService.getUserId.mockReturnValue('mock-staff-id');
 
     controller = new SetupController(
       broker,
       systemConfigRepository,
       registerCmoUc,
       bootstrapSystemUc,
+      requestContextService,
     );
   });
 
@@ -66,7 +71,7 @@ describe('SetupController', () => {
   });
 
   describe('register', () => {
-    it('should pass dto, ipAddress, and userAgent to broker', async () => {
+    it('should pass dto to broker', async () => {
       const dto = {
         firstName: 'John',
         lastName: 'Doe',
@@ -77,15 +82,11 @@ describe('SetupController', () => {
 
       broker.runUsecases.mockResolvedValue({ staffId: 'new-staff-id' } as any);
 
-      await controller.register(dto as any, mockReq);
+      await controller.register(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [registerCmoUc],
-        expect.objectContaining({
-          ...dto,
-          ipAddress: '192.168.1.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining(dto),
       );
     });
 
@@ -107,21 +108,16 @@ describe('SetupController', () => {
   });
 
   describe('bootstrap', () => {
-    it('should pass dto fields and id from req.user to broker', async () => {
+    it('should pass dto to broker', async () => {
       const dto = { totpCode: '123456' };
 
       broker.runUsecases.mockResolvedValue({ success: true } as any);
 
-      await controller.bootstrap(dto as any, mockReq);
+      await controller.bootstrap(dto as any);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         [bootstrapSystemUc],
-        expect.objectContaining({
-          totpCode: '123456',
-          staffId: 'staff-public-id-123',
-          ipAddress: '192.168.1.1',
-          userAgent: 'test-agent',
-        }),
+        expect.objectContaining({ totpCode: '123456', staffId: 'mock-staff-id' }),
       );
     });
 

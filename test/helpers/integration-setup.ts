@@ -20,7 +20,8 @@ export function setTestEnv(): void {
   process.env.DATABASE_USER = url.username;
   process.env.DATABASE_PASSWORD = url.password;
   process.env.DATABASE_TYPE = 'postgres';
-  // Synchronize=true lets TypeORM auto-create tables without running dist/ migrations
+  // synchronize=true lets TypeORM auto-create tables from entities without a compiled dist/
+  // Running migrations requires `require()`-able JS files; `.ts` sources fail under vitest ESM.
   process.env.DATABASE_SYNCHRONIZE = 'true';
   process.env.DATABASE_LOGGING = 'false';
   process.env.DATABASE_RETRY_ATTEMPTS = '3';
@@ -31,7 +32,9 @@ export function setTestEnv(): void {
   process.env.REDIS_HOST = redisHost;
   process.env.REDIS_PORT = redisPort;
 
-  // CRITICAL: 'test' triggers dropSchema + migrationsRun in typeorm.config.ts — use 'development'
+  // Keep 'development' to avoid dropSchema + migrationsRun in typeorm.config.ts.
+  // Both are gated on NODE_ENV === 'test', which would fail because TypeORM can't
+  // require() ES-module .ts migration files under vitest's SWC transform.
   process.env.NODE_ENV = 'development';
 
   // Required by Joi validation schema (schema.config.ts)

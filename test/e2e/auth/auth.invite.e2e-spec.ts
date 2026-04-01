@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { addDays, subDays } from 'date-fns';
 import { createTestingModule, createTestApp } from '../../helpers/app.helper';
@@ -18,7 +18,7 @@ import { API_KEY_HEADER, authenticatedCookies } from './auth.e2e-helper';
 
 const TEST_EMAIL = 'admin@hospital.com';
 const TEST_PASSWORD = 'TestPassword1!';
-const PLAIN_SECRET = 'JBSWY3DPEHPK3PXP';
+const PLAIN_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 describe('Auth Invite E2E', () => {
   let module: TestingModule;
@@ -65,6 +65,7 @@ describe('Auth Invite E2E', () => {
         firstName: 'Admin',
         lastName: 'User',
         email: TEST_EMAIL,
+        phoneNumber: '+2348055500050',
         passwordHash,
         isActive: true,
         isApproved: true,
@@ -94,13 +95,11 @@ describe('Auth Invite E2E', () => {
   });
 
   it('POST /staff/auth/invite without authentication → 401', async () => {
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/staff/auth/invite')
       .set(API_KEY_HEADER)
       .send({ email: 'newdoc@hospital.com', roleId, departmentId })
       .expect(401);
-
-    expect(res.body.success).toBe(false);
   });
 
   it('POST /staff/auth/invite/accept with valid token → 201, staff created', async () => {

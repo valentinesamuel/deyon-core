@@ -33,6 +33,7 @@ describe('StaffRepository Integration', () => {
     firstName: 'Repo',
     lastName: 'Test',
     email,
+    phoneNumber: '+2348088888888',
     passwordHash,
     isActive: true,
     isApproved: true,
@@ -67,7 +68,7 @@ describe('StaffRepository Integration', () => {
 
   it('findOneOrFailIfExists resolves when staff not found', async () => {
     await expect(
-      staffRepo.findOneOrFailIfExists({ where: { id: 'non-existent-uuid' } }),
+      staffRepo.findOneOrFailIfExists({ where: { id: '00000000-0000-0000-0000-000000000000' } }),
     ).resolves.toBeNull();
   });
 
@@ -81,7 +82,7 @@ describe('StaffRepository Integration', () => {
 
   it('findOneOrFailIfNotExists throws NotFoundException when not found', async () => {
     await expect(
-      staffRepo.findOneOrFailIfNotExists({ where: { id: 'non-existent-uuid' } }),
+      staffRepo.findOneOrFailIfNotExists({ where: { id: '00000000-0000-0000-0000-000000000000' } }),
     ).rejects.toThrow('Resource not found');
   });
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestingModule, createTestApp } from '../../helpers/app.helper';
 import { truncateAllTables } from '../../helpers/database.helper';
@@ -39,6 +39,7 @@ describe('Auth Login E2E', () => {
         firstName: 'Login',
         lastName: 'Test',
         email: TEST_EMAIL,
+        phoneNumber: '+2348055500010',
         passwordHash,
         isActive: true,
         isApproved: true,

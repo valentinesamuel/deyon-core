@@ -23,9 +23,9 @@ describe('MfaService', () => {
       const result = await service.generateSecret('user@test.com');
 
       expect(result.encryptedSecret).toBe('encrypted-secret');
-      expect(result.otpauthUrl).toContain('otpauth://');
-      expect(result.otpauthUrl).toContain('user%40test.com'); // @ is URL-encoded
-      expect(result.otpauthUrl).toContain('TestApp');
+      expect(result.otpAuthUrl).toContain('otpauth://');
+      expect(result.otpAuthUrl).toContain('user%40test.com'); // @ is URL-encoded
+      expect(result.otpAuthUrl).toContain('TestApp');
       expect(result.qrCodeDataUrl).toContain('data:image');
       expect(encryptionUtility.encrypt).toHaveBeenCalledWith(expect.any(String));
     });

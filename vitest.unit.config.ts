@@ -1,5 +1,8 @@
+import { createRequire } from 'node:module';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig({
   plugins: [
@@ -15,8 +18,7 @@ export default defineConfig({
       '@config': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/configs',
       '@modules': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/modules',
       '@shared': '/Users/valentinesamuel/Desktop/deyon/deyon_be/src/shared',
-      express:
-        '/Users/valentinesamuel/Desktop/deyon_be/node_modules/.pnpm/express@5.2.1/node_modules/express/index.js',
+      express: require.resolve('express'),
     },
   },
   test: {

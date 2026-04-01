@@ -6,8 +6,9 @@ import { truncateAllTables } from '../../helpers/database.helper';
 import { AuthService } from '../../../src/modules/auth/services/auth.service';
 import { TokenService } from '../../../src/modules/auth/services/token.service';
 import { ResetPasswordUsecase } from '../../../src/modules/auth/usecases/resetPassword.uc';
-import { RedisService } from '../../../src/shared/redis/redis.service';
-import { RedisKeys, RedisTTL } from '../../../src/shared/redis/redis.constants';
+import { CacheAdapter } from '../../../src/adapters/cache/cache.adapter';
+import { CacheDbType } from '../../../src/adapters/cache/providers/redis.provider';
+import { RedisKeys, RedisTTL } from '../../../src/adapters/cache/cache.constants';
 import { Staff } from '../../../src/modules/core/entities/staff.entity';
 
 const TEST_EMAIL = 'resetpw@hospital.com';
@@ -18,7 +19,7 @@ describe('ResetPassword Integration', () => {
   let authService: AuthService;
   let tokenService: TokenService;
   let resetPwUc: ResetPasswordUsecase;
-  let redisService: RedisService;
+  let cacheAdapter: CacheAdapter;
   let passwordHash: string;
 
   beforeAll(async () => {
@@ -27,7 +28,7 @@ describe('ResetPassword Integration', () => {
     authService = module.get(AuthService);
     tokenService = module.get(TokenService);
     resetPwUc = module.get(ResetPasswordUsecase);
-    redisService = module.get(RedisService);
+    cacheAdapter = module.get(CacheAdapter);
     passwordHash = await authService.hashPassword('OldPassword1!');
   });
 
@@ -46,6 +47,7 @@ describe('ResetPassword Integration', () => {
         firstName: 'Reset',
         lastName: 'Test',
         email: TEST_EMAIL,
+        phoneNumber: '+2348044444444',
         passwordHash,
         isActive: true,
         isApproved: true,
@@ -57,7 +59,11 @@ describe('ResetPassword Integration', () => {
   async function storeResetToken(staffId: string): Promise<string> {
     const plainToken = tokenService.generateOpaqueToken();
     const hash = tokenService.sha256(plainToken);
-    await redisService.setJson(RedisKeys.pwReset(hash), { staffId }, RedisTTL.pwReset);
+    await cacheAdapter.set(
+      RedisKeys.pwReset(hash),
+      { staffId },
+      { db: CacheDbType.AUTH, ttl: RedisTTL.pwReset },
+    );
     return plainToken;
   }
 
@@ -74,7 +80,7 @@ describe('ResetPassword Integration', () => {
 
     // Redis token should be gone
     const hash = tokenService.sha256(plainToken);
-    const remaining = await redisService.getJson(RedisKeys.pwReset(hash));
+    const remaining = await cacheAdapter.get(RedisKeys.pwReset(hash), { db: CacheDbType.AUTH });
     expect(remaining).toBeNull();
 
     // New password should be verifiable

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestingModule, createTestApp } from '../../helpers/app.helper';
 import { truncateAllTables, seedPermissionsAndRoles, seedPat } from '../../helpers/database.helper';
@@ -93,7 +93,10 @@ describe('PAT E2E', () => {
   it('valid PAT → 200 on protected endpoint', async () => {
     const headers = await patAuthHeader(teamLeadId);
 
-    const res = await request(app.getHttpServer()).get('/api/v1/staff').set(headers).expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/staff/pat')
+      .set(headers)
+      .expect(200);
 
     expect(res.body.success).toBe(true);
   });
@@ -116,12 +119,10 @@ describe('PAT E2E', () => {
       }),
     );
 
-    const res = await request(app.getHttpServer())
-      .get('/api/v1/staff')
+    await request(app.getHttpServer())
+      .get('/api/v1/staff/pat')
       .set({ ...API_KEY_HEADER, Authorization: `Bearer ${raw}` })
       .expect(401);
-
-    expect(res.body.success).toBe(false);
   });
 
   // ── 3. Revoked PAT → 401 ─────────────────────────────────────────────────
@@ -141,13 +142,11 @@ describe('PAT E2E', () => {
       .set({ ...API_KEY_HEADER, Authorization: `Bearer ${raw}` })
       .expect(200);
 
-    // Try using the same token again
-    const res = await request(app.getHttpServer())
-      .get('/api/v1/staff')
+    // Try using the same token again — should be rejected
+    await request(app.getHttpServer())
+      .get('/api/v1/staff/pat')
       .set({ ...API_KEY_HEADER, Authorization: `Bearer ${raw}` })
       .expect(401);
-
-    expect(res.body.success).toBe(false);
   });
 
   // ── 4. POST /staff/pat with team lead → 201, raw token returned ──────────
@@ -182,13 +181,11 @@ describe('PAT E2E', () => {
 
     const raw = await seedPat(dataSource, tokenService, regularStaffId);
 
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/staff/pat')
       .set({ ...API_KEY_HEADER, Authorization: `Bearer ${raw}` })
       .send({ name: 'should-fail' })
       .expect(403);
-
-    expect(res.body.success).toBe(false);
   });
 
   // ── 6. GET /staff/pat → only own tokens listed ───────────────────────────

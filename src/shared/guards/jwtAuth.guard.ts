@@ -99,14 +99,16 @@ export class JwtAuthGuard implements CanActivate {
         lastName: staff.lastName,
         isActive: staff.isActive,
         isApproved: staff.isApproved,
-        role: {
-          id: staff.role.id,
-          name: staff.role.name,
-          isActive: staff.role.isActive,
-          alias: staff.role.alias,
-          isSystemRole: staff.role.isSystemRole,
-          permissions: staff.role.permissions ?? [],
-        },
+        role: staff.role
+          ? {
+              id: staff.role.id,
+              name: staff.role.name,
+              isActive: staff.role.isActive,
+              alias: staff.role.alias,
+              isSystemRole: staff.role.isSystemRole,
+              permissions: staff.role.permissions ?? [],
+            }
+          : null,
       };
 
       await this.cacheAdapter.set(profileCacheKey, staffProfile, {
@@ -124,14 +126,16 @@ export class JwtAuthGuard implements CanActivate {
       email: staffProfile.email,
       firstname: staffProfile.firstName,
       lastname: staffProfile.lastName,
-      role: {
-        id: staffProfile.role.id,
-        name: staffProfile.role.name,
-        isActive: staffProfile.role.isActive,
-        alias: staffProfile.role.alias,
-        isSystemRole: staffProfile.role.isSystemRole,
-        permissions: staffProfile.role.permissions ?? [],
-      },
+      role: staffProfile.role
+        ? {
+            id: staffProfile.role.id,
+            name: staffProfile.role.name,
+            isActive: staffProfile.role.isActive,
+            alias: staffProfile.role.alias,
+            isSystemRole: staffProfile.role.isSystemRole,
+            permissions: staffProfile.role.permissions ?? [],
+          }
+        : null,
     };
 
     this.requestContextService.setUser(requestUser);

@@ -2,20 +2,23 @@ import { mock } from 'vitest-mock-extended';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TokenService } from './token.service';
+import { EncryptionUtility } from '@shared/utility/encryption/encryption.utility';
 
 describe('TokenService', () => {
   let service: TokenService;
   let jwtService: ReturnType<typeof mock<JwtService>>;
   let configService: ReturnType<typeof mock<ConfigService>>;
+  let encryptionUtility: ReturnType<typeof mock<EncryptionUtility>>;
 
   let configGet: any;
 
   beforeEach(() => {
     jwtService = mock<JwtService>();
     configService = mock<ConfigService>();
+    encryptionUtility = mock<EncryptionUtility>();
 
     configGet = configService.get as any;
-    service = new TokenService(jwtService, configService);
+    service = new TokenService(jwtService, configService, encryptionUtility);
   });
 
   describe('signAccessToken', () => {
@@ -23,11 +26,12 @@ describe('TokenService', () => {
       configGet.calledWith('common.jwt.accessSecret').mockReturnValue('test-secret');
       configGet.calledWith('common.jwt.accessExpiry').mockReturnValue(900);
       jwtService.sign.mockReturnValue('signed-token');
+      encryptionUtility.encrypt.mockReturnValue('encrypted-token');
 
       const payload = { sub: 'id1', jti: 'jti1', role: 'admin' };
       const result = service.signAccessToken(payload);
 
-      expect(result).toBe('signed-token');
+      expect(result).toBe('encrypted-token');
       expect(jwtService.sign).toHaveBeenCalledWith(payload, {
         secret: 'test-secret',
         expiresIn: 900,
@@ -39,12 +43,13 @@ describe('TokenService', () => {
     it('should return payload on valid token', () => {
       configGet.calledWith('common.jwt.accessSecret').mockReturnValue('test-secret');
       const payload = { sub: 'id1', jti: 'jti1', role: 'admin' };
+      encryptionUtility.decrypt.mockReturnValue('decrypted-jwt');
       jwtService.verify.mockReturnValue(payload);
 
       const result = service.verifyAccessToken('valid-token');
 
       expect(result).toEqual(payload);
-      expect(jwtService.verify).toHaveBeenCalledWith('valid-token', {
+      expect(jwtService.verify).toHaveBeenCalledWith('decrypted-jwt', {
         secret: 'test-secret',
       });
     });

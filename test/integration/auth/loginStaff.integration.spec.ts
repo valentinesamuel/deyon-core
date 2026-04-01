@@ -5,8 +5,9 @@ import { createTestingModule } from '../../helpers/app.helper';
 import { truncateAllTables } from '../../helpers/database.helper';
 import { AuthService } from '../../../src/modules/auth/services/auth.service';
 import { LoginStaffUsecase } from '../../../src/modules/auth/usecases/loginStaff.uc';
-import { RedisService } from '../../../src/shared/redis/redis.service';
-import { RedisKeys } from '../../../src/shared/redis/redis.constants';
+import { CacheAdapter } from '../../../src/adapters/cache/cache.adapter';
+import { CacheDbType } from '../../../src/adapters/cache/providers/redis.provider';
+import { RedisKeys } from '../../../src/adapters/cache/cache.constants';
 import { Staff } from '../../../src/modules/core/entities/staff.entity';
 
 const TEST_EMAIL = 'teststaff@hospital.com';
@@ -17,7 +18,7 @@ describe('LoginStaff Integration', () => {
   let dataSource: DataSource;
   let authService: AuthService;
   let loginUc: LoginStaffUsecase;
-  let redisService: RedisService;
+  let cacheAdapter: CacheAdapter;
   let passwordHash: string;
 
   beforeAll(async () => {
@@ -25,7 +26,7 @@ describe('LoginStaff Integration', () => {
     dataSource = module.get(DataSource);
     authService = module.get(AuthService);
     loginUc = module.get(LoginStaffUsecase);
-    redisService = module.get(RedisService);
+    cacheAdapter = module.get(CacheAdapter);
     // Compute hash once; argon2 is slow
     passwordHash = await authService.hashPassword(TEST_PASSWORD);
   });
@@ -37,8 +38,8 @@ describe('LoginStaff Integration', () => {
   beforeEach(async () => {
     await truncateAllTables(dataSource);
     // Clear Redis lockout keys
-    await redisService.del(RedisKeys.loginAttempts(TEST_EMAIL));
-    await redisService.del(RedisKeys.loginLockout(TEST_EMAIL));
+    await cacheAdapter.del(RedisKeys.loginAttempts(TEST_EMAIL), { db: CacheDbType.AUTH });
+    await cacheAdapter.del(RedisKeys.loginLockout(TEST_EMAIL), { db: CacheDbType.AUTH });
   });
 
   async function seedStaff(overrides: Partial<Staff> = {}) {
@@ -47,6 +48,7 @@ describe('LoginStaff Integration', () => {
       firstName: 'Test',
       lastName: 'Staff',
       email: TEST_EMAIL,
+      phoneNumber: '+2348011111111',
       passwordHash,
       isActive: true,
       isApproved: true,
@@ -122,7 +124,9 @@ describe('LoginStaff Integration', () => {
         .catch(() => {});
     }
 
-    const lockedBefore = await redisService.exists(RedisKeys.loginLockout(TEST_EMAIL));
+    const lockedBefore = await cacheAdapter.exists(RedisKeys.loginLockout(TEST_EMAIL), {
+      db: CacheDbType.AUTH,
+    });
     expect(lockedBefore).toBe(false);
 
     // 5th attempt triggers lockout
@@ -130,7 +134,9 @@ describe('LoginStaff Integration', () => {
       loginUc.execute(dataSource.manager, { email: TEST_EMAIL, password: 'BadPass!' }),
     ).rejects.toThrow('Too many failed attempts');
 
-    const lockedAfter = await redisService.exists(RedisKeys.loginLockout(TEST_EMAIL));
+    const lockedAfter = await cacheAdapter.exists(RedisKeys.loginLockout(TEST_EMAIL), {
+      db: CacheDbType.AUTH,
+    });
     expect(lockedAfter).toBe(true);
   });
 });

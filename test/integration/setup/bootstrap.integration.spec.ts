@@ -11,7 +11,8 @@ import { Staff } from '../../../src/modules/core/entities/staff.entity';
 import { MfaConfig } from '../../../src/modules/core/entities/mfaConfig.entity';
 import { SystemConfig } from '../../../src/modules/core/entities/systemConfig.entity';
 
-const PLAIN_SECRET = 'JBSWY3DPEHPK3PXP';
+// 32-char base32 secret = 20 bytes = 160 bits (meets otplib's 128-bit minimum)
+const PLAIN_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 describe('BootstrapSystem Integration', () => {
   let module: TestingModule;
@@ -55,6 +56,7 @@ describe('BootstrapSystem Integration', () => {
         firstName: 'Chief',
         lastName: 'Medical',
         email: 'cmo@hospital.com',
+        phoneNumber: '+2348010101010',
         passwordHash,
         isActive: true,
         isApproved: true,
@@ -70,21 +72,21 @@ describe('BootstrapSystem Integration', () => {
 
   it('assigns super_admin role and marks setup_complete=true', async () => {
     const cmo = await seedCmo();
-    const totpCode = await (testTotp as any).generate(PLAIN_SECRET);
+    const totpCode = await testTotp.generate({ secret: PLAIN_SECRET } as any);
 
     const result = await dataSource.manager.transaction(async (em) => {
       return bootstrapUc.execute(em, { staffId: cmo.id, totpCode });
     });
 
     expect(result.success).toBe(true);
-    expect(result.roleAssigned).toBe('super_admin');
+    expect(result.roleAssigned).toBe('cmo');
 
-    // Staff should have super_admin role
+    // Staff should have cmo role
     const updatedStaff = await dataSource.getRepository(Staff).findOne({
       where: { id: cmo.id },
       relations: ['role'],
     });
-    expect(updatedStaff?.role?.alias).toBe('super_admin');
+    expect(updatedStaff?.role?.alias).toBe('cmo');
 
     // system_config should be updated
     const config = await dataSource
@@ -104,7 +106,7 @@ describe('BootstrapSystem Integration', () => {
         { value: { completed: true, completedAt: new Date().toISOString(), completedBy: cmo.id } },
       );
 
-    const totpCode = await (testTotp as any).generate(PLAIN_SECRET);
+    const totpCode = await testTotp.generate({ secret: PLAIN_SECRET } as any);
 
     await expect(
       dataSource.manager.transaction(async (em) => {
@@ -131,6 +133,7 @@ describe('BootstrapSystem Integration', () => {
         firstName: 'No',
         lastName: 'Mfa',
         email: 'nomfa@hospital.com',
+        phoneNumber: '+2348020202020',
         passwordHash,
         isActive: true,
         isApproved: true,
@@ -138,7 +141,7 @@ describe('BootstrapSystem Integration', () => {
       }),
     );
 
-    const totpCode = await (testTotp as any).generate(PLAIN_SECRET);
+    const totpCode = await testTotp.generate({ secret: PLAIN_SECRET } as any);
 
     await expect(
       dataSource.manager.transaction(async (em) => {

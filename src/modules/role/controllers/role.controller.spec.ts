@@ -59,21 +59,15 @@ describe('RoleController', () => {
       expect(broker.runUsecases).toHaveBeenCalledWith([createRoleUsecase], expect.any(Object));
     });
 
-    it('should pass dto, ipAddress, and userAgent to broker', async () => {
+    it('should pass dto to broker', async () => {
       broker.runUsecases.mockResolvedValue({ name: 'Doctor' } as any);
 
-      await controller.createRole(mockDto, mockReq);
+      await controller.createRole(mockDto);
 
       expect(broker.runUsecases).toHaveBeenCalledWith(
         expect.any(Array),
         expect.objectContaining({
           params: mockDto,
-          metadata: {
-            requestMetadata: {
-              ipAddress: '127.0.0.1',
-              userAgent: 'test-agent',
-            },
-          },
         }),
       );
     });

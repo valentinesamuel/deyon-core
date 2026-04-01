@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { createTestingModule, createTestApp } from '../../helpers/app.helper';
 import { truncateAllTables, seedPermissionsAndRoles } from '../../helpers/database.helper';
@@ -69,7 +69,7 @@ describe('Setup Bootstrap E2E', () => {
       .send({ setupToken })
       .expect(201);
 
-    const otpauthUrl = setupRes.body.result.otpauthUrl as string;
+    const otpauthUrl = setupRes.body.result.otpAuthUrl as string;
     // Extract plain secret from otpauth URL: otpauth://totp/...?secret=SECRET&...
     const secretMatch = otpauthUrl.match(/secret=([^&]+)/);
     expect(secretMatch).not.toBeNull();
