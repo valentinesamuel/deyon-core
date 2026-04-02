@@ -13,7 +13,7 @@ type TGetHmoProviderResult = {
     contactEmail: string;
     address: string;
     defaultCopay: string;
-    isActive: string;
+    isActive: boolean;
     portalUrl: string;
     claimsEmail: string;
     retractionEmail: string;

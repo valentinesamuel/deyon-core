@@ -15,7 +15,7 @@ type TUpdateHmoProviderResult = {
     contactEmail: string;
     address: string;
     defaultCopay: string;
-    isActive: string;
+    isActive: boolean;
     portalUrl: string;
     claimsEmail: string;
     retractionEmail: string;
@@ -41,7 +41,21 @@ export class UpdateHmoProviderUsecase extends Usecase<
   ): Promise<TUpdateHmoProviderResult> {
     const { id, dto } = params;
 
-    const updated = await this.hmoProviderService.updateHmoProvider(id, dto, em);
+    const updated = await this.hmoProviderService.updateHmoProvider(
+      id,
+      {
+        address: dto.address,
+        claimsEmail: dto.claimsEmail,
+        contactEmail: dto.contactEmail,
+        contactPhone: dto.contactPhone,
+        defaultCopay: String(dto.defaultCopay),
+        isActive: dto.isActive,
+        name: dto.name,
+        portalUrl: dto.portalUrl,
+        retractionEmail: dto.retractionEmail,
+      },
+      em,
+    );
 
     return {
       hmoProvider: {

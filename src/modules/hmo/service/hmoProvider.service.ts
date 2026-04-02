@@ -1,6 +1,5 @@
 import { HmoProviderRepository } from '@adapters/repositories/hmoProvider.repository';
 import { Injectable, Logger } from '@nestjs/common';
-import { CreateHmoProviderDto } from '../dto/createHmoProvider.dto';
 import { EntityManager } from 'typeorm';
 import { HmoProvider } from '@modules/core/entities/hmoProvider.entity';
 import { FindResourceOptions } from '@adapters/repositories/base.repository';
@@ -11,7 +10,7 @@ export class HmoProviderService {
 
   constructor(private readonly hmoProviderRepository: HmoProviderRepository) {}
 
-  async createHmoProvider(data: CreateHmoProviderDto, em?: EntityManager) {
+  async createHmoProvider(data: Partial<HmoProvider>, em?: EntityManager) {
     return this.hmoProviderRepository.createHmoProvider(data, em);
   }
 

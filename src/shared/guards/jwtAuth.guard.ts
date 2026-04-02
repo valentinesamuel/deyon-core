@@ -23,7 +23,7 @@ interface StaffProfile {
   lastName: string;
   isActive: boolean;
   isApproved: boolean;
-  role: Pick<Role, 'id' | 'alias' | 'isActive' | 'isSystemRole' | 'name' | 'permissions'>;
+  role: Pick<Role, 'id' | 'alias' | 'isActive' | 'isSystemRole' | 'name' | 'permissions'> | null;
 }
 
 @Injectable()
@@ -121,21 +121,23 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Account is inactive or not approved');
     }
 
+    if (!staffProfile.role) {
+      throw new UnauthorizedException('Staff role not found');
+    }
+
     const requestUser: TRequestUser = {
       id: staffProfile.id,
       email: staffProfile.email,
       firstname: staffProfile.firstName,
       lastname: staffProfile.lastName,
-      role: staffProfile.role
-        ? {
-            id: staffProfile.role.id,
-            name: staffProfile.role.name,
-            isActive: staffProfile.role.isActive,
-            alias: staffProfile.role.alias,
-            isSystemRole: staffProfile.role.isSystemRole,
-            permissions: staffProfile.role.permissions ?? [],
-          }
-        : null,
+      role: {
+        id: staffProfile.role.id,
+        name: staffProfile.role.name,
+        isActive: staffProfile.role.isActive,
+        alias: staffProfile.role.alias,
+        isSystemRole: staffProfile.role.isSystemRole,
+        permissions: staffProfile.role.permissions ?? [],
+      },
     };
 
     this.requestContextService.setUser(requestUser);
@@ -220,6 +222,10 @@ export class JwtAuthGuard implements CanActivate {
       this.patRepository.updateLastUsed(pat.id).catch((err) => {
         this.logger.warn(`Failed to update PAT lastUsedAt: ${err?.message}`);
       });
+    }
+
+    if (!staffProfile.role) {
+      throw new UnauthorizedException('Staff role not found');
     }
 
     const requestUser: TRequestUser = {

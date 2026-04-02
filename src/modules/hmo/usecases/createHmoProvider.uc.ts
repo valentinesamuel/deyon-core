@@ -48,7 +48,21 @@ export class CreateHmoProviderUsecase extends Usecase<
       em,
     );
 
-    const newHmoProvider = await this.hmoProviderService.createHmoProvider(params, em);
+    const newHmoProvider = await this.hmoProviderService.createHmoProvider(
+      {
+        address: params.address,
+        claimsEmail: params.claimsEmail,
+        contactEmail: params.contactEmail,
+        contactPhone: params.contactPhone,
+        defaultCopay: String(params.defaultCopay),
+        isActive: params.isActive,
+        name: params.name,
+        portalUrl: params.portalUrl,
+        retractionEmail: params.retractionEmail,
+        code: params.code,
+      },
+      em,
+    );
 
     const actorId = this.requestContextService.getUserId();
 
