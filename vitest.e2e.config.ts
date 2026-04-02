@@ -24,6 +24,7 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'e2e',
     include: ['test/e2e/**/*.e2e-spec.ts'],
     environment: 'node',
     globals: true,

@@ -22,6 +22,7 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'unit',
     include: ['src/**/*.spec.ts'],
     exclude: ['src/**/*.module.ts', 'src/main.ts', 'src/migrations/**'],
     environment: 'node',
