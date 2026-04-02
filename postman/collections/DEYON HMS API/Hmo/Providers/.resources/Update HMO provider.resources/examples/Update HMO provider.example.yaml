@@ -1,0 +1,62 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}hmo/providers/:id"
+  method: PATCH
+  headers:
+    Authorization: Bearer {{token}}
+  pathVariables:
+    id: 95d4a352-ba78-4eca-a645-5c48bce57720
+  body:
+    type: json
+    content: |-
+      {
+        "name": "Axa Manxard",
+        "code": "2FK4626",
+        "contactPhone": "+2345833947328",
+        "contactEmail": "test@test.com",
+        "claimsEmail": "test@test.com",
+        "retractionEmail": "test@test.com",
+        "address": "123 street, ikeja. Lagos",
+        "portalUrl": "http://test@test.com",
+        "relationshipManagerPhone": "+2345833947328",
+        "defaultCopay": 12300,
+        "isActive": true
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    content-security-policy: "default-src 'self';frame-ancestors 'none';base-uri
+      'self';font-src 'self' https: data:;form-action 'self';img-src 'self'
+      data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src
+      'self' https: 'unsafe-inline';upgrade-insecure-requests"
+    cross-origin-opener-policy: same-origin
+    cross-origin-resource-policy: same-origin
+    origin-agent-cluster: ?1
+    referrer-policy: no-referrer
+    strict-transport-security: max-age=31536000; includeSubDomains; preload
+    x-content-type-options: nosniff
+    x-dns-prefetch-control: off
+    x-download-options: noopen
+    x-frame-options: SAMEORIGIN
+    x-permitted-cross-domain-policies: none
+    x-xss-protection: "0"
+    vary: Origin
+    access-control-allow-credentials: "true"
+    x-ratelimit-limit: "10"
+    x-ratelimit-remaining: "9"
+    x-ratelimit-reset: "30"
+    content-type: application/json; charset=utf-8
+    content-length: "574"
+    etag: W/"23e-drrsVV016jbmq/bJuKueTTQU4W0"
+    date: Thu, 02 Apr 2026 14:37:10 GMT
+    connection: keep-alive
+    keep-alive: timeout=5
+  body:
+    type: json
+    content: '{"statusCode":200,"success":true,"message":"Request
+      successful","result":{"hmoProvider":{"id":"95d4a352-ba78-4eca-a645-5c48bce57720","createdAt":"2026-03-27T16:39:48.911Z","updatedAt":"2026-04-02T14:37:10.256Z","name":"Axa
+      Manxard","code":"2FK4626","contactPhone":"+2345833947328","contactEmail":"test@test.com","address":"123
+      street, ikeja.
+      Lagos","defaultCopay":"12300.00","isActive":true,"portalUrl":"http://test@test.com","claimsEmail":"test@test.com","retractionEmail":"test@test.com"}},"path":"/api/v1/hmo/providers/95d4a352-ba78-4eca-a645-5c48bce57720","duration":54}'
+order: 1775141972327

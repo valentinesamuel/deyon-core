@@ -1,7 +1,6 @@
 $kind: http-request
-name: Update HMO provider
 url: "{{baseUrl}}hmo/providers/:id"
-method: POST
+method: PATCH
 headers:
   Authorization: Bearer {{token}}
 pathVariables:
@@ -16,10 +15,11 @@ body:
       "contactEmail": "test@test.com",
       "claimsEmail": "test@test.com",
       "retractionEmail": "test@test.com",
-      "address": "123 street, ikeja",
+      "address": "123 street, ikeja. Lagos",
       "portalUrl": "http://test@test.com",
       "relationshipManagerPhone": "+2345833947328",
       "defaultCopay": 12300,
       "isActive": true
     }
+examples: .resources/Update HMO provider.resources/examples
 order: 446999981337752

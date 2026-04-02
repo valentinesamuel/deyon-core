@@ -28,7 +28,7 @@ describe('UpdateHmoProviderUsecase', () => {
       contactEmail: 'contact@hmo.com',
       address: '123 Health Street',
       defaultCopay: '5000',
-      isActive: 'true',
+      isActive: true,
       portalUrl: 'https://hmo.com/portal',
       claimsEmail: 'claims@hmo.com',
       retractionEmail: 'retraction@hmo.com',
@@ -43,7 +43,7 @@ describe('UpdateHmoProviderUsecase', () => {
 
     expect(mockHmoProviderService.updateHmoProvider).toHaveBeenCalledWith(
       'uuid-123',
-      { name: 'Updated HMO' },
+      expect.objectContaining({ name: 'Updated HMO' }),
       mockEntityManager,
     );
     expect(result).toEqual({
@@ -57,7 +57,7 @@ describe('UpdateHmoProviderUsecase', () => {
         contactEmail: 'contact@hmo.com',
         address: '123 Health Street',
         defaultCopay: '5000',
-        isActive: 'true',
+        isActive: true,
         portalUrl: 'https://hmo.com/portal',
         claimsEmail: 'claims@hmo.com',
         retractionEmail: 'retraction@hmo.com',

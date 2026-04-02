@@ -22,4 +22,10 @@ describe('CreateHmoProviderDto', () => {
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
   });
+
+  it('should fail when code is missing', async () => {
+    const dto = plainToInstance(CreateHmoProviderDto, { ...validPayload, code: undefined });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'code')).toBe(true);
+  });
 });
