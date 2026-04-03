@@ -13,7 +13,10 @@ import { Consultation } from './entities/consultation.entity';
 import { Department } from './entities/department.entity';
 import { Encounter } from './entities/encounter.entity';
 import { Episode } from './entities/episode.entity';
-import { EpisodeDiagnosis } from './entities/episodeDiagnosis';
+import { BillingCode } from './entities/billingCode.entity';
+import { ClaimItem } from './entities/claimItem.entity';
+import { EmergencyOverride } from './entities/emergencyOverride.entity';
+import { EpisodeDiagnosis } from './entities/episodeDiagnosis.entity';
 import { EpisodeLog } from './entities/episodeLog.entity';
 import { EventLog } from './entities/eventLog.entity';
 import { HmoContract } from './entities/hmoContract.entity';
@@ -28,7 +31,7 @@ import { LabOrderResult } from './entities/labOrderResult.entity';
 import { LabReferral } from './entities/labReferral.entity';
 import { LabReferralItem } from './entities/labReferralItem.entity';
 import { Lga } from './entities/lga.entity';
-import { MedicalCatalog } from './entities/medicalCatalog';
+import { MedicalCatalog } from './entities/medicalCatalog.entity';
 import { MedicalCode } from './entities/medicalCode.entity';
 import { MedicalService } from './entities/medicalService.entity';
 import { MedicalServiceCategory } from './entities/medicalServiceCategory.entity';
@@ -36,7 +39,7 @@ import { MfaConfig } from './entities/mfaConfig.entity';
 import { PartnerLab } from './entities/partnerLab.entity';
 import { Patient } from './entities/patient.entity';
 import { PatientHmo } from './entities/patientHmo.entity';
-import { PatientMedicalHistory } from './entities/patientMedicalHistory';
+import { PatientMedicalHistory } from './entities/patientMedicalHistory.entity';
 import { PatientVital } from './entities/patientVitals.entity';
 import { Payment } from './entities/payment.entity';
 import { Permission } from './entities/permission.entity';
@@ -46,6 +49,7 @@ import { PrescriptionItem } from './entities/prescriptionItem.entity';
 import { PriceChange } from './entities/priceChange.entity';
 import { ProtocolBundle } from './entities/protocolBundles.entity';
 import { ProtocolBundleItems } from './entities/protocolBundleItems.entity';
+import { QueueEntry } from './entities/queueEntry.entity';
 import { ReferenceRange } from './entities/referenceRange.entity';
 import { RefreshToken } from './entities/refreshToken.entity';
 import { RestockRequest } from './entities/restockRequest.entity';
@@ -70,12 +74,15 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
       Appointment,
       Bill,
       BillItem,
+      BillingCode,
       Claim,
+      ClaimItem,
       CodingStandard,
       Consultation,
       Department,
       Encounter,
       Episode,
+      EmergencyOverride,
       EpisodeDiagnosis,
       EpisodeLog,
       EventLog,
@@ -109,6 +116,7 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
       PriceChange,
       ProtocolBundle,
       ProtocolBundleItems,
+      QueueEntry,
       ReferenceRange,
       RefreshToken,
       RestockRequest,

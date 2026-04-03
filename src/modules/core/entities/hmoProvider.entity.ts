@@ -36,4 +36,7 @@ export class HmoProvider extends BaseEntity {
 
   @Column({ type: 'varchar' })
   retractionEmail: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  relationshipManagerPhone: string | null;
 }

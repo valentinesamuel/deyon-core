@@ -49,6 +49,22 @@ export class Shift extends BaseEntity {
   @JoinColumn({ name: 'department_id' })
   department: Department;
 
+  // Cashier shift balance tracking (null for non-cashier shifts)
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  openingBalance: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  closingBalance: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  expectedBalance: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  variance: number;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
   @OneToMany(() => Payment, (p) => p.shift)
   payments: Payment[];
 

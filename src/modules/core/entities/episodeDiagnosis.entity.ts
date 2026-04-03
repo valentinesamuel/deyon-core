@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 import { Episode } from './episode.entity';
-import { ServiceCodeCatalog } from './serviceCodeCatalog.entity';
+import { MedicalCode } from './medicalCode.entity';
 import { Staff } from './staff.entity';
 
 @Entity()
@@ -13,12 +13,13 @@ export class EpisodeDiagnosis extends BaseEntity {
   @JoinColumn({ name: 'episode_id' })
   episode: Episode;
 
+  // References ICD-10 entry in MedicalCode (not ServiceCodeCatalog which is a billing bridge)
   @Column({ type: 'uuid' })
-  serviceCodeId: string;
+  medicalCodeId: string;
 
-  @ManyToOne(() => ServiceCodeCatalog)
-  @JoinColumn({ name: 'service_code_id' })
-  serviceCode: ServiceCodeCatalog;
+  @ManyToOne(() => MedicalCode)
+  @JoinColumn({ name: 'medical_code_id' })
+  medicalCode: MedicalCode;
 
   @Column({ type: 'varchar' })
   diagnosisType: string;

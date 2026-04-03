@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 import { HmoProvider } from './hmoProvider.entity';
 import { MedicalService } from './medicalService.entity';
+import { BillItem } from './billItem.entity';
 
 export enum HMOCoverageTypeEnum {
   FULL = 'full',
@@ -29,18 +30,28 @@ export class HmoContract extends BaseEntity {
   @JoinColumn({ name: 'service_id' })
   service: MedicalService;
 
+  // HMO-negotiated price for this service. Null = fall back to MedicalService.defaultPrice
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
-  contractedPrice: number;
+  contractedPrice: number | null;
 
+  // What percentage (0–100) the HMO covers. Used when coverageType = PARTIAL_PERCENT
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
-  copayPercentage: number;
+  coveragePercentage: number | null;
 
-  @Column({ type: 'boolean', default: false })
-  isFullyCovered: boolean;
+  // Flat NGN amount the HMO covers. Used when coverageType = PARTIAL_FLAT
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  coverageFlatAmount: number | null;
+
+  // Cap on HMO coverage for partial coverage types
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  maxCoveredAmount: number | null;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
   @Column({ type: 'boolean', default: false })
   requiredPreAuthorization: boolean;
+
+  @OneToMany(() => BillItem, (item) => item.hmoContract)
+  billItems: BillItem[];
 }

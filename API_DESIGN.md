@@ -398,7 +398,7 @@ interface CreateUserRequest {
 interface HMOProvider {
   id: string;
   name: string;
-  code: string;                   // Short unique code e.g. "HYGEIA"
+  code: string;                         // Short unique code e.g. "HYGEIA"
   contactPhone: string;
   contactEmail: string;
   claimsEmail: string;
@@ -406,24 +406,32 @@ interface HMOProvider {
   address: string;
   portalUrl?: string;
   relationshipManagerPhone?: string;
-  defaultCopay: number;           // Default copay percentage (0–100)
+  defaultCopay: number;                 // Default flat NGN copay amount per visit (provider-level fallback)
+  defaultCopayPercentage: number;       // Default copay percentage (0–100) (provider-level fallback)
   isActive: boolean;
 }
 
-interface HMOServiceCoverage {
+// HmoContract: the canonical HMO service coverage entity.
+// Defines what the HMO has contracted to cover for a specific service.
+// Pricing model:
+//   - Non-HMO patients pay MedicalService.defaultPrice
+//   - HMO patients pay HmoContract.contractedPrice (falls back to defaultPrice if null)
+//   - HMO covers: coveragePercentage% of contractedPrice (PARTIAL_PERCENT),
+//                 coverageFlatAmount NGN (PARTIAL_FLAT), or 100% (FULL)
+//   - Patient pays the remainder
+//   - If no HmoContract exists for a service, HmoProvider.defaultCopay/defaultCopayPercentage applies
+interface HMOContract {
   id: string;
   hmoProviderId: string;
   serviceId: string;
-  serviceName: string;
-  serviceCategory: ServiceCategory;
   coverageType: 'full' | 'partial_percent' | 'partial_flat' | 'none';
-  coveragePercentage?: number;    // 0–100 if partial_percent
-  coverageFlatAmount?: number;    // NGN amount if partial_flat
-  maxCoveredAmount?: number;      // Cap for partial coverage
-  requiresPreAuth: boolean;
+  contractedPrice?: number;       // HMO-negotiated service price (NGN). Null = use MedicalService.defaultPrice
+  coveragePercentage?: number;    // 0–100. What the HMO covers. Used when coverageType = partial_percent
+  coverageFlatAmount?: number;    // NGN amount the HMO covers. Used when coverageType = partial_flat
+  maxCoveredAmount?: number;      // Cap on HMO coverage for partial coverage types
+  requiredPreAuthorization: boolean;
   isActive: boolean;
   updatedAt: string;
-  updatedBy: string;
 }
 
 interface HMOVerificationRequest {
@@ -492,23 +500,22 @@ interface HMOVerificationRequest {
 ```typescript
 interface ServicePrice {
   id: string;
-  code: string;                 // e.g. "CONS-001"
+  code: string;                 // Hospital-assigned code e.g. "CONS-001". Distinct from ServiceCodeCatalog (HMO/coding-standard codes)
   name: string;
   description?: string;
   category: ServiceCategory;    // 'consultation' | 'lab' | 'pharmacy' | 'procedure' | 'admission' | 'other'
-  standardPrice: number;        // NGN
-  hmoPrice?: number;            // NGN, if HMO-negotiated rate differs
+  standardPrice: number;        // NGN — price for cash/corporate patients (MedicalService.defaultPrice)
+  // HMO-specific pricing is managed via HMOContract.contractedPrice per provider, not here
   isTaxable: boolean;
-  isActive: boolean;
-  status: 'pending' | 'approved' | 'rejected';
-  department?: BillingDepartment;
-  isPremium?: boolean;
-  isRestricted?: boolean;
+  isPremium: boolean;
+  isRestricted: boolean;
   restrictionReason?: string;
+  department?: 'front_desk' | 'lab' | 'pharmacy' | 'nursing' | 'all';
+  status: 'pending' | 'approved' | 'rejected';  // Approval state for new/changed services
+  isActive: boolean;
   createdAt: string;
   createdBy: string;
   updatedAt: string;
-  updatedBy?: string;
 }
 
 interface PriceApproval {
@@ -594,7 +601,7 @@ interface PriceApproval {
 
 ```typescript
 interface TestCatalogEntry {
-  testCode: string;               // e.g. "lab-001"
+  testCode: string;               // e.g. "lab-001" (hospital's own code)
   testName: string;               // e.g. "Full Blood Count (FBC)"
   category: string;               // e.g. "Haematology"
   defaultUnit: string;            // e.g. "cells/μL"
@@ -604,8 +611,7 @@ interface TestCatalogEntry {
   methodology?: string;           // e.g. "Flow cytometry"
   preparationInstructions?: string;
   sampleType?: string;            // e.g. "EDTA whole blood"
-  standardPrice: number;          // NGN
-  turnaroundTimeHours: number;
+  loincCode?: string;             // LOINC standard code (via ServiceCodeCatalog link)
   isActive: boolean;
 }
 ```
@@ -798,8 +804,7 @@ interface Patient {
   bloodGroup: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'unknown';
   maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
   phone: string;
-  altPhone?: string;
-  email?: string;
+  email?: string;                // Optional at registration; unique when provided
   address: string;
   state: string;
   lga: string;
@@ -821,12 +826,24 @@ interface Patient {
     phone: string;
     address?: string;
   };
-  allergies: string[];
-  chronicConditions: string[];
+  // Medical history is stored in PatientMedicalHistory records (see GET /patients/:id/medical-history)
+  // allergies and chronic conditions are NOT stored as simple string arrays on the Patient record
   photoUrl?: string;
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+}
+
+interface PatientMedicalHistoryEntry {
+  id: string;
+  patientId: string;
+  catalogId: string;             // FK → MedicalCatalog (condition/allergy definition)
+  catalogName: string;           // e.g. "Penicillin Allergy", "Type 2 Diabetes"
+  customName?: string;           // Override if not in catalog
+  severity: string;              // e.g. "mild", "moderate", "severe"
+  addedBy: string;               // Staff ID
+  addedByName: string;
+  createdAt: string;
 }
 ```
 
@@ -844,6 +861,9 @@ interface Patient {
 | GET    | `/patients/:id/summary`           | any                                                             | Lightweight summary (MRN, name, age, payer)    |
 | GET    | `/patients/:id/episodes`          | doctor, nurse, clinical_lead, cmo, hospital_admin               | List episodes for a patient                    |
 | GET    | `/patients/:id/lab-results`       | doctor, nurse, lab_tech, clinical_lead, cmo, patient            | Lab results for a patient (portal view)        |
+| GET    | `/patients/:id/medical-history`   | doctor, nurse, clinical_lead, cmo, hospital_admin               | Patient's medical history (allergies, conditions) |
+| POST   | `/patients/:id/medical-history`   | doctor, nurse                                                   | Add a medical history entry                    |
+| DELETE | `/patients/:id/medical-history/:entryId` | doctor, clinical_lead, cmo                             | Remove a medical history entry                 |
 
 ##### GET `/patients/search`
 
@@ -990,7 +1010,7 @@ interface Appointment {
 
 ### Feature 12: Episodes
 
-**Description:** An Episode groups all clinical and financial activity for a single visit or care episode. Created at check-in, auto-completed after 24 hours of inactivity, or manually closed. Depends on: Patients, Appointments (Tier 2–3).
+**Description:** An Episode groups all clinical and financial activity for a single visit or care episode. Created at check-in and manually transitioned through statuses by clinical staff. Depends on: Patients, Appointments (Tier 2–3).
 
 #### Data Model
 
@@ -1001,24 +1021,18 @@ interface Episode {
   patientId: string;
   patientName: string;
   patientMrn: string;
-  status: 'active' | 'pending_results' | 'follow_up' | 'completed' | 'auto_completed';
+  // Status lifecycle: open → closed → locked → archived
+  // open: active visit; closed: visit ended; locked: under audit; archived: long-term storage
+  status: 'open' | 'closed' | 'locked' | 'archived';
+  appointmentId?: string;           // Linked appointment if visit originated from booking
   createdAt: string;
   createdBy: string;
-  expiresAt: string;                // 24 hours from creation for auto-complete
   completedAt?: string;
-  autoCompletedReason?: string;
   billIds: string[];
   consultationIds: string[];
   labOrderIds: string[];
   prescriptionIds: string[];
   claimIds: string[];
-  provisionalDiagnosis?: string;
-  provisionalDiagnosisCode?: string;
-  finalDiagnosis?: string;
-  finalDiagnosisCode?: string;
-  followUpScheduled?: boolean;
-  followUpDate?: string;
-  followUpUsed?: boolean;
   totalBilled: number;
   totalPaid: number;
   totalBalance: number;
@@ -1063,9 +1077,15 @@ interface EpisodeTimelineEvent {
 
 **Description:** Real-time queue management across five queues: triage, doctor_new, doctor_review, lab, pharmacy. Includes priority management, payment clearance checks, and consultation pause/resume. Depends on: Patients, Episodes (Tier 2–3).
 
+**Architecture — Redis/DB Hybrid:**
+- **Redis** holds live queue state (position, current status, assignment, pause state). Updated on every status change. Used for real-time API responses.
+- **DB (`QueueEntry` entity)** is written only on patient entry and exit (2 writes per patient). Used for analytics — wait times, throughput, patient flow reports. Not queried for live queue display.
+- The `QueueEntry` DB record (analytics snapshot) contains: `enteredAt`, `exitedAt`, `totalWaitMinutes`, `exitReason`, `priority`, `paymentStatus`, `assignedTo`. Live fields like `status`, `pauseReason`, `queueNumber` exist only in Redis.
+
 #### Data Model
 
 ```typescript
+// Live queue entry — served from Redis, not the DB
 interface QueueEntry {
   id: string;
   patientId: string;
@@ -1095,6 +1115,23 @@ interface QueueEntry {
   chiefComplaint?: string;
   notes?: string;
   queueNumber: number;
+}
+
+// Analytics snapshot — written to DB on entry and exit only
+interface QueueEntrySnapshot {
+  id: string;
+  patientId: string;
+  episodeId?: string;
+  queueType: 'triage' | 'doctor_new' | 'doctor_review' | 'lab' | 'pharmacy';
+  priority: 'normal' | 'high' | 'emergency';
+  paymentStatus: 'pending' | 'cleared' | 'hmo_verified' | 'emergency_override';
+  enteredAt: string;
+  exitedAt?: string;
+  totalWaitMinutes?: number;          // Calculated on exit
+  exitReason?: 'completed' | 'cancelled' | 'no_show' | 'transferred';
+  assignedTo?: string;
+  chiefComplaint?: string;
+  notes?: string;
 }
 
 interface QueueStats {
@@ -1461,38 +1498,57 @@ interface DispenseRequest {
 #### Data Model
 
 ```typescript
+interface BillItem {
+  id: string;
+  billId: string;
+  serviceId: string;
+  description: string;
+  unitPrice: number;
+  quantity: number;
+  taxAmount: number;
+  discount: number;
+  totalAmount: number;
+  // HMO coverage tracked per line item at billing time (frozen — not recalculated if rules change)
+  hmoStatus?: 'covered' | 'partial' | 'not_covered' | 'opted_out';
+  hmoCoveredAmount?: number;
+  patientLiabilityAmount?: number;
+  hmoContractId?: string;        // Which HmoContract record was used for this item
+  isOptedOutOfHMO: boolean;      // Patient chose to self-pay for this item
+}
+
 interface Bill {
   id: string;
   billNumber: string;
-  patientId: string;
-  patientName: string;
-  patientMrn: string;
-  visitId: string;
+  // patientId is null when isWalkIn = true
+  patientId?: string;
+  patientName?: string;
+  patientMrn?: string;
+  visitId?: string;
+  episodeId?: string;
   items: BillItem[];
+  // Financial totals — stored on the bill for fast reads and receipt generation
   subtotal: number;
   discount: number;
   tax: number;
   total: number;
   amountPaid: number;
   balance: number;
-  status: 'pending' | 'partial' | 'paid' | 'waived' | 'refunded';
-  paymentMethod?: PaymentMethod;
-  hmoClaimId?: string;
-  createdAt: string;
-  createdBy: string;
-  createdByRole: UserRole;
-  department: BillingDepartment;
-  billingCode?: string;
-  billingCodeExpiry?: string;
-  paidAt?: string;
-  notes?: string;
-  episodeId?: string;
-  isWalkIn?: boolean;
-  walkInCustomerName?: string;
-  walkInPhone?: string;
+  // HMO split totals (set when patient has HMO coverage)
   hmoTotalCoverage?: number;
   patientTotalLiability?: number;
+  status: 'pending' | 'partial' | 'paid' | 'waived' | 'refunded';
+  paymentMethod?: 'cash' | 'card' | 'transfer' | 'hmo' | 'corporate';
+  hmoClaimId?: string;
+  department: 'front_desk' | 'lab' | 'pharmacy' | 'nursing' | 'all';
+  notes?: string;
+  paidAt?: string;
+  // Walk-in support — bills for unregistered patients
+  isWalkIn: boolean;
+  walkInCustomerName?: string;   // Required when isWalkIn = true
+  walkInPhone?: string;
   paymentSplits?: PaymentSplit[];
+  createdAt: string;
+  createdBy: string;
 }
 
 interface PaymentRecord {
@@ -1530,6 +1586,7 @@ interface BillingCodeEntry {
 interface EmergencyOverride {
   id: string;
   patientId: string;
+  episodeId?: string;             // Episode this override is linked to
   reason: string;
   scope: 'consultation' | 'consultation_emergency' | 'full_visit';
   estimatedAmount: number;
@@ -1537,6 +1594,8 @@ interface EmergencyOverride {
   authorizedByRole: UserRole;
   authorizedAt: string;
   status: 'active' | 'cleared' | 'expired';
+  clearedAt?: string;             // When override was cleared (patient paid)
+  clearedBy?: string;             // Staff who cleared it
 }
 ```
 
@@ -1558,6 +1617,9 @@ interface EmergencyOverride {
 | GET    | `/bills/billing-codes/:code`      | cashier                                           | Look up a billing code                         |
 | PATCH  | `/bills/billing-codes/:code/pay`  | cashier                                           | Process payment via billing code               |
 | POST   | `/bills/emergency-overrides`      | cmo, clinical_lead, hospital_admin                | Authorize emergency payment override           |
+| GET    | `/bills/emergency-overrides`      | cashier, hospital_admin, cmo, clinical_lead       | List all emergency overrides                   |
+| GET    | `/bills/emergency-overrides/:id`  | cashier, hospital_admin, cmo, clinical_lead       | Get emergency override detail                  |
+| PATCH  | `/bills/emergency-overrides/:id/clear` | cashier, hospital_admin, cmo               | Clear override after patient pays              |
 | GET    | `/payments`                       | cashier, hospital_admin, cmo                      | List all payment records                       |
 | GET    | `/payments/:id`                   | cashier, hospital_admin, cmo, patient             | Get payment detail                             |
 
@@ -1600,35 +1662,57 @@ interface EmergencyOverride {
 #### Data Model
 
 ```typescript
+interface ClaimItem {
+  id: string;
+  claimId: string;
+  billItemId?: string;           // The BillItem this is derived from
+  description: string;
+  category: 'consultation' | 'lab' | 'pharmacy' | 'procedure' | 'admission' | 'other';
+  quantity: number;
+  unitPrice: number;
+  claimedAmount: number;
+  isExcluded: boolean;           // Excluded from this submission (e.g. patient self-pay)
+  clinicalJustification?: string; // Required when isOffProtocol = true
+  isOffProtocol: boolean;        // Service not in HMO's approved protocol
+  status: 'pending' | 'approved' | 'denied';
+  denialReason?: string;
+}
+
+interface ClaimDiagnosis {
+  code: string;                  // ICD-10 code e.g. "B50"
+  description: string;
+  isPrimary: boolean;
+}
+
 interface HMOClaim {
   id: string;
-  claimNumber: string;
+  claimNumber: string;           // e.g. CLM-2024-00142
   patientId: string;
   patientName: string;
   hmoProviderId: string;
   hmoProviderName: string;
-  enrollmentId: string;
+  enrollmentId?: string;         // Patient's HMO enrollment ID (denormalized for HMO submission)
   policyNumber?: string;
   preAuthCode?: string;
   billIds: string[];
-  items?: ClaimItem[];
-  diagnoses?: ClaimDiagnosis[];
-  claimAmount: number;
-  approvedAmount?: number;
+  claimItems: ClaimItem[];
+  diagnoses: ClaimDiagnosis[];   // ICD-10 codes; { code, description, isPrimary }[]
+  claimAmount: number;           // Total amount claimed
+  approvedAmount?: number;       // Amount approved by HMO
   status: 'draft' | 'submitted' | 'processing' | 'approved' | 'denied' | 'paid' | 'withdrawn' | 'retracted';
   submittedAt?: string;
   processedAt?: string;
   denialReason?: string;
   resubmissionNotes?: string;
   documents: ClaimDocument[];
-  versions: ClaimVersion[];
+  versions: ClaimVersion[];      // Amendment history stored as JSONB
   currentVersion: number;
   createdAt: string;
   createdBy: string;
   withdrawnAt?: string;
   withdrawnReason?: 'patient_self_pay' | 'hospital_cancelled' | 'claim_error' | 'treatment_changed';
   retractionNotes?: string;
-  privateBillId?: string;
+  privateBillId?: string;        // Bill created after retraction (patient pays privately)
   privatePaymentId?: string;
 }
 ```
@@ -1666,18 +1750,20 @@ interface HMOClaim {
 ```typescript
 interface CashierShift {
   id: string;
-  cashierId: string;
-  cashierName: string;
-  station: 'main' | 'lab' | 'pharmacy';
+  staffId: string;
+  staffName: string;
+  station: 'reception' | 'lab' | 'pharmacy' | 'nursing_station' | 'imaging' | 'triage';
+  departmentId: string;
   startedAt: string;
   endedAt?: string;
-  status: 'active' | 'closed';
-  openingBalance: number;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  // Balance fields (null for non-cashier shifts)
+  openingBalance?: number;
   closingBalance?: number;
   expectedBalance?: number;
   variance?: number;
-  transactions: ShiftTransaction[];
   notes?: string;
+  transactions: ShiftTransaction[];
 }
 
 interface ShiftTransaction {
@@ -2110,6 +2196,18 @@ This table maps every React Query hook in `src/hooks/queries/` and `src/hooks/mu
 | `useReportQueries.ts`             | `useReportAlerts`             | `GET /reports/alerts`                                |
 | `usePermissionQueries.ts`         | `usePermissionToggles`        | `GET /permissions/toggles`                           |
 | `usePermissionQueries.ts`         | `useRolePermissions`          | `GET /permissions/roles`                             |
+| `useShiftQueries.ts`              | `useShifts`                   | `GET /shifts`                                        |
+| `useShiftQueries.ts`              | `useShift`                    | `GET /shifts/:id`                                    |
+| `useShiftQueries.ts`              | `useActiveShift`              | `GET /shifts/active`                                 |
+| `useShiftQueries.ts`              | `useStationShifts`            | `GET /shifts/station/:station`                       |
+| `useStockRequestQueries.ts`       | `useStockRequests`            | `GET /stock-requests`                                |
+| `useStockRequestQueries.ts`       | `useStockRequest`             | `GET /stock-requests/:id`                            |
+| `useHmoQueries.ts`                | `useHmoContracts`             | `GET /hmo/providers/:id/coverage`                    |
+| `useHmoQueries.ts`                | `useHmoContract`              | `GET /hmo/providers/:id/coverage/:contractId`        |
+| `useBillQueries.ts`               | `useBillingCode`              | `GET /bills/billing-codes/:code`                     |
+| `useBillQueries.ts`               | `useEmergencyOverrides`       | `GET /bills/emergency-overrides`                     |
+| `useBillQueries.ts`               | `useEmergencyOverride`        | `GET /bills/emergency-overrides/:id`                 |
+| `usePatientQueries.ts`            | `usePatientMedicalHistory`    | `GET /patients/:id/medical-history`                  |
 
 ### Mutation Hooks
 
@@ -2164,7 +2262,21 @@ This table maps every React Query hook in `src/hooks/queries/` and `src/hooks/mu
 | `useServicePricingMutations.ts`   | `useSubmitPriceApproval`      | `POST /services/price-approvals`                     |
 | `useServicePricingMutations.ts`   | `useReviewPriceApproval`      | `PATCH /services/price-approvals/:id`                |
 | `usePermissionMutations.ts`       | `useUpdatePermissionToggles`  | `PATCH /permissions/toggles`                         |
+| `useShiftMutations.ts`            | `useOpenShift`                | `POST /shifts`                                       |
+| `useShiftMutations.ts`            | `useCloseShift`               | `PATCH /shifts/:id/close`                            |
+| `useStockRequestMutations.ts`     | `useCreateStockRequest`       | `POST /stock-requests`                               |
+| `useStockRequestMutations.ts`     | `useReviewStockRequest`       | `PATCH /stock-requests/:id/review`                   |
+| `useStockRequestMutations.ts`     | `useForwardStockRequest`      | `PATCH /stock-requests/:id/forward`                  |
+| `useStockRequestMutations.ts`     | `useFulfillStockRequest`      | `PATCH /stock-requests/:id/fulfill`                  |
+| `useHmoMutations.ts`              | `useCreateHmoContract`        | `POST /hmo/providers/:id/coverage`                   |
+| `useHmoMutations.ts`              | `useUpdateHmoContract`        | `PUT /hmo/providers/:id/coverage/:contractId`        |
+| `useHmoMutations.ts`              | `useDeleteHmoContract`        | `DELETE /hmo/providers/:id/coverage/:contractId`     |
+| `useBillMutations.ts`             | `useAuthorizeEmergencyOverride` | `POST /bills/emergency-overrides`                  |
+| `useBillMutations.ts`             | `useClearEmergencyOverride`   | `PATCH /bills/emergency-overrides/:id/clear`         |
+| `useBillMutations.ts`             | `usePayBillingCode`           | `PATCH /bills/billing-codes/:code/pay`               |
+| `usePatientMutations.ts`          | `useAddMedicalHistory`        | `POST /patients/:id/medical-history`                 |
+| `usePatientMutations.ts`          | `useRemoveMedicalHistory`     | `DELETE /patients/:id/medical-history/:entryId`      |
 
 ---
 
-*Document generated: 2026-02-26 | ClinicFlow v1.0.0*
+*Document updated: 2026-04-03 | ClinicFlow v1.1.0*

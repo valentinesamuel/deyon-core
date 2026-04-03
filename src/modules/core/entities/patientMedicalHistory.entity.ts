@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 import { Patient } from './patient.entity';
-import { MedicalCatalog } from './medicalCatalog';
+import { MedicalCatalog } from './medicalCatalog.entity';
 import { Staff } from './staff.entity';
 
 @Entity()

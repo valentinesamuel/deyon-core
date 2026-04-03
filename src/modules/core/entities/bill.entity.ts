@@ -9,6 +9,7 @@ import { Department } from './department.entity';
 import { Staff } from './staff.entity';
 import { BillItem } from './billItem.entity';
 import { Payment } from './payment.entity';
+import { PaymentMethodEnum } from './payment.entity';
 
 export enum BillTypeEnum {
   WALK_IN = 'walk_in',
@@ -31,12 +32,13 @@ export class Bill extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   code: string;
 
-  @Column({ type: 'uuid' })
-  patientId: string;
+  // Nullable when isWalkIn = true
+  @Column({ type: 'uuid', nullable: true })
+  patientId: string | null;
 
-  @ManyToOne(() => Patient)
+  @ManyToOne(() => Patient, { nullable: true })
   @JoinColumn({ name: 'patient_id' })
-  patient: Patient;
+  patient: Patient | null;
 
   @Column({ type: 'uuid', nullable: true })
   shiftId: string;
@@ -85,6 +87,52 @@ export class Bill extends BaseEntity {
   @ManyToOne(() => Staff)
   @JoinColumn({ name: 'created_by' })
   createdByStaff: Staff;
+
+  // Financial totals — materialized for fast reads and receipt generation
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  subtotal: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  discount: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  tax: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  total: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  amountPaid: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  balance: number;
+
+  // HMO split totals
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  hmoTotalCoverage: number | null;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  patientTotalLiability: number | null;
+
+  // Primary payment method for this bill
+  @Column({ type: 'enum', enum: PaymentMethodEnum, nullable: true })
+  paymentMethod: PaymentMethodEnum | null;
+
+  // Walk-in customer support (no registered Patient record required)
+  @Column({ type: 'boolean', default: false })
+  isWalkIn: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  walkInCustomerName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  walkInPhone: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  paidAt: Date | null;
 
   @OneToMany(() => BillItem, (item) => item.bill)
   items: BillItem[];

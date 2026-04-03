@@ -17,6 +17,7 @@ export enum PaymentTypeEnum {
 export enum GenderEnum {
   MALE = 'male',
   FEMALE = 'female',
+  OTHER = 'other',
 }
 
 @Entity()
@@ -24,7 +25,10 @@ export class Patient extends BaseEntity {
   @Column({ type: 'varchar', unique: true })
   mrn: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar' })
+  firstname: string;
+
+  @Column({ type: 'varchar', unique: true, nullable: true })
   email: string;
 
   @Column({ type: 'varchar', unique: true })
@@ -59,6 +63,9 @@ export class Patient extends BaseEntity {
 
   @Column({ type: 'json' })
   nextOfKin: NextOfKinMetadata;
+
+  @Column({ type: 'varchar', nullable: true })
+  occupation: string;
 
   @Column({ type: 'boolean' })
   isActive: boolean;

@@ -4,6 +4,19 @@ import { Encounter } from './encounter.entity';
 import { Patient } from './patient.entity';
 import { Episode } from './episode.entity';
 import { Appointment } from './appointment.entity';
+import { Staff } from './staff.entity';
+
+export enum ConsultationStatusEnum {
+  DRAFT = 'draft',
+  IN_PROGRESS = 'in_progress',
+  FINALIZED = 'finalized',
+}
+
+export type TSelectedDiagnosis = {
+  code: string;
+  description: string;
+  isPrimary: boolean;
+};
 
 @Entity()
 export class Consultation extends BaseEntity {
@@ -35,21 +48,31 @@ export class Consultation extends BaseEntity {
   @JoinColumn({ name: 'appointment_id' })
   appointment: Appointment;
 
+  @Column({ type: 'uuid' })
+  doctorId: string;
+
+  @ManyToOne(() => Staff)
+  @JoinColumn({ name: 'doctor_id' })
+  doctor: Staff;
+
+  @Column({ type: 'enum', enum: ConsultationStatusEnum, default: ConsultationStatusEnum.DRAFT })
+  status: ConsultationStatusEnum;
+
   @Column({ type: 'text' })
   chiefComplaint: string;
 
   @Column({ type: 'text', nullable: true })
-  presentIllnessBrief: string;
+  historyOfPresentIllness: string;
+
+  @Column({ type: 'text', nullable: true })
+  physicalExamination: string;
 
   @Column({ type: 'text', nullable: true })
   treatmentPlan: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  selectedDiagnoses: TSelectedDiagnosis[];
+
   @Column({ type: 'timestamp with time zone', nullable: true })
   followUpDate: Date;
-
-  @Column({ type: 'boolean', default: false })
-  isDraft: boolean;
-
-  @Column({ type: 'jsonb', nullable: true })
-  draftMetadata: Record<string, unknown>;
 }

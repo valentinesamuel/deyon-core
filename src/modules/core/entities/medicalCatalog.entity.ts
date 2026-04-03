@@ -7,7 +7,7 @@ export class MedicalCatalog extends BaseEntity {
   type: string;
 
   @Column({ type: 'varchar' })
-  officalName: string;
+  officialName: string;
 
   @Column({ type: 'varchar' })
   code: string;
