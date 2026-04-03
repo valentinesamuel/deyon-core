@@ -1,16 +1,19 @@
 $kind: http-example
+name: success
 request:
   url: "{{baseUrl}}hmo/providers"
   method: POST
   headers:
     - key: Authorization
       value: Bearer {{token}}
+    - key: X-Idempotency-Key
+      value: "{{$randomUUID}}"
   body:
     type: json
     content: |-
       {
         "name": "Axa Manxard",
-        "code": "2FK4626",
+        "code": "2FK466",
         "contactPhone": "+2345833947328",
         "contactEmail": "test@test.com",
         "claimsEmail": "test@test.com",
@@ -19,6 +22,7 @@ request:
         "portalUrl": "http://test@test.com",
         "relationshipManagerPhone": "+2345833947328",
         "defaultCopay": 12300,
+        "defaultCopayPercentage": 12,
         "isActive": true
       }
 response:
@@ -56,6 +60,8 @@ response:
       value: Origin
     - key: access-control-allow-credentials
       value: "true"
+    - key: access-control-expose-headers
+      value: X-Idempotency-Replayed
     - key: x-ratelimit-limit
       value: "10"
     - key: x-ratelimit-remaining
@@ -65,11 +71,11 @@ response:
     - key: content-type
       value: application/json; charset=utf-8
     - key: content-length
-      value: "205"
+      value: "543"
     - key: etag
-      value: W/"cd-rkiUpaRQNqQL3Ubm7xc+tfh4FAU"
+      value: W/"21f-dG9MWhbR2dhoadwnQo+GylWGpHs"
     - key: date
-      value: Fri, 27 Mar 2026 16:39:58 GMT
+      value: Fri, 03 Apr 2026 20:32:36 GMT
     - key: connection
       value: keep-alive
     - key: keep-alive
@@ -77,6 +83,7 @@ response:
   body:
     type: json
     content: '{"statusCode":201,"success":true,"message":"Request
-      successful","result":{"id":"95d4a352-ba78-4eca-a645-5c48bce57720","createdAt":"2026-03-27T16:39:48.911Z"},"path":"/api/v1/hmo/providers","duration":9895}'
-order: 1774631962952
-name: success
+      successful","result":{"id":"c6b23ca7-c6a7-425b-9320-882fbfa36f23","address":"123
+      street, ikeja","createdAt":"2026-04-03T20:32:36.747Z","name":"Axa
+      Manxard","code":"2FK466","contactPhone":"+2345833947328","contactEmail":"test@test.com","defaultCopay":"12300","defaultCopayPercentage":12,"relationshipManagerPhone":"+2345833947328","isActive":true,"portalUrl":"http://test@test.com","claimsEmail":"test@test.com","retractionEmail":"test@test.com"},"path":"/api/v1/hmo/providers","duration":48}'
+order: 3305718246343197

@@ -1,10 +1,12 @@
 $kind: http-request
+name: Update HMO provider
 url: "{{baseUrl}}hmo/providers/:id"
 method: PATCH
 headers:
   Authorization: Bearer {{token}}
+  X-Idempotency-Key: "{{$randomUUID}}"
 pathVariables:
-  id: 95d4a352-ba78-4eca-a645-5c48bce57720
+  id: c6b23ca7-c6a7-425b-9320-882fbfa36f23
 body:
   type: json
   content: |-
@@ -21,5 +23,9 @@ body:
       "defaultCopay": 12300,
       "isActive": true
     }
+auth:
+  type: inherit
+  credentials:
+    id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76
 examples: .resources/Update HMO provider.resources/examples
 order: 446999981337752

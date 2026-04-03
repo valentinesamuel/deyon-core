@@ -1,4 +1,5 @@
 $kind: http-request
+name: Create HMO provider
 url: "{{baseUrl}}hmo/providers"
 method: POST
 examples: .resources/Create HMO provider.resources/examples
@@ -11,7 +12,7 @@ body:
   content: |-
     {
       "name": "Axa Manxard",
-      "code": "2FK4626",
+      "code": "2FK466",
       "contactPhone": "+2345833947328",
       "contactEmail": "test@test.com",
       "claimsEmail": "test@test.com",
