@@ -15,10 +15,11 @@ type TCreateHmoProviderResult = {
   contactPhone: string;
   contactEmail: string;
   address: string;
+  portalUrl: string;
+  relationshipManagerPhone: string;
   defaultCopay: string;
   defaultCopayPercentage: number;
   isActive: boolean;
-  portalUrl: string;
   claimsEmail: string;
   retractionEmail: string;
 };
@@ -40,7 +41,7 @@ export class CreateHmoProviderUsecase extends Usecase<
     em: EntityManager,
     params: CreateHmoProviderDto,
   ): Promise<TCreateHmoProviderResult> {
-    await this.hmoProviderService.getHmoProviderByData(
+    await this.hmoProviderService.getHmoProviderByDataOrFailIfExists(
       {
         where: {
           code: params.code,
@@ -59,6 +60,7 @@ export class CreateHmoProviderUsecase extends Usecase<
         defaultCopayPercentage: params.defaultCopayPercentage,
         isActive: params.isActive,
         name: params.name,
+        relationshipManagerPhone: params.relationshipManagerPhone,
         portalUrl: params.portalUrl,
         retractionEmail: params.retractionEmail,
         code: params.code,
@@ -99,6 +101,7 @@ export class CreateHmoProviderUsecase extends Usecase<
       contactEmail: newHmoProvider.contactEmail,
       defaultCopay: newHmoProvider.defaultCopay,
       defaultCopayPercentage: newHmoProvider.defaultCopayPercentage,
+      relationshipManagerPhone: newHmoProvider.relationshipManagerPhone,
       isActive: newHmoProvider.isActive,
       portalUrl: newHmoProvider.portalUrl,
       claimsEmail: newHmoProvider.claimsEmail,

@@ -5,6 +5,7 @@ examples: .resources/Create HMO provider.resources/examples
 order: 1774473984951
 headers:
   Authorization: Bearer {{token}}
+  X-Idempotency-Key: "{{$randomUUID}}"
 body:
   type: json
   content: |-
@@ -19,5 +20,6 @@ body:
       "portalUrl": "http://test@test.com",
       "relationshipManagerPhone": "+2345833947328",
       "defaultCopay": 12300,
+      "defaultCopayPercentage": 12,
       "isActive": true
     }

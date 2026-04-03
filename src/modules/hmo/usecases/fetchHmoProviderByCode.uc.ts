@@ -37,7 +37,7 @@ export class FetchHmoProviderByCodeUsecase extends Usecase<
     em: EntityManager,
     params: TGetHmoProviderByCodeParams,
   ): Promise<TGetHmoProviderResult> {
-    const newHmoProvider = await this.hmoProviderService.getHmoProviderByData(
+    const newHmoProvider = await this.hmoProviderService.getHmoProviderByDataOrFailIfNotExists(
       {
         where: {
           code: params.code,

@@ -131,7 +131,10 @@ export class Broker {
     initialArguments: Record<string, unknown>,
     isolationLevel: IsolationLevel,
   ): Promise<UsecaseResult> {
-    let results: Record<string, unknown> = { ...initialArguments };
+    // context is passed into each usecase so they can read initialArguments and prior outputs
+    let context: Record<string, unknown> = { ...initialArguments };
+    // output accumulates only what usecases explicitly return — initialArguments never bleed in
+    let output: Record<string, unknown> = {};
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
@@ -145,16 +148,20 @@ export class Broker {
 
       const startTime = Date.now();
 
+      let batchResult: { context: Record<string, unknown>; batchOutput: Record<string, unknown> };
       if (batch.isTransactional) {
-        results = await this.executeTransactionalBatch(batch.usecases, results, isolationLevel);
+        batchResult = await this.executeTransactionalBatch(batch.usecases, context, isolationLevel);
       } else {
-        results = await this.executeNonTransactionalBatch(batch.usecases, results);
+        batchResult = await this.executeNonTransactionalBatch(batch.usecases, context);
       }
+
+      context = batchResult.context;
+      output = { ...output, ...batchResult.batchOutput };
 
       this.logger.debug(`Batch ${batchNumber} completed in ${Date.now() - startTime}ms`);
     }
 
-    return this.cleanResults(results, initialArguments);
+    return this.cleanResults(output);
   }
 
   /**
@@ -162,17 +169,24 @@ export class Broker {
    */
   private async executeTransactionalBatch(
     usecases: Usecase[],
-    initialResults: Record<string, unknown>,
+    initialContext: Record<string, unknown>,
     isolationLevel: IsolationLevel,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<{ context: Record<string, unknown>; batchOutput: Record<string, unknown> }> {
     return this.entityManager.transaction(isolationLevel, async (transactionalEntityManager) => {
-      let results = { ...initialResults };
+      let context = { ...initialContext };
+      let batchOutput: Record<string, unknown> = {};
 
       for (const usecase of usecases) {
-        results = await this.executeSingleUsecase(usecase, results, transactionalEntityManager);
+        const { updatedContext, usecaseOutput } = await this.executeSingleUsecase(
+          usecase,
+          context,
+          transactionalEntityManager,
+        );
+        context = updatedContext;
+        batchOutput = { ...batchOutput, ...usecaseOutput };
       }
 
-      return results;
+      return { context, batchOutput };
     });
   }
 
@@ -182,23 +196,29 @@ export class Broker {
    */
   private async executeNonTransactionalBatch(
     usecases: Usecase[],
-    initialResults: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
-    let results = { ...initialResults };
+    initialContext: Record<string, unknown>,
+  ): Promise<{ context: Record<string, unknown>; batchOutput: Record<string, unknown> }> {
+    let context = { ...initialContext };
+    let batchOutput: Record<string, unknown> = {};
 
     for (const usecase of usecases) {
-      // Use the regular (non-transactional) entity manager
-      results = await this.executeSingleUsecase(usecase, results, this.entityManager);
+      const { updatedContext, usecaseOutput } = await this.executeSingleUsecase(
+        usecase,
+        context,
+        this.entityManager,
+      );
+      context = updatedContext;
+      batchOutput = { ...batchOutput, ...usecaseOutput };
     }
 
-    return results;
+    return { context, batchOutput };
   }
 
   private async executeSingleUsecase(
     useCase: Usecase,
-    currentResults: Record<string, unknown>,
+    currentContext: Record<string, unknown>,
     entityManager: EntityManager,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<{ updatedContext: Record<string, unknown>; usecaseOutput: Record<string, unknown> }> {
     const useCaseName = useCase.constructor.name;
     const isTransactional = useCase.config?.requiresTransaction ?? true;
 
@@ -206,18 +226,23 @@ export class Broker {
 
     const startTime = Date.now();
     try {
-      // Create a defensive copy of the results to pass to the usecase
-      const result = await useCase.execute(entityManager, { ...currentResults });
+      // Create a defensive copy of the context to pass to the usecase
+      const rawOutput = await useCase.execute(entityManager, { ...currentContext });
 
       // Validate result is an object
-      if (!result || typeof result !== 'object') {
-        throw new Error(`Usecase ${useCaseName} returned invalid result: ${typeof result}`);
+      if (!rawOutput || typeof rawOutput !== 'object') {
+        throw new Error(`Usecase ${useCaseName} returned invalid result: ${typeof rawOutput}`);
       }
+
+      const usecaseOutput = rawOutput as Record<string, unknown>;
 
       this.logUsecaseCompletion(useCaseName, startTime);
 
-      // Combine results, preserving the original and adding new properties
-      return { ...currentResults, ...result };
+      return {
+        usecaseOutput,
+        // Merge into context so subsequent usecases can access this output
+        updatedContext: { ...currentContext, ...usecaseOutput },
+      };
     } catch (error) {
       this.logUsecaseFailure(useCaseName, startTime, error);
       throw error;
@@ -276,18 +301,10 @@ export class Broker {
     );
   }
 
-  private cleanResults(
-    results: Record<string, unknown>,
-    initialArguments: Record<string, unknown>,
-  ): UsecaseResult {
+  private cleanResults(results: Record<string, unknown>): UsecaseResult {
     try {
       // Create a new object instead of modifying the input
       const cleaned: Record<string, unknown> = { ...results };
-
-      // Remove initial arguments
-      for (const key in initialArguments) {
-        delete cleaned[key];
-      }
 
       // Remove sensitive data (add more fields as needed)
       const sensitiveFields = ['password', 'token', 'secret', 'apiKey', 'api_key'];
