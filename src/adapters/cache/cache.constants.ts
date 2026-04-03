@@ -13,6 +13,13 @@ export const RedisKeys = {
   role: (roleId: string) => `auth:role:${roleId}`,
   pat: (tokenHash: string) => `auth:pat:${tokenHash}`,
   patRevoked: (tokenHash: string) => `auth:pat:revoked:${tokenHash}`,
+  idempotencyKey: (
+    userId: string,
+    method: string,
+    path: string,
+    clientKey: string,
+    bodyHash: string,
+  ) => `idempotency:${userId}:${method}:${path}:${clientKey}:${bodyHash}`,
 } as const;
 
 export const RedisTTL = {
@@ -27,4 +34,6 @@ export const RedisTTL = {
   profile: 86400, // 24 hours
   pat: 3600, // 1 hour
   patRevoked: 90000, // 25 hours (longer than positive cache to eliminate race between instances)
+  idempotency: 86400, // 24 hours
+  idempotencyPending: 60, // 60s in-flight sentinel
 } as const;

@@ -42,6 +42,10 @@ export class CreateHmoProviderDto {
   @IsNumber()
   defaultCopay: number;
 
+  @ApiProperty({ example: 10 })
+  @IsNumber()
+  defaultCopayPercentage: number;
+
   @ApiProperty({ example: true })
   @IsBoolean()
   isActive: boolean;

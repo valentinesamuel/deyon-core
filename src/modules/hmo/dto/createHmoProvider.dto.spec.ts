@@ -13,6 +13,7 @@ describe('CreateHmoProviderDto', () => {
     address: 'Makoko',
     portalUrl: 'http://portal.com',
     defaultCopay: 12000,
+    defaultCopayPercentage: 10,
     isActive: true,
     relationshipManagerPhone: "+2348618472694'",
   };

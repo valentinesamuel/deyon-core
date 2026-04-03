@@ -2,6 +2,7 @@ import { mock } from 'vitest-mock-extended';
 import { EntityManager } from 'typeorm';
 import { UpdateHmoProviderUsecase } from './updateHmoProvider.uc';
 import { HmoProviderService } from '../service/hmoProvider.service';
+import { UpdateHmoProviderDto } from '../dto/updateHmoProvider.dto';
 
 describe('UpdateHmoProviderUsecase', () => {
   let usecase: UpdateHmoProviderUsecase;
@@ -18,16 +19,14 @@ describe('UpdateHmoProviderUsecase', () => {
 
   it('should call hmoProviderService.updateHmoProvider and return mapped result', async () => {
     const now = new Date();
-    const updatedProvider = {
-      id: 'uuid-123',
-      createdAt: now,
-      updatedAt: now,
+    const updatedProvider: UpdateHmoProviderDto = {
       name: 'Updated HMO',
       code: 'HMO01',
       contactPhone: '+2348012345678',
       contactEmail: 'contact@hmo.com',
       address: '123 Health Street',
-      defaultCopay: '5000',
+      defaultCopay: 5000,
+      defaultCopayPercentage: 10,
       isActive: true,
       portalUrl: 'https://hmo.com/portal',
       claimsEmail: 'claims@hmo.com',
@@ -57,6 +56,7 @@ describe('UpdateHmoProviderUsecase', () => {
         contactEmail: 'contact@hmo.com',
         address: '123 Health Street',
         defaultCopay: '5000',
+        defaultCopayPercentage: 10,
         isActive: true,
         portalUrl: 'https://hmo.com/portal',
         claimsEmail: 'claims@hmo.com',

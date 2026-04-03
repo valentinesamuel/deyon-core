@@ -16,6 +16,7 @@ type TCreateHmoProviderResult = {
   contactEmail: string;
   address: string;
   defaultCopay: string;
+  defaultCopayPercentage: number;
   isActive: boolean;
   portalUrl: string;
   claimsEmail: string;
@@ -55,6 +56,7 @@ export class CreateHmoProviderUsecase extends Usecase<
         contactEmail: params.contactEmail,
         contactPhone: params.contactPhone,
         defaultCopay: String(params.defaultCopay),
+        defaultCopayPercentage: params.defaultCopayPercentage,
         isActive: params.isActive,
         name: params.name,
         portalUrl: params.portalUrl,
@@ -96,6 +98,7 @@ export class CreateHmoProviderUsecase extends Usecase<
       contactPhone: newHmoProvider.contactPhone,
       contactEmail: newHmoProvider.contactEmail,
       defaultCopay: newHmoProvider.defaultCopay,
+      defaultCopayPercentage: newHmoProvider.defaultCopayPercentage,
       isActive: newHmoProvider.isActive,
       portalUrl: newHmoProvider.portalUrl,
       claimsEmail: newHmoProvider.claimsEmail,

@@ -46,7 +46,9 @@ function setUpCORS(app: TNestApp, configService: ConfigService) {
       'Authorization',
       'Cache-control',
       'X-Api-Token',
+      'X-Idempotency-Key',
     ],
+    exposedHeaders: ['X-Idempotency-Replayed'],
     credentials: true,
   };
 

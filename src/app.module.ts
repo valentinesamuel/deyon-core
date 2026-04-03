@@ -9,7 +9,7 @@ import cacheConfig from '@config/cache.config';
 import { Broker } from '@broker/broker';
 import { AppController } from './app.controller';
 import { ClsModule } from 'nestjs-cls';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ClsContextGuard } from '@shared/guards/clsContext.guard';
 import { PermissionGuard } from '@shared/guards/permission.guard';
 import { JwtAuthGuard } from '@shared/guards/jwtAuth.guard';
@@ -28,6 +28,7 @@ import { utilities as nestWinstonModuleUtilities, WinstonModule } from 'nest-win
 import { TerminusModule } from '@nestjs/terminus';
 import { RedisHealthIndicator } from '@shared/observability/redis.health';
 import { RedisProvider } from '@adapters/cache/providers/redis.provider';
+import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interceptor';
 
 @Module({
   imports: [
@@ -104,6 +105,10 @@ import { RedisProvider } from '@adapters/cache/providers/redis.provider';
     RequestContextService,
     RedisHealthIndicator,
     RedisProvider,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotencyInterceptor,
+    },
   ],
   exports: [Broker],
 })

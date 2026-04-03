@@ -22,6 +22,9 @@ export class HmoProvider extends BaseEntity {
   @Column({ type: 'numeric', scale: 2, precision: 10 })
   defaultCopay: string;
 
+  @Column({ type: 'integer' })
+  defaultCopayPercentage: number;
+
   @Column({ type: 'boolean' })
   isActive: boolean;
 

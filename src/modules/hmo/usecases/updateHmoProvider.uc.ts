@@ -15,6 +15,7 @@ type TUpdateHmoProviderResult = {
     contactEmail: string;
     address: string;
     defaultCopay: string;
+    defaultCopayPercentage: number;
     isActive: boolean;
     portalUrl: string;
     claimsEmail: string;
@@ -49,6 +50,7 @@ export class UpdateHmoProviderUsecase extends Usecase<
         contactEmail: dto.contactEmail,
         contactPhone: dto.contactPhone,
         defaultCopay: String(dto.defaultCopay),
+        defaultCopayPercentage: dto.defaultCopayPercentage,
         isActive: dto.isActive,
         name: dto.name,
         portalUrl: dto.portalUrl,
@@ -68,6 +70,7 @@ export class UpdateHmoProviderUsecase extends Usecase<
         contactEmail: updated.contactEmail,
         address: updated.address,
         defaultCopay: updated.defaultCopay,
+        defaultCopayPercentage: updated.defaultCopayPercentage,
         isActive: updated.isActive,
         portalUrl: updated.portalUrl,
         claimsEmail: updated.claimsEmail,
