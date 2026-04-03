@@ -1,11 +1,10 @@
 $kind: http-request
-name: Get hmo provider by id
 url: "{{baseUrl}}hmo/providers/:id"
 method: GET
 headers:
   Authorization: Bearer {{token}}
 pathVariables:
-  id: 95d4a352-ba78-4eca-a645-5c48bce57720
+  id: c6b23ca7-c6a7-425b-9320-882fbfa36f23
   "": ""
 auth:
   credentials:

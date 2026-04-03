@@ -7,6 +7,8 @@ import { UpdateHmoProviderUsecase } from './usecases/updateHmoProvider.uc';
 import { HmoProviderService } from './service/hmoProvider.service';
 import { HmoProviderRepository } from '@adapters/repositories/hmoProvider.repository';
 import { FetchHmoProviderByCodeUsecase } from './usecases/fetchHmoProviderByCode.uc';
+import { FetchHmoProviderByIdUsecase } from './usecases/fetchHmoProviderById.uc';
+import { UpdateHmoProviderStatusUsecase } from './usecases/updateHmoProviderStatus.uc';
 
 @Module({
   controllers: [HmoController, HmoProvidersController],
@@ -15,7 +17,9 @@ import { FetchHmoProviderByCodeUsecase } from './usecases/fetchHmoProviderByCode
     CreateHmoProviderUsecase,
     UpdateHmoProviderUsecase,
     FetchHmoProviderByCodeUsecase,
+    FetchHmoProviderByIdUsecase,
     HmoProviderService,
+    UpdateHmoProviderStatusUsecase,
     HmoProviderRepository,
   ],
 })

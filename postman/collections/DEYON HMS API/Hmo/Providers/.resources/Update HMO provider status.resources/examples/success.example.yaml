@@ -1,13 +1,21 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}hmo/providers/:code/code"
-  method: GET
+  url: "{{baseUrl}}hmo/providers/:id/status"
+  method: PATCH
   headers:
     - key: Authorization
       value: Bearer {{token}}
+    - key: X-Idempotency-Key
+      value: "{{$randomUUID}}"
   pathVariables:
-    - key: code
-      value: 2FK466
+    - key: id
+      value: c6b23ca7-c6a7-425b-9320-882fbfa36f23
+  body:
+    type: json
+    content: |-
+      {
+        "isActive": false
+      }
 response:
   statusCode: 200
   statusText: OK
@@ -48,17 +56,17 @@ response:
     - key: x-ratelimit-limit
       value: "10"
     - key: x-ratelimit-remaining
-      value: "8"
+      value: "7"
     - key: x-ratelimit-reset
-      value: "20"
+      value: "7"
     - key: content-type
       value: application/json; charset=utf-8
     - key: content-length
-      value: "509"
+      value: "280"
     - key: etag
-      value: W/"1fd-TM5i0NkqdrD0bFSYmPOYtYSJhKA"
+      value: W/"118-blix91XvpFmRXSCVGUuNB1bqi1c"
     - key: date
-      value: Fri, 03 Apr 2026 20:44:17 GMT
+      value: Fri, 03 Apr 2026 21:00:03 GMT
     - key: connection
       value: keep-alive
     - key: keep-alive
@@ -66,8 +74,6 @@ response:
   body:
     type: json
     content: '{"statusCode":200,"success":true,"message":"Request
-      successful","result":{"hmoProvider":{"id":"c6b23ca7-c6a7-425b-9320-882fbfa36f23","address":"123
-      street, ikeja. Lagos","createdAt":"2026-04-03T20:32:36.747Z","name":"Axa
-      Manxard","code":"2FK466","contactPhone":"+2345833947328","contactEmail":"test@test.com","defaultCopay":"12300.00","isActive":true,"portalUrl":"http://test@test.com","claimsEmail":"test@test.com","retractionEmail":"test@test.com"}},"path":"/api/v1/hmo/providers/2FK466/code","duration":28}'
-order: 1775249058883
+      successful","result":{"hmoProvider":{"id":"c6b23ca7-c6a7-425b-9320-882fbfa36f23","updatedAt":"2026-04-03T21:00:03.092Z","isActive":false}},"path":"/api/v1/hmo/providers/c6b23ca7-c6a7-425b-9320-882fbfa36f23/status","duration":20}'
+order: 1775250011238
 name: success

@@ -1,11 +1,11 @@
 $kind: http-request
 name: Get hmo provider by code
-url: "{{baseUrl}}hmo/providers/:code"
+url: "{{baseUrl}}hmo/providers/:code/code"
 method: GET
 headers:
   Authorization: Bearer {{token}}
 pathVariables:
-  code: 2FK4626
+  code: 2FK466
 auth:
   credentials:
     id: 4cd5684a-c2f5-4887-a2e4-51a722e65f76

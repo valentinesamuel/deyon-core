@@ -3,43 +3,73 @@ request:
   url: "{{baseUrl}}hmo/providers/:id"
   method: GET
   headers:
-    Authorization: Bearer {{token}}
+    - key: Authorization
+      value: Bearer {{token}}
   pathVariables:
-    id: 95d4a352-ba78-4eca-a645-5c48bce57720
+    - key: id
+      value: c6b23ca7-c6a7-425b-9320-882fbfa36f23
+    - key: ""
+      value: ""
 response:
   statusCode: 200
   statusText: OK
   headers:
-    content-security-policy: "default-src 'self';frame-ancestors 'none';base-uri
-      'self';font-src 'self' https: data:;form-action 'self';img-src 'self'
-      data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src
-      'self' https: 'unsafe-inline';upgrade-insecure-requests"
-    cross-origin-opener-policy: same-origin
-    cross-origin-resource-policy: same-origin
-    origin-agent-cluster: ?1
-    referrer-policy: no-referrer
-    strict-transport-security: max-age=31536000; includeSubDomains; preload
-    x-content-type-options: nosniff
-    x-dns-prefetch-control: off
-    x-download-options: noopen
-    x-frame-options: SAMEORIGIN
-    x-permitted-cross-domain-policies: none
-    x-xss-protection: "0"
-    vary: Origin
-    access-control-allow-credentials: "true"
-    x-ratelimit-limit: "10"
-    x-ratelimit-remaining: "9"
-    x-ratelimit-reset: "30"
-    content-type: application/json; charset=utf-8
-    content-length: "499"
-    etag: W/"1f3-xk9yhKt/viPu043vGS7qNaNxd0Q"
-    date: Fri, 27 Mar 2026 17:18:13 GMT
-    connection: keep-alive
-    keep-alive: timeout=5
+    - key: content-security-policy
+      value: "default-src 'self';frame-ancestors 'none';base-uri 'self';font-src
+        'self' https: data:;form-action 'self';img-src 'self' data:;object-src
+        'none';script-src 'self';script-src-attr 'none';style-src 'self' https:
+        'unsafe-inline';upgrade-insecure-requests"
+    - key: cross-origin-opener-policy
+      value: same-origin
+    - key: cross-origin-resource-policy
+      value: same-origin
+    - key: origin-agent-cluster
+      value: ?1
+    - key: referrer-policy
+      value: no-referrer
+    - key: strict-transport-security
+      value: max-age=31536000; includeSubDomains; preload
+    - key: x-content-type-options
+      value: nosniff
+    - key: x-dns-prefetch-control
+      value: off
+    - key: x-download-options
+      value: noopen
+    - key: x-frame-options
+      value: SAMEORIGIN
+    - key: x-permitted-cross-domain-policies
+      value: none
+    - key: x-xss-protection
+      value: "0"
+    - key: vary
+      value: Origin
+    - key: access-control-allow-credentials
+      value: "true"
+    - key: access-control-expose-headers
+      value: X-Idempotency-Replayed
+    - key: x-ratelimit-limit
+      value: "10"
+    - key: x-ratelimit-remaining
+      value: "9"
+    - key: x-ratelimit-reset
+      value: "30"
+    - key: content-type
+      value: application/json; charset=utf-8
+    - key: content-length
+      value: "536"
+    - key: etag
+      value: W/"218-P565sysylYqbN3q2857p8mxBdYQ"
+    - key: date
+      value: Fri, 03 Apr 2026 20:43:45 GMT
+    - key: connection
+      value: keep-alive
+    - key: keep-alive
+      value: timeout=5
   body:
     type: json
     content: '{"statusCode":200,"success":true,"message":"Request
-      successful","result":{"hmoProvider":{"id":"95d4a352-ba78-4eca-a645-5c48bce57720","address":"123
-      street, ikeja","createdAt":"2026-03-27T16:39:48.911Z","name":"Axa
-      Manxard","code":"2FK4626","contactPhone":"+2345833947328","contactEmail":"test@test.com","defaultCopay":"12300.00","isActive":true,"portalUrl":"http://test@test.com","claimsEmail":"test@test.com","retractionEmail":"test@test.com"}},"path":"/api/v1/hmo/providers/2FK4626","duration":45}'
-order: 1774631955334
+      successful","result":{"hmoProvider":{"id":"c6b23ca7-c6a7-425b-9320-882fbfa36f23","address":"123
+      street, ikeja. Lagos","createdAt":"2026-04-03T20:32:36.747Z","name":"Axa
+      Manxard","code":"2FK466","contactPhone":"+2345833947328","contactEmail":"test@test.com","defaultCopay":"12300.00","isActive":true,"portalUrl":"http://test@test.com","claimsEmail":"test@test.com","retractionEmail":"test@test.com"}},"path":"/api/v1/hmo/providers/c6b23ca7-c6a7-425b-9320-882fbfa36f23","duration":5811}'
+order: 1775249028018
+name: success

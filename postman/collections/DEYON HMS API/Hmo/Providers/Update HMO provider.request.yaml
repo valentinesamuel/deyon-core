@@ -1,7 +1,7 @@
 $kind: http-request
 name: Update HMO provider
 url: "{{baseUrl}}hmo/providers/:id"
-method: PATCH
+method: PUT
 headers:
   Authorization: Bearer {{token}}
   X-Idempotency-Key: "{{$randomUUID}}"
