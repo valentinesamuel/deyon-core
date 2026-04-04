@@ -16,7 +16,7 @@ type UploadedFile = {
 };
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
 type TParams = { id: string; file: UploadedFile };
 type TResult = { claim: Claim };
@@ -39,7 +39,7 @@ export class UploadClaimDocumentUsecase extends Usecase<TResult, TParams> {
       throw new BadRequestException('Cannot upload documents for a paid or retracted claim.');
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(params.file.mimetype)) {
+    if (!ALLOWED_MIME_TYPES.has(params.file.mimetype)) {
       throw new BadRequestException('Only PDF, JPEG, and PNG files are allowed.');
     }
 
@@ -48,7 +48,7 @@ export class UploadClaimDocumentUsecase extends Usecase<TResult, TParams> {
     }
 
     const staffId = this.requestContextService.getUserId();
-    const filename = `${Date.now()}-${params.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const filename = `${Date.now()}-${params.file.originalname.replaceAll(/[^a-zA-Z0-9._-]/g, '_')}`;
     const filePath = `claims/${params.id}/docs/${filename}`;
 
     const uploadResult = await this.storageAdapter.upload(params.file.buffer, filePath, {
