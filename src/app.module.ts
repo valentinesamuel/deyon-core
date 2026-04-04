@@ -35,6 +35,11 @@ import { SupplierModule } from '@modules/supplier/supplier.module';
 import { MedicalServiceModule } from '@modules/medicalService/medicalService.module';
 import { ServiceCodeCatalogModule } from '@modules/serviceCodeCatalog/serviceCodeCatalog.module';
 import { InventoryModule } from '@modules/inventory/inventory.module';
+import { PatientModule } from '@modules/patient/patient.module';
+import { AppointmentsModule } from '@modules/appointments/appointments.module';
+import { EpisodesModule } from '@modules/episodes/episodes.module';
+import { QueueModule } from '@modules/queue/queue.module';
+import { VitalsModule } from '@modules/vitals/vitals.module';
 import * as winston from 'winston';
 import { utilities as nestWinstonModuleUtilities, WinstonModule } from 'nest-winston';
 import { TerminusModule } from '@nestjs/terminus';
@@ -102,6 +107,11 @@ import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interce
     MedicalServiceModule,
     ServiceCodeCatalogModule,
     InventoryModule,
+    PatientModule,
+    AppointmentsModule,
+    EpisodesModule,
+    QueueModule,
+    VitalsModule,
   ],
   controllers: [AppController],
   providers: [

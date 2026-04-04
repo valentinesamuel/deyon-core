@@ -66,6 +66,7 @@ import { SystemConfig } from './entities/systemConfig.entity';
 import { TestCatalog } from './entities/testCatalog.entity';
 import { StockAdjustment } from './entities/stockAdjustment.entity';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
+import { Roster } from './entities/roster.entity';
 
 @Global()
 @Module({
@@ -133,6 +134,7 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
       SystemConfig,
       TestCatalog,
       StockAdjustment,
+      Roster,
     ]),
   ],
   providers: [Broker, RequestContextService, ApplicationUtility, EventLogService],
