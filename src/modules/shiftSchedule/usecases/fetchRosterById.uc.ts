@@ -23,7 +23,7 @@ export class FetchRosterByIdUsecase extends Usecase<
     params: TFetchRosterByIdParams,
   ): Promise<TFetchRosterByIdResult> {
     const roster = await this.rosterService.getRosterOrFail(
-      { where: { id: params.id }, relations: ['publishedBy', 'assignments'] },
+      { where: { id: params.id }, relations: { publishedBy: true, assignments: true } },
       _em,
     );
     return { roster };

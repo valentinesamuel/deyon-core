@@ -74,7 +74,7 @@ describe('AcceptInviteUsecase', () => {
 
   it('should create staff and return setupToken', async () => {
     inviteTokenRepo.findByTokenHashAndFailIfNotExist.mockResolvedValue(validInvite as any);
-    staffRepo.findOneOrFailIfExists.mockResolvedValue(undefined);
+    staffRepo.findOneOrFailIfExists.mockResolvedValue(null);
     authService.hashPassword.mockResolvedValue('hashed-pw');
     staffRepo.createStaff.mockResolvedValue({ id: 'staff-new' } as any);
     inviteTokenRepo.markAsUsed.mockResolvedValue(undefined);

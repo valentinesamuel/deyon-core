@@ -23,7 +23,7 @@ export class FetchPatientByIdUsecase extends Usecase<
     params: TFetchPatientByIdParams,
   ): Promise<TFetchPatientByIdResult> {
     const patient = await this.patientService.getPatientOrFail(
-      { where: { id: params.id }, relations: ['lga'] },
+      { where: { id: params.id }, relations: { lga: true } },
       _em,
     );
     return { patient };

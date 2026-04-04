@@ -20,6 +20,7 @@ function makeParsedQuery(overrides: Partial<ParsedQuery> = {}): ParsedQuery {
     include: [],
     fields: {},
     withDeleted: false,
+    withTotal: false,
     ...overrides,
   };
 }

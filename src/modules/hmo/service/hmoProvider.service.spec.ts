@@ -26,7 +26,7 @@ describe('HmoProviderService', () => {
     const found = { id: 'uuid-1', code: 'TEST01' };
     mockRepo.findOneOrFailIfNotExists.mockResolvedValue(found as any);
 
-    const result = await service.getHmoProviderByData(options);
+    const result = await service.getHmoProviderByDataOrFailIfNotExists(options);
 
     expect(mockRepo.findOneOrFailIfNotExists).toHaveBeenCalledWith(options, undefined);
     expect(result).toEqual(found);

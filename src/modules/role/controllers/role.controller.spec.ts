@@ -24,10 +24,6 @@ describe('RoleController', () => {
   let deleteIndividualUsecase: ReturnType<typeof mock<DeleteRoleWithIndividualReassignUsecase>>;
 
   const mockDto = { name: 'Doctor', permissions: ['staff:read'] };
-  const mockReq: any = {
-    ip: '127.0.0.1',
-    headers: { 'user-agent': 'test-agent' },
-  };
 
   beforeEach(() => {
     broker = mock<Broker>();
@@ -54,7 +50,7 @@ describe('RoleController', () => {
     it('should pass createRoleUsecase to broker.runUsecases', async () => {
       broker.runUsecases.mockResolvedValue({ name: 'Doctor' } as any);
 
-      await controller.createRole(mockDto, mockReq);
+      await controller.createRole(mockDto);
 
       expect(broker.runUsecases).toHaveBeenCalledWith([createRoleUsecase], expect.any(Object));
     });
@@ -76,7 +72,7 @@ describe('RoleController', () => {
       const expectedResult = { name: 'Doctor', alias: 'doctor' };
       broker.runUsecases.mockResolvedValue(expectedResult as any);
 
-      const result = await controller.createRole(mockDto, mockReq);
+      const result = await controller.createRole(mockDto);
 
       expect(result).toEqual(expectedResult);
     });

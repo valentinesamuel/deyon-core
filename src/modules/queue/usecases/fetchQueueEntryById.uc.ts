@@ -17,7 +17,10 @@ export class FetchQueueEntryByIdUsecase extends Usecase<TResult, TParams> {
 
   async execute(_em: EntityManager, params: TParams): Promise<TResult> {
     const queueEntry = await this.queueService.getQueueEntryOrFail(
-      { where: { id: params.id }, relations: ['patient', 'episode', 'assignedStaff'] },
+      {
+        where: { id: params.id },
+        relations: { patient: true, episode: true, assignedStaff: true },
+      },
       _em,
     );
     return { queueEntry };

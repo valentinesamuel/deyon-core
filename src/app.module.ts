@@ -6,6 +6,7 @@ import configSchema from '@config/schema.config';
 import common from '@config/common.config';
 import typeorm from '@config/typeorm.config';
 import cacheConfig from '@config/cache.config';
+import storageConfig from '@config/storage.config';
 import { Broker } from '@broker/broker';
 import { AppController } from './app.controller';
 import { ClsModule } from 'nestjs-cls';
@@ -40,6 +41,19 @@ import { AppointmentsModule } from '@modules/appointments/appointments.module';
 import { EpisodesModule } from '@modules/episodes/episodes.module';
 import { QueueModule } from '@modules/queue/queue.module';
 import { VitalsModule } from '@modules/vitals/vitals.module';
+import { ConsultationsModule } from '@modules/consultations/consultations.module';
+import { StorageModule } from '@adapters/storage/storage.module';
+import { LabOrdersModule } from '@modules/labOrders/labOrders.module';
+import { PrescriptionsModule } from '@modules/prescriptions/prescriptions.module';
+import { BillingModule } from '@modules/billing/billing.module';
+import { ClaimsModule } from '@modules/claims/claims.module';
+import { ShiftsModule } from '@modules/shifts/shifts.module';
+import { StockRequestsModule } from '@modules/stockRequests/stockRequests.module';
+import { LabReferralsModule } from '@modules/labReferrals/labReferrals.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { AuditModule } from '@modules/audit/audit.module';
+import { PermissionsMgmtModule } from '@modules/permissionsMgmt/permissionsMgmt.module';
+import { ReportsModule } from '@modules/reports/reports.module';
 import * as winston from 'winston';
 import { utilities as nestWinstonModuleUtilities, WinstonModule } from 'nest-winston';
 import { TerminusModule } from '@nestjs/terminus';
@@ -51,7 +65,7 @@ import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interce
   imports: [
     SentryModule.forRoot(),
     ConfigModule.forRoot({
-      load: [common, typeorm, cacheConfig],
+      load: [common, typeorm, cacheConfig, storageConfig],
       ...configSchema,
     }),
     WinstonModule.forRootAsync({
@@ -112,6 +126,19 @@ import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interce
     EpisodesModule,
     QueueModule,
     VitalsModule,
+    ConsultationsModule,
+    StorageModule,
+    LabOrdersModule,
+    PrescriptionsModule,
+    BillingModule,
+    ClaimsModule,
+    ShiftsModule,
+    StockRequestsModule,
+    LabReferralsModule,
+    NotificationsModule,
+    AuditModule,
+    PermissionsMgmtModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

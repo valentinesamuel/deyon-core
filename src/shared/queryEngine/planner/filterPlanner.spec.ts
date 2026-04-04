@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { mock } from 'vitest-mock-extended';
-import { DataSource, EntityMetadata, RelationMetadata, ColumnMetadata } from 'typeorm';
+import { DataSource, EntityMetadata } from 'typeorm';
 import { JoinPlanner } from './joinPlanner';
 import { FilterPlanner } from './filterPlanner';
 import { ASTNode, ASTNodeType, ConditionNode, LogicalNode } from '../types/ast.types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeColumn(propertyName: string): ColumnMetadata {
-  return { propertyName } as unknown as ColumnMetadata;
+function makeColumn(propertyName: string): any {
+  return { propertyName };
 }
 
 function makeMetadata(
@@ -18,16 +18,13 @@ function makeMetadata(
     hasDeletedAt?: boolean;
   } = {},
 ): EntityMetadata {
-  const columns: ColumnMetadata[] = [makeColumn('id')];
+  const columns: any[] = [makeColumn('id')];
   if (opts.hasDeletedAt ?? true) columns.push(makeColumn('deletedAt'));
 
-  const relations: RelationMetadata[] = (opts.relations ?? []).map(
-    (r) =>
-      ({
-        propertyName: r.propertyName,
-        inverseEntityMetadata: r.inverse,
-      }) as unknown as RelationMetadata,
-  );
+  const relations: any[] = (opts.relations ?? []).map((r) => ({
+    propertyName: r.propertyName,
+    inverseEntityMetadata: r.inverse,
+  }));
 
   return { name, columns, relations } as unknown as EntityMetadata;
 }

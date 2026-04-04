@@ -29,7 +29,7 @@ export class FetchEpisodeByIdUsecase extends Usecase<
     params: TFetchEpisodeByIdParams,
   ): Promise<TFetchEpisodeByIdResult> {
     const episode = await this.episodeService.getEpisodeOrFail(
-      { where: { id: params.id }, relations: ['patient', 'vitals'] },
+      { where: { id: params.id }, relations: { patient: true, vitals: true } },
       _em,
     );
     const diagnoses = await this.episodeService.findDiagnosesByEpisode(params.id, _em);

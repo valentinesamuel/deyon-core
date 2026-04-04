@@ -8,8 +8,8 @@ export function buildMfaConfigFixture(overrides: Partial<MfaConfig> = {}): MfaCo
     id: faker.string.uuid(),
     staffId: faker.string.uuid(),
     encryptedSecret: 'encrypted:rnauthTag:rniv', // placeholder
-    backupCodeHashes: null,
-    usedBackupCodes: null,
+    backupCodeHashes: undefined,
+    usedBackupCodes: undefined,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

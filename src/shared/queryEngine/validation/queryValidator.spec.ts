@@ -18,6 +18,7 @@ function makeQuery(overrides: Partial<ParsedQuery> = {}): ParsedQuery {
     include: [],
     fields: {},
     withDeleted: false,
+    withTotal: false,
     ...overrides,
   };
 }
@@ -94,7 +95,7 @@ describe('QueryValidator', () => {
     it('rejects when field exceeds maxRelationDepth', () => {
       // a.b.c.d has depth 3 relation hops — exceeds maxRelationDepth: 2
       const whereAst: ASTNode = {
-        type: 'CONDITION',
+        type: ASTNodeType.CONDITION,
         field: 'a.b.c.d',
         op: 'eq',
         value: 'x',

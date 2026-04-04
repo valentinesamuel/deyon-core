@@ -10,6 +10,7 @@ export enum ConsultationStatusEnum {
   DRAFT = 'draft',
   IN_PROGRESS = 'in_progress',
   FINALIZED = 'finalized',
+  AMENDMENT = 'amendment',
 }
 
 export type TSelectedDiagnosis = {
@@ -75,4 +76,16 @@ export class Consultation extends BaseEntity {
 
   @Column({ type: 'timestamp with time zone', nullable: true })
   followUpDate: Date;
+
+  @Column({ type: 'text', nullable: true })
+  amendmentReason: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  versions: Record<string, unknown>[] | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  startedAt: Date | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  finalizedAt: Date | null;
 }

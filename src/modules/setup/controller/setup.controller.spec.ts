@@ -15,12 +15,6 @@ describe('SetupController', () => {
   let bootstrapSystemUc: ReturnType<typeof mock<BootstrapSystemUsecase>>;
   let requestContextService: ReturnType<typeof mock<RequestContextService>>;
 
-  const mockReq: any = {
-    ip: '192.168.1.1',
-    headers: { 'user-agent': 'test-agent' },
-    user: { id: 'staff-public-id-123' },
-  };
-
   beforeEach(() => {
     broker = mock<Broker>();
     systemConfigRepository = mock<SystemConfigRepository>();
@@ -101,7 +95,7 @@ describe('SetupController', () => {
       const expectedResult = { staffId: 'new-staff-id' };
       broker.runUsecases.mockResolvedValue(expectedResult as any);
 
-      const result = await controller.register(dto as any, mockReq);
+      const result = await controller.register(dto as any);
 
       expect(result).toEqual(expectedResult);
     });
@@ -126,7 +120,7 @@ describe('SetupController', () => {
       const expectedResult = { bootstrapped: true };
       broker.runUsecases.mockResolvedValue(expectedResult as any);
 
-      const result = await controller.bootstrap(dto as any, mockReq);
+      const result = await controller.bootstrap(dto as any);
 
       expect(result).toEqual(expectedResult);
     });

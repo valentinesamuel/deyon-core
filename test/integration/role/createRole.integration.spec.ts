@@ -29,7 +29,6 @@ describe('CreateRole Integration', () => {
   const callCreateRole = (name: string, permissions: string[]) =>
     createRoleUc.execute(dataSource.manager, {
       params: { name, permissions },
-      metadata: { requestMetadata: { ipAddress: '127.0.0.1', userAgent: 'test' } },
     });
 
   it('creates a role with specified permissions', async () => {

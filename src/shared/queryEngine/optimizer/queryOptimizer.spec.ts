@@ -41,6 +41,7 @@ function makeJoinSpec(alias: string, parentAlias = 'root', depth = 1): JoinSpec 
     alias,
     depth,
     hasDeletedAt: false,
+    isInclude: false,
   };
 }
 
@@ -73,6 +74,7 @@ const baseParsedQuery: ParsedQuery = {
   include: [],
   fields: {},
   withDeleted: false,
+  withTotal: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -420,6 +422,7 @@ describe('optimize', () => {
       alias: 'root_doctor',
       depth: 1,
       hasDeletedAt: true,
+      isInclude: false,
     };
 
     const plan: QueryPlan = {

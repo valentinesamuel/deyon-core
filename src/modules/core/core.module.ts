@@ -67,6 +67,8 @@ import { TestCatalog } from './entities/testCatalog.entity';
 import { StockAdjustment } from './entities/stockAdjustment.entity';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { Roster } from './entities/roster.entity';
+import { Notification } from './entities/notification.entity';
+import { StaffPermissionOverride } from './entities/staffPermissionOverride.entity';
 
 @Global()
 @Module({
@@ -135,6 +137,8 @@ import { Roster } from './entities/roster.entity';
       TestCatalog,
       StockAdjustment,
       Roster,
+      Notification,
+      StaffPermissionOverride,
     ]),
   ],
   providers: [Broker, RequestContextService, ApplicationUtility, EventLogService],

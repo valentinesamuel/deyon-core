@@ -83,5 +83,26 @@ export default {
 
     //Sentry
     SENTRY_DSN: Joi.string().required(),
+
+    // Storage
+    STORAGE_PROVIDER: Joi.string().valid('local', 's3', 'r2').default('local'),
+    LOCAL_UPLOAD_DIR: Joi.string().optional(),
+    LOCAL_STORAGE_BASE_URL: Joi.string().optional(),
+    AWS_S3_REGION: Joi.string().optional(),
+    AWS_S3_BUCKET: Joi.string().when('STORAGE_PROVIDER', {
+      is: 's3',
+      then: Joi.string().required(),
+      otherwise: Joi.string().optional(),
+    }),
+    AWS_S3_ACCESS_KEY_ID: Joi.string().optional(),
+    AWS_S3_SECRET_ACCESS_KEY: Joi.string().optional(),
+    R2_ACCOUNT_ID: Joi.string().optional(),
+    R2_BUCKET: Joi.string().when('STORAGE_PROVIDER', {
+      is: 'r2',
+      then: Joi.string().required(),
+      otherwise: Joi.string().optional(),
+    }),
+    R2_ACCESS_KEY_ID: Joi.string().optional(),
+    R2_SECRET_ACCESS_KEY: Joi.string().optional(),
   }),
 };

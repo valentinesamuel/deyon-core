@@ -23,7 +23,7 @@ export class FetchAppointmentByIdUsecase extends Usecase<
     params: TFetchAppointmentByIdParams,
   ): Promise<TFetchAppointmentByIdResult> {
     const appointment = await this.appointmentService.getAppointmentOrFail(
-      { where: { id: params.id }, relations: ['patient', 'doctor'] },
+      { where: { id: params.id }, relations: { patient: true, doctor: true } },
       _em,
     );
     return { appointment };

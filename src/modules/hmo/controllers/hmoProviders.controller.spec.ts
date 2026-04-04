@@ -3,24 +3,30 @@ import { HmoProvidersController } from './hmoProviders.controller';
 import { Broker } from '@broker/broker';
 import { FetchAllHmoProvidersUsecase } from '../usecases/hmoProviders/fetchAllHmoProviders.uc';
 import { FetchHmoProviderByCodeUsecase } from '../usecases/hmoProviders/fetchHmoProviderByCode.uc';
+import { FetchHmoProviderByIdUsecase } from '../usecases/hmoProviders/fetchHmoProviderById.uc';
 import { CreateHmoProviderUsecase } from '../usecases/hmoProviders/createHmoProvider.uc';
 import { UpdateHmoProviderUsecase } from '../usecases/hmoProviders/updateHmoProvider.uc';
+import { UpdateHmoProviderStatusUsecase } from '../usecases/hmoProviders/updateHmoProviderStatus.uc';
 
 describe('HmoProvidersController', () => {
   let controller: HmoProvidersController;
   const mockBroker = mock<Broker>();
   const mockFetchAll = mock<FetchAllHmoProvidersUsecase>();
   const mockFetchByCode = mock<FetchHmoProviderByCodeUsecase>();
+  const mockFetchById = mock<FetchHmoProviderByIdUsecase>();
   const mockCreate = mock<CreateHmoProviderUsecase>();
   const mockUpdate = mock<UpdateHmoProviderUsecase>();
+  const mockToggleStatus = mock<UpdateHmoProviderStatusUsecase>();
 
   beforeEach(() => {
     controller = new HmoProvidersController(
       mockBroker,
       mockFetchAll,
       mockFetchByCode,
+      mockFetchById,
       mockCreate,
       mockUpdate,
+      mockToggleStatus,
     );
     mockBroker.runUsecases.mockResolvedValue({} as any);
   });

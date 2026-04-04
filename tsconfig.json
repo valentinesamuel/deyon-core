@@ -40,5 +40,11 @@
       ]
     }
   },
-  "exclude": ["test/load/**/*.k6.ts", "test/load/k6.config.ts"]
+  "exclude": [
+    "test/load/**/*.k6.ts",
+    "test/load/k6.config.ts",
+    "vitest.unit.config.ts",
+    "vitest.integration.config.ts",
+    "vitest.e2e.config.ts"
+  ]
 }
