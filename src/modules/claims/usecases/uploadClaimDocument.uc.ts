@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { ClaimsService } from '../service/claims.service';
@@ -6,8 +6,7 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
 import { RequestContextService } from '@shared/context/requestContext.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 import { Claim, ClaimStatusEnum } from '@modules/core/entities/claim.entity';
-import { STORAGE_PROVIDER_TOKEN } from '@adapters/storage/storage.constants';
-import { IStorageProvider } from '@adapters/storage/istorage.interface';
+import { StorageAdapter } from '@adapters/storage/storage.adapter';
 
 type UploadedFile = {
   originalname: string;
@@ -28,7 +27,7 @@ export class UploadClaimDocumentUsecase extends Usecase<TResult, TParams> {
     private readonly claimsService: ClaimsService,
     private readonly eventService: EventLogService,
     private readonly requestContextService: RequestContextService,
-    @Inject(STORAGE_PROVIDER_TOKEN) private readonly storageProvider: IStorageProvider,
+    private readonly storageAdapter: StorageAdapter,
   ) {
     super();
   }
@@ -52,7 +51,7 @@ export class UploadClaimDocumentUsecase extends Usecase<TResult, TParams> {
     const filename = `${Date.now()}-${params.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const filePath = `claims/${params.id}/docs/${filename}`;
 
-    const uploadResult = await this.storageProvider.upload(params.file.buffer, filePath, {
+    const uploadResult = await this.storageAdapter.upload(params.file.buffer, filePath, {
       contentType: params.file.mimetype,
     });
 

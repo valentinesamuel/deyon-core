@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { EnterLabResultDto } from '../dto/enterLabResult.dto';
@@ -8,8 +8,7 @@ import { RequestContextService } from '@shared/context/requestContext.service';
 import { EventModule, EventType } from '@modules/core/entities/eventLog.entity';
 import { LabOrderResult } from '@modules/core/entities/labOrderResult.entity';
 import { LabOrderStatusEnum } from '@modules/core/entities/labOrder.enums';
-import { STORAGE_PROVIDER_TOKEN } from '@adapters/storage/storage.constants';
-import { IStorageProvider } from '@adapters/storage/istorage.interface';
+import { StorageAdapter } from '@adapters/storage/storage.adapter';
 
 type UploadedFile = {
   originalname: string;
@@ -26,7 +25,7 @@ export class EnterLabResultUsecase extends Usecase<TResult, TParams> {
     private readonly labOrderService: LabOrderService,
     private readonly eventService: EventLogService,
     private readonly requestContextService: RequestContextService,
-    @Inject(STORAGE_PROVIDER_TOKEN) private readonly storageProvider: IStorageProvider,
+    private readonly storageAdapter: StorageAdapter,
   ) {
     super();
   }
@@ -49,7 +48,7 @@ export class EnterLabResultUsecase extends Usecase<TResult, TParams> {
     if (params.file) {
       const ext = params.file.originalname.split('.').pop();
       const filePath = `lab-results/${params.id}/${item.id}.${ext}`;
-      const uploadResult = await this.storageProvider.upload(params.file.buffer, filePath, {
+      const uploadResult = await this.storageAdapter.upload(params.file.buffer, filePath, {
         contentType: params.file.mimetype,
       });
       fileMetadata = { file: { key: uploadResult.key, url: uploadResult.url } };

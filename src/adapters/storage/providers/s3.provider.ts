@@ -5,12 +5,19 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { IStorageProvider, StorageUploadOptions, StorageUploadResult } from '../istorage.interface';
+import {
+  TStorageUploadOptions,
+  TStorageUploadResult,
+  TStorageMetadata,
+  StorageInterface,
+} from '../storage.interface';
 
 @Injectable()
-export class S3StorageProvider implements IStorageProvider {
+export class S3StorageProvider implements StorageInterface {
   private readonly logger = new Logger(S3StorageProvider.name);
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -29,8 +36,8 @@ export class S3StorageProvider implements IStorageProvider {
   async upload(
     file: Buffer,
     filePath: string,
-    options?: StorageUploadOptions,
-  ): Promise<StorageUploadResult> {
+    options?: TStorageUploadOptions,
+  ): Promise<TStorageUploadResult> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -53,5 +60,44 @@ export class S3StorageProvider implements IStorageProvider {
     return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: filePath }), {
       expiresIn: expiresInSeconds,
     });
+  }
+
+  async exists(filePath: string): Promise<boolean> {
+    try {
+      await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: filePath }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async copy(sourcePath: string, destinationPath: string): Promise<TStorageUploadResult> {
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        CopySource: `${this.bucket}/${sourcePath}`,
+        Key: destinationPath,
+      }),
+    );
+    const url = `https://${this.bucket}.s3.amazonaws.com/${destinationPath}`;
+    return { key: destinationPath, url };
+  }
+
+  async move(sourcePath: string, destinationPath: string): Promise<TStorageUploadResult> {
+    const result = await this.copy(sourcePath, destinationPath);
+    await this.delete(sourcePath);
+    return result;
+  }
+
+  async getMetadata(filePath: string): Promise<TStorageMetadata> {
+    const response = await this.client.send(
+      new HeadObjectCommand({ Bucket: this.bucket, Key: filePath }),
+    );
+    return {
+      size: response.ContentLength ?? 0,
+      contentType: response.ContentType ?? 'application/octet-stream',
+      lastModified: response.LastModified ?? new Date(),
+      metadata: response.Metadata,
+    };
   }
 }
