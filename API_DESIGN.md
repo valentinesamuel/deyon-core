@@ -1579,26 +1579,25 @@ interface ProtocolBundleItem {
 
 ### Feature 17: Patient Management
 
-**Description:** Core patient demographic registry. Supports registration, search, profile editing, and HMO enrollment. MRN is server-generated in `CF-YYYY-NNNNN` format. Depends on: Auth, Reference Data (Tier 0), HMO Providers (Tier 1).
+**Description:** Core patient demographic registry. Supports registration, search, profile editing, HMO enrollment, and medical history management. MRN is server-generated in `CF-YYYY-NNNNN` format. Depends on: Auth, Reference Data (Tier 0), HMO Providers (Tier 1).
 
 #### Data Model
 
 ```typescript
 interface Patient {
   id: string;
-  mrn: string;                   // CF-YYYY-NNNNN
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  dateOfBirth: string;           // ISO 8601 date
+  mrn: string;                    // CF-YYYY-NNNNN, server-generated
+  firstname: string;
+  lastname: string;
+  middlename?: string | null;     // nullable
+  dateOfBirth: string;            // ISO 8601 date, e.g. "1990-06-15"
   gender: 'male' | 'female' | 'other';
   bloodGroup: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'unknown';
   maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
-  phone: string;
-  email?: string;                // Optional at registration; unique when provided
+  phoneNumber: string;            // unique
+  email?: string | null;          // optional; unique when provided
   address: string;
-  state: string;
-  lga: string;
+  lgaId: string;                  // UUID → LGA; state derived server-side from LGA lookup
   nationality: string;
   occupation?: string;
   paymentType: 'cash' | 'hmo' | 'corporate';
@@ -1608,76 +1607,257 @@ interface Patient {
     enrollmentId: string;
     planType: string;
     expiryDate: string;
-    copayAmount: number;
+    copayAmount: number;          // NGN
     isActive: boolean;
   };
   nextOfKin: {
     name: string;
-    relationship: string;
-    phone: string;
-    address?: string;
+    relationship: string;         // e.g. "Wife", "Son", "Guardian"
+    address: string;
+    phoneNumber: string;
   };
-  // Medical history is stored in PatientMedicalHistory records (see GET /patients/:id/medical-history)
-  // allergies and chronic conditions are NOT stored as simple string arrays on the Patient record
-  photoUrl?: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  isActive: boolean;
 }
 
 interface PatientMedicalHistoryEntry {
   id: string;
   patientId: string;
-  catalogId: string;             // FK → MedicalCatalog (condition/allergy definition)
-  catalogName: string;           // e.g. "Penicillin Allergy", "Type 2 Diabetes"
-  customName?: string;           // Override if not in catalog
-  severity: string;              // e.g. "mild", "moderate", "severe"
-  addedBy: string;               // Staff ID
+  catalogId: string;              // FK → MedicalCatalog
+  catalogName: string;            // e.g. "Penicillin Allergy", "Type 2 Diabetes"
+  catalogType: 'allergy' | 'chronic_condition' | 'surgical_history' | 'family_history';
+  customName?: string | null;     // override if condition not in catalog
+  severity?: string;              // e.g. "mild", "moderate", "severe"
+  addedBy: string;                // Staff UUID (auto from JWT)
   addedByName: string;
   createdAt: string;
 }
 ```
 
-#### Endpoints
+> **Entity changes:** `middlename` is nullable. `nextOfKin` JSON shape includes `relationship` field. Location stored as `lgaId` (UUID FK); state is derived server-side from the LGA record.
 
-| Method | Path                              | Roles                                                           | Description                                    |
-|--------|-----------------------------------|-----------------------------------------------------------------|------------------------------------------------|
-| GET    | `/patients`                       | receptionist, nurse, doctor, cashier, pharmacist, lab_tech, clinical_lead, hospital_admin, cmo | List patients with search/filters |
-| POST   | `/patients`                       | receptionist, nurse, hospital_admin, cmo                        | Register new patient (MRN auto-generated)      |
-| GET    | `/patients/:id`                   | any                                                             | Get full patient profile                       |
-| PUT    | `/patients/:id`                   | receptionist, nurse, hospital_admin, cmo                        | Update patient demographics                    |
-| PATCH  | `/patients/:id/hmo`               | receptionist, hospital_admin, cmo                               | Update HMO enrollment details                  |
-| PATCH  | `/patients/:id/status`            | hospital_admin, cmo                                             | Activate / deactivate patient record           |
-| GET    | `/patients/search`                | any                                                             | Search by name, MRN, phone, email              |
-| GET    | `/patients/:id/summary`           | any                                                             | Lightweight summary (MRN, name, age, payer)    |
-| GET    | `/patients/:id/episodes`          | doctor, nurse, clinical_lead, cmo, hospital_admin               | List episodes for a patient                    |
-| GET    | `/patients/:id/lab-results`       | doctor, nurse, lab_tech, clinical_lead, cmo, patient            | Lab results for a patient (portal view)        |
-| GET    | `/patients/:id/medical-history`   | doctor, nurse, clinical_lead, cmo, hospital_admin               | Patient's medical history (allergies, conditions) |
-| POST   | `/patients/:id/medical-history`   | doctor, nurse                                                   | Add a medical history entry                    |
-| DELETE | `/patients/:id/medical-history/:entryId` | doctor, clinical_lead, cmo                             | Remove a medical history entry                 |
+---
 
-##### GET `/patients/search`
+#### 17a: Patient Registration & Profile
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/patients` | receptionist, nurse, doctor, cashier, pharmacist, lab_tech, clinical_lead, hospital_admin, cmo | `FetchAllPatientsUsecase` |
+| POST | `/patients` | receptionist, nurse, hospital_admin, cmo | `CreatePatientUsecase` |
+| GET | `/patients/:id` | any | `FetchPatientByIdUsecase` |
+| PUT | `/patients/:id` | receptionist, nurse, hospital_admin, cmo | `UpdatePatientUsecase` |
+| PATCH | `/patients/:id/status` | hospital_admin, cmo | `TogglePatientStatusUsecase` |
+
+##### GET `/patients`
 
 **Query Params:**
 
-| Param   | Type   | Description                            |
-|---------|--------|----------------------------------------|
-| `q`     | string | Search term (name, MRN, phone, email)  |
-| `limit` | int    | Max results (default `10`)             |
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `search` | string | Filter by name, MRN, or phone |
+| `paymentType` | string | Filter by payment type (`cash`, `hmo`, `corporate`) |
+| `isActive` | boolean | Filter by active status |
+| `lgaId` | string | Filter by LGA |
 
 **Response `200`:**
 ```json
 {
   "data": [
     {
-      "id": "pat-001",
-      "mrn": "CF-2024-00142",
+      "id": "uuid",
+      "mrn": "CF-2026-00142",
+      "firstname": "Chukwuemeka",
+      "lastname": "Obiora",
+      "gender": "male",
+      "dateOfBirth": "1990-06-15",
+      "phoneNumber": "08023456789",
+      "paymentType": "hmo",
+      "isActive": true,
+      "createdAt": "2026-04-01T08:00:00Z"
+    }
+  ],
+  "meta": { "cursor": "next-cursor-token", "limit": 25 },
+  "errors": null
+}
+```
+
+##### POST `/patients`
+
+**Request Body:**
+```json
+{
+  "firstname": "Chukwuemeka",
+  "lastname": "Obiora",
+  "middlename": "Nonso",
+  "dateOfBirth": "1990-06-15",
+  "gender": "male",
+  "bloodGroup": "O+",
+  "maritalStatus": "married",
+  "phoneNumber": "08023456789",
+  "email": "chukwuemeka@example.com",
+  "address": "14 Bourdillon Road, Ikoyi",
+  "nationality": "Nigerian",
+  "occupation": "Engineer",
+  "paymentType": "hmo",
+  "lgaId": "uuid-of-eti-osa-lga",
+  "nextOfKin": {
+    "name": "Adaeze Obiora",
+    "relationship": "Wife",
+    "address": "14 Bourdillon Road, Ikoyi",
+    "phoneNumber": "08034567890"
+  }
+}
+```
+
+> **Validation:** `phoneNumber` and `email` (when provided) must be unique across all patients. Duplicate triggers `409 Conflict`.
+> **HMO at registration:** Optional. Use `PATCH /patients/:id/hmo` (17b) to add or update HMO details after registration.
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "mrn": "CF-2026-00142",
+    "firstname": "Chukwuemeka",
+    "lastname": "Obiora",
+    "middlename": "Nonso",
+    "dateOfBirth": "1990-06-15",
+    "gender": "male",
+    "bloodGroup": "O+",
+    "maritalStatus": "married",
+    "phoneNumber": "08023456789",
+    "email": "chukwuemeka@example.com",
+    "address": "14 Bourdillon Road, Ikoyi",
+    "lga": { "id": "uuid-of-eti-osa-lga", "name": "Eti-Osa", "state": "Lagos" },
+    "nationality": "Nigerian",
+    "occupation": "Engineer",
+    "paymentType": "hmo",
+    "hmoDetails": null,
+    "nextOfKin": {
+      "name": "Adaeze Obiora",
+      "relationship": "Wife",
+      "address": "14 Bourdillon Road, Ikoyi",
+      "phoneNumber": "08034567890"
+    },
+    "isActive": true,
+    "createdAt": "2026-04-04T09:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409` — Duplicate phoneNumber:**
+```json
+{
+  "data": null,
+  "meta": null,
+  "errors": [{ "field": "phoneNumber", "message": "A patient with this phone number already exists" }]
+}
+```
+
+##### PUT `/patients/:id`
+
+**Request Body:** Same shape as `POST /patients` (all fields). Partial updates not supported; send full demographic object.
+
+**Response `200`:** Updated patient profile (same shape as `POST` 201 response).
+
+##### PATCH `/patients/:id/status`
+
+**Request Body:**
+```json
+{ "isActive": false }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "isActive": false },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 17b: HMO Enrollment
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/patients/:id/hmo` | receptionist, hospital_admin, cmo | `UpdatePatientHmoEnrollmentUsecase` |
+
+##### PATCH `/patients/:id/hmo`
+
+**Request Body:**
+```json
+{
+  "hmoProviderId": "uuid-of-hygeia",
+  "enrollmentId": "HYG-2024-88991",
+  "planType": "comprehensive",
+  "expiryDate": "2027-01-31",
+  "copayAmount": 2000
+}
+```
+
+> **Business logic:** Replaces any existing HMO enrollment. If `paymentType` is not `hmo`, server automatically updates it to `hmo`. `expiryDate` must be a future date.
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "mrn": "CF-2026-00142",
+    "paymentType": "hmo",
+    "hmoDetails": {
+      "providerId": "uuid-of-hygeia",
+      "providerName": "Hygeia HMO",
+      "enrollmentId": "HYG-2024-88991",
+      "planType": "comprehensive",
+      "expiryDate": "2027-01-31",
+      "copayAmount": 2000,
+      "isActive": true
+    }
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 17c: Patient Search
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/patients/search` | any | `SearchPatientsUsecase` |
+| GET | `/patients/:id/summary` | any | `FetchPatientSummaryUsecase` |
+
+##### GET `/patients/search`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `q` | string | Search term — matches against name, MRN, phone, email |
+| `limit` | int | Max results (default `10`) |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "mrn": "CF-2026-00142",
       "fullName": "Chukwuemeka Obiora",
       "gender": "male",
-      "age": 34,
-      "phone": "08023456789",
+      "dateOfBirth": "1990-06-15",
+      "phoneNumber": "08023456789",
       "paymentType": "hmo",
-      "lastVisit": "2024-05-20T10:00:00Z"
+      "hmoProvider": "Hygeia HMO",
+      "lastVisit": "2026-03-20T10:00:00Z"
     }
   ],
   "meta": { "total": 1 },
@@ -1685,58 +1865,117 @@ interface PatientMedicalHistoryEntry {
 }
 ```
 
----
+##### GET `/patients/:id/summary`
 
-### Feature 18: Staff Roster & Scheduling
-
-**Description:** Manages weekly duty rosters (shift assignments per staff per day). Separate from user management; this is operational scheduling. Depends on: Auth, Users (Tier 0–1).
-
-#### Data Model
-
-```typescript
-interface RosterEntry {
-  staffId: string;
-  staffName: string;
-  role: string;
-  shifts: Record<string, ShiftType>;      // key = "YYYY-MM-DD"
-  customTimes?: Record<string, {          // key = "YYYY-MM-DD"
-    startTime: string;                    // HH:mm
-    endTime: string;
-  }>;
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "mrn": "CF-2026-00142",
+    "fullName": "Chukwuemeka Obiora",
+    "age": 35,
+    "gender": "male",
+    "bloodGroup": "O+",
+    "paymentType": "hmo",
+    "hmoProvider": "Hygeia HMO",
+    "enrollmentId": "HYG-2024-88991",
+    "activeEpisodes": 1,
+    "lastVisit": "2026-03-20T10:00:00Z"
+  },
+  "meta": null,
+  "errors": null
 }
-
-interface WeeklyRoster {
-  id: string;
-  weekStart: string;      // ISO 8601 date (Monday)
-  weekEnd: string;        // ISO 8601 date (Sunday)
-  entries: RosterEntry[];
-  publishedAt?: string;
-  publishedBy?: string;
-}
-
-type ShiftType = 'morning' | 'afternoon' | 'night' | 'off';
 ```
 
-#### Endpoints
+---
 
-| Method | Path                           | Roles                                | Description                              |
-|--------|--------------------------------|--------------------------------------|------------------------------------------|
-| GET    | `/roster`                      | any                                  | List rosters (filter by week/department) |
-| POST   | `/roster`                      | hospital_admin, cmo, clinical_lead   | Create/publish a weekly roster           |
-| GET    | `/roster/:id`                  | any                                  | Get full roster for a week               |
-| PUT    | `/roster/:id`                  | hospital_admin, cmo, clinical_lead   | Update roster entries                    |
-| GET    | `/roster/current`              | any                                  | Get the active roster for current week   |
-| GET    | `/roster/staff/:staffId`       | any                                  | Get a staff member's schedule            |
+#### 17d: Medical History
 
-##### GET `/roster`
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/patients/:id/medical-history` | doctor, nurse, clinical_lead, hospital_admin, cmo | `FetchPatientMedicalHistoryUsecase` |
+| POST | `/patients/:id/medical-history` | doctor, nurse | `AddPatientMedicalHistoryUsecase` |
+| DELETE | `/patients/:id/medical-history/:entryId` | doctor, clinical_lead, cmo | `RemovePatientMedicalHistoryEntryUsecase` |
+
+##### GET `/patients/:id/medical-history`
 
 **Query Params:**
 
-| Param        | Type   | Description                              |
-|--------------|--------|------------------------------------------|
-| `weekStart`  | string | ISO date — filter to specific week       |
-| `department` | string | Filter by department                     |
-| `role`       | string | Filter by role                           |
+| Param | Type | Description |
+|-------|------|-------------|
+| `catalogType` | string | Filter by type: `allergy`, `chronic_condition`, `surgical_history`, `family_history` |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "catalogId": "uuid-of-penicillin-allergy",
+      "catalogName": "Penicillin Allergy",
+      "catalogType": "allergy",
+      "severity": "severe",
+      "addedByName": "Dr. Taiwo Adeyemi",
+      "createdAt": "2026-01-15T10:00:00Z"
+    },
+    {
+      "id": "uuid",
+      "catalogId": "uuid-of-type2-diabetes",
+      "catalogName": "Type 2 Diabetes Mellitus",
+      "catalogType": "chronic_condition",
+      "severity": null,
+      "addedByName": "Dr. Taiwo Adeyemi",
+      "createdAt": "2026-01-15T10:05:00Z"
+    }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/patients/:id/medical-history`
+
+**Request Body:**
+```json
+{
+  "catalogId": "uuid-of-penicillin-allergy",
+  "customName": null,
+  "severity": "severe"
+}
+```
+
+> `catalogId` must reference a valid `MedicalCatalog` entry. `catalogType` is derived server-side from the catalog record. `severity` is optional for non-allergy types.
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "patientId": "uuid-patient",
+    "catalogId": "uuid-of-penicillin-allergy",
+    "catalogName": "Penicillin Allergy",
+    "catalogType": "allergy",
+    "customName": null,
+    "severity": "severe",
+    "addedByName": "Nurse Ngozi Eze",
+    "createdAt": "2026-04-04T09:30:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 17e: Patient Clinical Data
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/patients/:id/episodes` | doctor, nurse, clinical_lead, hospital_admin, cmo | `FetchEpisodesByPatientUsecase` |
+| GET | `/patients/:id/lab-results` | doctor, nurse, lab_tech, clinical_lead, cmo | `FetchLabResultsByPatientUsecase` |
+
+> These are convenience read-only projections. Full episode and lab-result detail lives in Feature 20 and Feature 24 endpoints respectively.
 
 ---
 
@@ -1744,9 +1983,180 @@ type ShiftType = 'morning' | 'afternoon' | 'night' | 'off';
 
 ---
 
+### Feature 18: Staff Roster & Scheduling
+
+**Description:** Manages duty roster assignments — mapping staff to shift template definitions by day of week. Uses existing `ShiftSchedule` and `StaffShiftSchedule` entities (no separate WeeklyRoster table). Rosters can be created as drafts and published. Depends on: Auth, Users (Tier 0–1).
+
+#### Data Model
+
+```typescript
+// Uses existing entities:
+interface StaffShiftSchedule {
+  id: string;
+  staffId: string;
+  staffName: string;
+  role: string;
+  shiftScheduleId: string;       // FK → ShiftSchedule (defines day + start/end time)
+  shiftName: string;             // e.g. "Morning Monday"
+  dayOfWeek: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  startTime: string;             // HH:mm
+  endTime: string;               // HH:mm
+  isDraft: boolean;
+  publishedAt?: string;
+  publishedBy?: string;
+  createdAt: string;
+}
+
+interface ShiftSchedule {
+  id: string;
+  name: string;                  // e.g. "Morning Monday"
+  dayOfWeek: string;
+  startTime: string;             // HH:mm
+  endTime: string;               // HH:mm
+  shiftType: 'morning' | 'afternoon' | 'night';
+}
+```
+
+---
+
+#### 18a: Roster Assignment
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/roster` | any | `FetchRosterUsecase` |
+| POST | `/roster` | hospital_admin, cmo, clinical_lead | `CreateRosterAssignmentsUsecase` |
+| GET | `/roster/:id` | any | `FetchRosterByIdUsecase` |
+| PUT | `/roster/:id` | hospital_admin, cmo, clinical_lead | `UpdateRosterAssignmentUsecase` |
+
+##### GET `/roster`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `dayOfWeek` | string | Filter by day (`monday`–`sunday`) |
+| `isDraft` | boolean | Filter draft/published assignments |
+| `staffId` | string | Filter by staff member |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "staffId": "uuid-nurse-001",
+      "staffName": "Ngozi Eze",
+      "role": "nurse",
+      "shiftScheduleId": "uuid-morning-monday",
+      "shiftName": "Morning Monday",
+      "dayOfWeek": "monday",
+      "startTime": "07:00",
+      "endTime": "15:00",
+      "isDraft": false,
+      "publishedAt": "2026-04-01T08:00:00Z"
+    }
+  ],
+  "meta": { "cursor": null, "limit": 25 },
+  "errors": null
+}
+```
+
+##### POST `/roster`
+
+> **Business logic:** `isDraft: true` creates assignments visible only to admin roles. Use `PATCH /roster/:id/publish` to make a draft assignment live.
+
+**Request Body:**
+```json
+{
+  "isDraft": false,
+  "assignments": [
+    { "staffId": "uuid-nurse-001", "shiftScheduleId": "uuid-morning-monday" },
+    { "staffId": "uuid-nurse-002", "shiftScheduleId": "uuid-afternoon-monday" },
+    { "staffId": "uuid-doctor-001", "shiftScheduleId": "uuid-morning-tuesday" }
+  ]
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid-1",
+      "staffId": "uuid-nurse-001",
+      "staffName": "Ngozi Eze",
+      "shiftName": "Morning Monday",
+      "dayOfWeek": "monday",
+      "startTime": "07:00",
+      "endTime": "15:00",
+      "isDraft": false,
+      "createdAt": "2026-04-04T10:00:00Z"
+    },
+    {
+      "id": "uuid-2",
+      "staffId": "uuid-nurse-002",
+      "staffName": "Emeka Obi",
+      "shiftName": "Afternoon Monday",
+      "dayOfWeek": "monday",
+      "startTime": "15:00",
+      "endTime": "23:00",
+      "isDraft": false,
+      "createdAt": "2026-04-04T10:00:00Z"
+    }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 18b: Roster Publication & Views
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/roster/:id/publish` | hospital_admin, cmo, clinical_lead | `PublishRosterAssignmentUsecase` |
+| GET | `/roster/current` | any | `FetchCurrentRosterUsecase` |
+| GET | `/roster/staff/:staffId` | any | `FetchStaffScheduleUsecase` |
+
+##### PATCH `/roster/:id/publish`
+
+**Request Body:** _(empty — no body required)_
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "isDraft": false,
+    "publishedAt": "2026-04-04T10:30:00Z",
+    "publishedBy": "uuid-admin-staff"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### GET `/roster/current`
+
+**Response `200`:** Array of all published `StaffShiftSchedule` records for the current week, grouped by day.
+
+##### GET `/roster/staff/:staffId`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `dayOfWeek` | string | Filter to specific day |
+| `includeDrafts` | boolean | Include draft assignments (admin only) |
+
+---
+
 ### Feature 19: Appointments
 
-**Description:** Manages scheduled patient visits. Supports booking, confirmation, rescheduling, and cancellation. Generates check-in queue entries on arrival. Depends on: Patients, Users (Tier 2).
+**Description:** Manages scheduled patient visits. Supports booking, confirmation, rescheduling, and cancellation. Atomically creates a `QueueEntry` when status transitions to `checked_in`. `doctorId` is required (non-nullable). Depends on: Patients, Users (Tier 2).
 
 #### Data Model
 
@@ -1756,86 +2166,283 @@ interface Appointment {
   patientId: string;
   patientName: string;
   patientMrn: string;
-  doctorId: string;
+  doctorId: string;               // required; non-nullable
   doctorName: string;
   appointmentType: 'consultation' | 'follow_up' | 'emergency' | 'procedure' | 'lab_only';
   status: 'scheduled' | 'confirmed' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
-  scheduledDate: string;   // ISO 8601 date
-  scheduledTime: string;   // HH:mm
-  duration: number;        // minutes
+  scheduledAt: string;            // ISO 8601 datetime, e.g. "2026-04-10T09:00:00+01:00"
+  scheduledDuration: number;      // minutes (default 30)
   reasonForVisit: string;
   notes?: string;
+  cancelledBy?: string;           // Staff UUID — populated on soft-delete/cancel
   createdAt: string;
   createdBy: string;
+  updatedAt: string;
 }
 ```
 
-#### Endpoints
+---
 
-| Method | Path                                    | Roles                                                        | Description                                     |
-|--------|-----------------------------------------|--------------------------------------------------------------|-------------------------------------------------|
-| GET    | `/appointments`                         | receptionist, doctor, nurse, clinical_lead, hospital_admin, cmo | List appointments with filters              |
-| POST   | `/appointments`                         | receptionist, doctor, nurse, clinical_lead, hospital_admin   | Book new appointment                            |
-| GET    | `/appointments/:id`                     | any                                                          | Get appointment detail                          |
-| PUT    | `/appointments/:id`                     | receptionist, doctor, hospital_admin                         | Update appointment (reschedule, notes)          |
-| PATCH  | `/appointments/:id/status`              | receptionist, nurse, doctor, hospital_admin                  | Change appointment status                       |
-| DELETE | `/appointments/:id`                     | receptionist, hospital_admin, cmo                            | Cancel/delete appointment                       |
-| GET    | `/appointments/doctor/:doctorId/slots`  | receptionist, patient                                        | Get available time slots for a doctor           |
-| GET    | `/appointments/today`                   | receptionist, nurse, doctor, clinical_lead                   | Appointments scheduled for today               |
+#### 19a: Appointment Booking
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/appointments` | receptionist, doctor, nurse, clinical_lead, hospital_admin, cmo | `FetchAllAppointmentsUsecase` |
+| POST | `/appointments` | receptionist, doctor, nurse, clinical_lead, hospital_admin | `CreateAppointmentUsecase` |
+| GET | `/appointments/:id` | any | `FetchAppointmentByIdUsecase` |
+| PUT | `/appointments/:id` | receptionist, doctor, hospital_admin | `UpdateAppointmentUsecase` |
+| DELETE | `/appointments/:id` | receptionist, hospital_admin, cmo | `CancelAppointmentUsecase` |
 
 ##### GET `/appointments`
 
 **Query Params:**
 
-| Param         | Type   | Description                                     |
-|---------------|--------|-------------------------------------------------|
-| `patientId`   | string | Filter by patient                               |
-| `doctorId`    | string | Filter by doctor                                |
-| `status`      | string | Filter by status                                |
-| `date`        | string | Filter by scheduled date (ISO date)             |
-| `dateFrom`    | string | Date range start                                |
-| `dateTo`      | string | Date range end                                  |
-| `type`        | string | Filter by appointment type                      |
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `patientId` | string | Filter by patient |
+| `doctorId` | string | Filter by doctor |
+| `status` | string | Filter by status |
+| `date` | string | Filter by scheduled date (ISO date) |
+| `dateFrom` | string | Date range start |
+| `dateTo` | string | Date range end |
+| `type` | string | Filter by appointment type |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "patientName": "Chukwuemeka Obiora",
+      "patientMrn": "CF-2026-00142",
+      "doctorName": "Dr. Taiwo Adeyemi",
+      "appointmentType": "consultation",
+      "status": "scheduled",
+      "scheduledAt": "2026-04-10T09:00:00+01:00",
+      "scheduledDuration": 30,
+      "reasonForVisit": "Follow-up for hypertension management"
+    }
+  ],
+  "meta": { "cursor": null, "limit": 25 },
+  "errors": null
+}
+```
+
+##### POST `/appointments`
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "doctorId": "uuid-doctor",
+  "appointmentType": "consultation",
+  "scheduledAt": "2026-04-10T09:00:00+01:00",
+  "scheduledDuration": 30,
+  "reasonForVisit": "Follow-up for hypertension management",
+  "notes": "Patient requested morning slot"
+}
+```
+
+> **Validation:** `doctorId` is required. `scheduledAt` must be a future datetime. `scheduledDuration` defaults to `30` minutes if omitted.
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "patientId": "uuid-patient",
+    "patientName": "Chukwuemeka Obiora",
+    "patientMrn": "CF-2026-00142",
+    "doctorId": "uuid-doctor",
+    "doctorName": "Dr. Taiwo Adeyemi",
+    "appointmentType": "consultation",
+    "status": "scheduled",
+    "scheduledAt": "2026-04-10T09:00:00+01:00",
+    "scheduledDuration": 30,
+    "reasonForVisit": "Follow-up for hypertension management",
+    "notes": "Patient requested morning slot",
+    "createdAt": "2026-04-04T10:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### DELETE `/appointments/:id`
+
+> **Soft delete only.** Sets `status` to `cancelled` and records `cancelledBy` (from JWT). The appointment record is retained for audit. Returns `204 No Content`.
+
+---
+
+#### 19b: Check-In & Status Transitions
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/appointments/:id/status` | receptionist, nurse, doctor, hospital_admin | `UpdateAppointmentStatusUsecase` |
+
+**Status transition rules:**
+
+| From | To | Allowed By |
+|------|----|------------|
+| `scheduled` | `confirmed` | receptionist, doctor |
+| `confirmed` | `checked_in` | receptionist, nurse |
+| `checked_in` | `in_progress` | doctor, nurse |
+| `in_progress` | `completed` | doctor |
+| any (except `completed`) | `cancelled` | receptionist, hospital_admin, cmo |
+| `scheduled` or `confirmed` | `no_show` | receptionist |
+
+##### PATCH `/appointments/:id/status` — Check-In (`checked_in`)
+
+> **Atomic queue creation:** When `status` is `checked_in`, the server atomically (1) updates the appointment status and (2) creates a `QueueEntry` in the appropriate queue based on `appointmentType`:
+> - `consultation` / `follow_up` → triage queue
+> - `lab_only` → lab queue
+> - `emergency` → triage queue with `priority: emergency`
+> - `procedure` → triage queue
+
+**Request Body:**
+```json
+{
+  "status": "checked_in",
+  "chiefComplaint": "Persistent headache and dizziness for 3 days",
+  "priority": "normal"
+}
+```
+
+> `chiefComplaint` and `priority` are optional and forwarded to the created `QueueEntry`. `priority` defaults to `normal`.
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "appointment": {
+      "id": "uuid-appointment",
+      "status": "checked_in"
+    },
+    "queueEntry": {
+      "id": "uuid-queue-entry",
+      "queueType": "triage",
+      "priority": "normal",
+      "queueNumber": 7,
+      "status": "waiting"
+    }
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/appointments/:id/status` — Other transitions
+
+**Request Body:**
+```json
+{ "status": "confirmed" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "status": "confirmed" },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 19c: Doctor Availability
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/appointments/doctor/:doctorId/slots` | receptionist, nurse | `FetchDoctorAvailableSlotsUsecase` |
+| GET | `/appointments/today` | receptionist, nurse, doctor, clinical_lead | `FetchTodayAppointmentsUsecase` |
+
+##### GET `/appointments/doctor/:doctorId/slots`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `date` | string | ISO date (default today) |
+| `duration` | int | Slot duration in minutes (default `30`) |
+| `days` | int | How many days ahead to check (default `1`) |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    { "time": "09:00", "available": true, "appointmentId": null },
+    { "time": "09:30", "available": false, "appointmentId": "uuid-booked-appointment" },
+    { "time": "10:00", "available": true, "appointmentId": null }
+  ],
+  "meta": { "date": "2026-04-10", "doctorId": "uuid-doctor" },
+  "errors": null
+}
+```
+
+##### GET `/appointments/today`
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "patientName": "Chukwuemeka Obiora",
+      "patientMrn": "CF-2026-00142",
+      "doctorName": "Dr. Taiwo Adeyemi",
+      "appointmentType": "consultation",
+      "status": "confirmed",
+      "scheduledAt": "2026-04-04T09:00:00+01:00"
+    }
+  ],
+  "meta": { "date": "2026-04-04", "total": 1 },
+  "errors": null
+}
+```
 
 ---
 
 ### Feature 20: Episodes
 
-**Description:** An Episode groups all clinical and financial activity for a single visit or care episode. Created at check-in and manually transitioned through statuses by clinical staff. Depends on: Patients, Appointments (Tier 2–3).
+**Description:** An Episode groups all clinical and financial activity for a single care episode. Server-generates episode number in `EP-YYYY-NNNNN` format. Multiple open episodes per patient are allowed (soft warning, no hard block). Depends on: Patients, Appointments (Tier 2–3).
 
 #### Data Model
 
 ```typescript
 interface Episode {
   id: string;
-  episodeNumber: string;            // e.g. "EP-2024-0892"
+  episodeNumber: string;              // EP-YYYY-NNNNN, server-generated
   patientId: string;
   patientName: string;
   patientMrn: string;
-  // Status lifecycle: open → closed → locked → archived
-  // open: active visit; closed: visit ended; locked: under audit; archived: long-term storage
   status: 'open' | 'closed' | 'locked' | 'archived';
-  appointmentId?: string;           // Linked appointment if visit originated from booking
+  appointmentId?: string | null;      // nullable UUID FK → Appointment (added via migration)
+  autoCloseOnZeroBalance: boolean;    // default false (added via migration)
+  // If true, server auto-closes when totalBalance = 0 and no pending lab orders or prescriptions
   createdAt: string;
   createdBy: string;
-  completedAt?: string;
+  closedAt?: string;
+  lockedAt?: string;
+  lockedBy?: string;
+  lockReason?: string;
   billIds: string[];
   consultationIds: string[];
   labOrderIds: string[];
   prescriptionIds: string[];
-  claimIds: string[];
-  totalBilled: number;
-  totalPaid: number;
-  totalBalance: number;
-  isLockedForAudit: boolean;
+  totalBilled: number;               // NGN
+  totalPaid: number;                 // NGN
+  totalBalance: number;              // NGN
   notes?: string;
+  updatedAt: string;
 }
 
 interface EpisodeTimelineEvent {
   id: string;
   episodeId: string;
   timestamp: string;
-  eventType: 'created' | 'bill_created' | 'consultation' | 'lab_ordered' | 'lab_results' | 'prescription' | 'follow_up' | 'bill_updated' | 'completed' | 'auto_completed';
+  eventType: 'created' | 'bill_created' | 'consultation' | 'lab_ordered' | 'lab_results' | 'prescription' | 'follow_up' | 'status_changed' | 'locked' | 'unlocked' | 'auto_closed';
   description: string;
   actorName: string;
   actorRole: string;
@@ -1844,19 +2451,293 @@ interface EpisodeTimelineEvent {
 }
 ```
 
-#### Endpoints
+> **Entity changes (migration required):** Add `appointmentId` (nullable UUID FK → Appointment) and `autoCloseOnZeroBalance` (boolean, default false) to the `Episode` entity.
 
-| Method | Path                              | Roles                                                          | Description                                    |
-|--------|-----------------------------------|----------------------------------------------------------------|------------------------------------------------|
-| GET    | `/episodes`                       | doctor, nurse, clinical_lead, hospital_admin, cmo, cashier     | List episodes with filters                     |
-| POST   | `/episodes`                       | receptionist, nurse                                            | Open new episode (on check-in)                 |
-| GET    | `/episodes/:id`                   | any                                                            | Get episode detail                             |
-| PATCH  | `/episodes/:id/status`            | doctor, nurse, clinical_lead, hospital_admin, cmo              | Update episode status                          |
-| PATCH  | `/episodes/:id/diagnosis`         | doctor, clinical_lead                                          | Set provisional/final diagnosis                |
-| POST   | `/episodes/:id/follow-up`         | doctor, clinical_lead                                          | Schedule a follow-up                           |
-| PATCH  | `/episodes/:id/lock`              | hospital_admin, cmo                                            | Lock episode for audit                         |
-| GET    | `/episodes/:id/timeline`          | any                                                            | Get chronological event timeline               |
-| GET    | `/episodes/patient/:patientId`    | doctor, nurse, clinical_lead, hospital_admin, cmo              | List all episodes for a patient                |
+---
+
+#### 20a: Episode Lifecycle
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/episodes` | doctor, nurse, clinical_lead, hospital_admin, cmo, cashier | `FetchAllEpisodesUsecase` |
+| POST | `/episodes` | receptionist, nurse | `CreateEpisodeUsecase` |
+| GET | `/episodes/:id` | any | `FetchEpisodeByIdUsecase` |
+| PATCH | `/episodes/:id/status` | doctor, nurse, clinical_lead, hospital_admin, cmo | `UpdateEpisodeStatusUsecase` |
+
+##### GET `/episodes`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `patientId` | string | Filter by patient |
+| `status` | string | Filter by status (`open`, `closed`, `locked`, `archived`) |
+| `dateFrom` | string | Created date range start |
+| `dateTo` | string | Created date range end |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "episodeNumber": "EP-2026-00089",
+      "patientName": "Chukwuemeka Obiora",
+      "patientMrn": "CF-2026-00142",
+      "status": "open",
+      "totalBilled": 15000,
+      "totalPaid": 10000,
+      "totalBalance": 5000,
+      "createdAt": "2026-04-04T09:00:00Z"
+    }
+  ],
+  "meta": { "cursor": null, "limit": 25 },
+  "errors": null
+}
+```
+
+##### POST `/episodes`
+
+> **Warning — multiple open episodes:** If the patient already has an open episode, the server returns a `200` with a warning flag (not a hard block). Staff must confirm intent.
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "appointmentId": "uuid-appointment",
+  "autoCloseOnZeroBalance": true,
+  "notes": "Walk-in patient, unscheduled visit"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "episodeNumber": "EP-2026-00089",
+    "patientId": "uuid-patient",
+    "patientName": "Chukwuemeka Obiora",
+    "patientMrn": "CF-2026-00142",
+    "status": "open",
+    "appointmentId": "uuid-appointment",
+    "autoCloseOnZeroBalance": true,
+    "notes": "Walk-in patient, unscheduled visit",
+    "totalBilled": 0,
+    "totalPaid": 0,
+    "totalBalance": 0,
+    "createdAt": "2026-04-04T09:00:00Z"
+  },
+  "meta": { "warning": null },
+  "errors": null
+}
+```
+
+**Status transition rules:**
+
+| From | To | Allowed By |
+|------|----|------------|
+| `open` | `closed` | doctor, nurse, clinical_lead |
+| `closed` | `open` | doctor, nurse (reopen) |
+| `closed` | `locked` | hospital_admin, cmo |
+| `locked` | `archived` | cmo |
+
+##### PATCH `/episodes/:id/status`
+
+**Request Body:**
+```json
+{ "status": "closed" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "status": "closed", "closedAt": "2026-04-04T14:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 20b: Diagnosis
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/episodes/:id/diagnosis` | doctor, clinical_lead | `SetEpisodeDiagnosisUsecase` |
+
+##### PATCH `/episodes/:id/diagnosis`
+
+> **Business logic:** Replaces the entire diagnosis list for the episode. `diagnosisType` must be `provisional` or `final`. At most one diagnosis may be `final` per episode; multiple `provisional` are allowed.
+
+**Request Body:**
+```json
+{
+  "diagnoses": [
+    { "medicalCodeId": "uuid-icd10-j069", "diagnosisType": "provisional" },
+    { "medicalCodeId": "uuid-icd10-j1800", "diagnosisType": "final" }
+  ],
+  "clinicalNote": "Patient presents with acute URI. No fever. Likely viral."
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "episodeId": "uuid",
+    "diagnoses": [
+      {
+        "medicalCodeId": "uuid-icd10-j069",
+        "codeValue": "J06.9",
+        "description": "Acute upper respiratory infection, unspecified",
+        "diagnosisType": "provisional"
+      },
+      {
+        "medicalCodeId": "uuid-icd10-j1800",
+        "codeValue": "J18.0",
+        "description": "Bronchopneumonia, unspecified organism",
+        "diagnosisType": "final"
+      }
+    ],
+    "clinicalNote": "Patient presents with acute URI. No fever. Likely viral.",
+    "updatedAt": "2026-04-04T11:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 20c: Follow-Up Scheduling
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/episodes/:id/follow-up` | doctor, clinical_lead | `ScheduleEpisodeFollowUpUsecase` |
+
+##### POST `/episodes/:id/follow-up`
+
+> **Business logic:** Creates a new `Appointment` of type `follow_up` linked to the same patient. The episode is not closed — it remains open until staff manually transitions it.
+
+**Request Body:**
+```json
+{
+  "scheduledAt": "2026-05-03T10:00:00+01:00",
+  "doctorId": "uuid-doctor",
+  "reasonForVisit": "Hypertension follow-up in 4 weeks",
+  "scheduledDuration": 20
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "appointmentId": "uuid-new-appointment",
+    "scheduledAt": "2026-05-03T10:00:00+01:00",
+    "appointmentType": "follow_up",
+    "status": "scheduled"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 20d: Lock & Unlock (Audit Control)
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/episodes/:id/lock` | hospital_admin, cmo | `LockEpisodeUsecase` |
+| PATCH | `/episodes/:id/unlock` | hospital_admin, cmo | `UnlockEpisodeUsecase` |
+
+##### PATCH `/episodes/:id/lock`
+
+> **Constraint:** Episode must be in `closed` status before locking. Locking prevents any further edits to bills, consultations, prescriptions, or lab orders within the episode.
+
+**Request Body:**
+```json
+{ "reason": "Billing audit for NHIA quarterly claim" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "status": "locked",
+    "lockedAt": "2026-04-04T12:00:00Z",
+    "lockedBy": "uuid-cmo-staff",
+    "lockReason": "Billing audit for NHIA quarterly claim"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/episodes/:id/unlock`
+
+**Request Body:**
+```json
+{ "reason": "Audit completed, correcting billing line item" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "status": "closed", "lockedAt": null, "lockedBy": null, "lockReason": null },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 20e: Timeline
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/episodes/:id/timeline` | any | `FetchEpisodeTimelineUsecase` |
+
+##### GET `/episodes/:id/timeline`
+
+> Chronological, unpaginated list of all events within an episode.
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "episodeId": "uuid",
+      "timestamp": "2026-04-04T09:00:00Z",
+      "eventType": "created",
+      "description": "Episode opened at check-in",
+      "actorName": "Ngozi Eze",
+      "actorRole": "receptionist",
+      "linkedEntityId": null,
+      "linkedEntityType": null
+    },
+    {
+      "id": "uuid",
+      "episodeId": "uuid",
+      "timestamp": "2026-04-04T10:30:00Z",
+      "eventType": "consultation",
+      "description": "Consultation started by Dr. Taiwo Adeyemi",
+      "actorName": "Dr. Taiwo Adeyemi",
+      "actorRole": "doctor",
+      "linkedEntityId": "uuid-consultation",
+      "linkedEntityType": "consultation"
+    }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
 
 ---
 
@@ -1866,59 +2747,55 @@ interface EpisodeTimelineEvent {
 
 ### Feature 21: Queue Management
 
-**Description:** Real-time queue management across five queues: triage, doctor_new, doctor_review, lab, pharmacy. Includes priority management, payment clearance checks, and consultation pause/resume. Depends on: Patients, Episodes (Tier 2–3).
+**Description:** Real-time queue management across five queues: `triage`, `doctor_new`, `doctor_review`, `lab`, `pharmacy`. Includes priority management, payment clearance enforcement, pause/resume, and SSE-based real-time streaming. Depends on: Patients, Episodes (Tier 2–3).
 
 **Architecture — Redis/DB Hybrid:**
-- **Redis** holds live queue state (position, current status, assignment, pause state). Updated on every status change. Used for real-time API responses.
-- **DB (`QueueEntry` entity)** is written only on patient entry and exit (2 writes per patient). Used for analytics — wait times, throughput, patient flow reports. Not queried for live queue display.
-- The `QueueEntry` DB record (analytics snapshot) contains: `enteredAt`, `exitedAt`, `totalWaitMinutes`, `exitReason`, `priority`, `paymentStatus`, `assignedTo`. Live fields like `status`, `pauseReason`, `queueNumber` exist only in Redis.
+- **Redis** holds live queue state (position, status, assignment, pause state). Updated on every status change. Used for real-time API responses.
+- **DB (`QueueEntry`)** is written on patient entry and exit (2 writes per patient). Used for analytics — wait times, throughput, patient flow reports.
 
 #### Data Model
 
 ```typescript
-// Live queue entry — served from Redis, not the DB
+// Live queue entry — served from Redis
 interface QueueEntry {
   id: string;
   patientId: string;
   patientName: string;
   patientMrn: string;
+  episodeId?: string;
   queueType: 'triage' | 'doctor_new' | 'doctor_review' | 'lab' | 'pharmacy';
   status: 'waiting' | 'in_progress' | 'paused' | 'completed' | 'cancelled' | 'no_show';
   priority: 'normal' | 'high' | 'emergency';
+  queueNumber: number;
   joinedAt: string;
   calledAt?: string;
   completedAt?: string;
   waitTimeMinutes: number;
   paymentStatus: 'pending' | 'cleared' | 'hmo_verified' | 'emergency_override';
-  paymentClearanceId?: string;
   paymentVerifiedBy?: string;
   paymentVerifiedAt?: string;
-  isReview?: boolean;
-  originalConsultationId?: string;
   pauseReason?: 'waiting_lab_results' | 'personal_urgent_issue' | 'patient_requested' | 'waiting_specialist' | 'other';
   pauseReasonOther?: string;
   pausedAt?: string;
   pausedBy?: string;
-  autoPauseExpiryAt?: string;
   assignedTo?: string;
   assignedToName?: string;
   assignedAt?: string;
   chiefComplaint?: string;
   notes?: string;
-  queueNumber: number;
 }
 
-// Analytics snapshot — written to DB on entry and exit only
+// Analytics snapshot — written to DB on entry and exit
 interface QueueEntrySnapshot {
   id: string;
   patientId: string;
   episodeId?: string;
-  queueType: 'triage' | 'doctor_new' | 'doctor_review' | 'lab' | 'pharmacy';
-  priority: 'normal' | 'high' | 'emergency';
-  paymentStatus: 'pending' | 'cleared' | 'hmo_verified' | 'emergency_override';
+  queueType: string;
+  priority: string;
+  paymentStatus: string;
   enteredAt: string;
   exitedAt?: string;
-  totalWaitMinutes?: number;          // Calculated on exit
+  totalWaitMinutes?: number;
   exitReason?: 'completed' | 'cancelled' | 'no_show' | 'transferred';
   assignedTo?: string;
   chiefComplaint?: string;
@@ -1926,46 +2803,224 @@ interface QueueEntrySnapshot {
 }
 
 interface QueueStats {
+  queueType: string;
   total: number;
   waiting: number;
   inProgress: number;
   paused: number;
-  completed: number;
   averageWaitTime: number;
   longestWaitTime: number;
   emergencyCount: number;
 }
 ```
 
-#### Endpoints
+---
 
-| Method | Path                                    | Roles                                                              | Description                                        |
-|--------|-----------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|
-| GET    | `/queue`                                | nurse, doctor, pharmacist, lab_tech, receptionist, clinical_lead, hospital_admin, cmo | List queue entries with filters |
-| POST   | `/queue`                                | receptionist, nurse                                                | Add patient to a queue                             |
-| GET    | `/queue/:id`                            | any                                                                | Get queue entry detail                             |
-| PATCH  | `/queue/:id/status`                     | nurse, doctor, pharmacist, lab_tech, receptionist                  | Update queue entry status (call, complete, cancel) |
-| PATCH  | `/queue/:id/priority`                   | nurse, doctor, clinical_lead, cmo                                  | Change priority (escalate to emergency)            |
-| PATCH  | `/queue/:id/assign`                     | nurse, doctor, pharmacist, lab_tech                                | Assign to specific staff member                    |
-| PATCH  | `/queue/:id/pause`                      | doctor                                                             | Pause consultation (with reason)                   |
-| PATCH  | `/queue/:id/resume`                     | doctor                                                             | Resume paused consultation                         |
-| PATCH  | `/queue/:id/payment`                    | cashier, receptionist                                              | Verify payment clearance                           |
-| POST   | `/queue/:id/emergency-override`         | cmo, clinical_lead, hospital_admin                                 | Override payment requirement for emergency         |
-| GET    | `/queue/stats`                          | nurse, doctor, clinical_lead, hospital_admin, cmo                  | Real-time queue statistics                         |
-| GET    | `/queue/stats/:queueType`               | any                                                                | Stats for a specific queue                         |
+#### 21a: Queue Operations
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/queue` | nurse, doctor, pharmacist, lab_tech, receptionist, clinical_lead, hospital_admin, cmo | `FetchQueueEntriesUsecase` |
+| POST | `/queue` | receptionist, nurse | `AddPatientToQueueUsecase` |
+| GET | `/queue/:id` | any | `FetchQueueEntryByIdUsecase` |
 
 ##### GET `/queue`
 
 **Query Params:**
 
-| Param         | Type   | Description                                           |
-|---------------|--------|-------------------------------------------------------|
-| `queueType`   | string | Filter by queue type                                  |
-| `status`      | string | Filter by status                                      |
-| `priority`    | string | Filter by priority                                    |
-| `paymentStatus`| string| Filter by payment clearance status                   |
-| `patientId`   | string | Filter by patient                                     |
-| `assignedTo`  | string | Filter by assigned staff                              |
+| Param | Type | Description |
+|-------|------|-------------|
+| `queueType` | string | Filter by queue (`triage`, `doctor_new`, `doctor_review`, `lab`, `pharmacy`) |
+| `status` | string | Filter by status |
+| `priority` | string | Filter by priority |
+| `paymentStatus` | string | Filter by payment clearance status |
+| `patientId` | string | Filter by patient |
+| `assignedTo` | string | Filter by assigned staff |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "patientName": "Chukwuemeka Obiora",
+      "patientMrn": "CF-2026-00142",
+      "queueType": "triage",
+      "status": "waiting",
+      "priority": "normal",
+      "queueNumber": 7,
+      "waitTimeMinutes": 12,
+      "paymentStatus": "cleared",
+      "chiefComplaint": "Fever and body aches for 2 days",
+      "joinedAt": "2026-04-04T09:00:00Z"
+    }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/queue`
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "queueType": "triage",
+  "priority": "normal",
+  "chiefComplaint": "Fever and body aches for 2 days",
+  "notes": "Patient is a known hypertensive"
+}
+```
+
+> `episodeId` and `chiefComplaint` are optional. `priority` defaults to `normal`. For `checked_in` appointments, this endpoint is called automatically (see 19b). Direct manual use is for walk-ins without an appointment.
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "patientId": "uuid-patient",
+    "patientName": "Chukwuemeka Obiora",
+    "patientMrn": "CF-2026-00142",
+    "episodeId": "uuid-episode",
+    "queueType": "triage",
+    "status": "waiting",
+    "priority": "normal",
+    "queueNumber": 8,
+    "paymentStatus": "pending",
+    "chiefComplaint": "Fever and body aches for 2 days",
+    "joinedAt": "2026-04-04T09:05:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 21b: Status & Assignment
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/queue/:id/status` | nurse, doctor, pharmacist, lab_tech, receptionist | `UpdateQueueEntryStatusUsecase` |
+| PATCH | `/queue/:id/assign` | nurse, doctor, pharmacist, lab_tech | `AssignQueueEntryUsecase` |
+| PATCH | `/queue/:id/priority` | nurse, doctor, clinical_lead, cmo | `UpdateQueuePriorityUsecase` |
+
+**Status transition rules:**
+
+| From | To | Notes |
+|------|----|-------|
+| `waiting` | `in_progress` | Payment must be `cleared`, `hmo_verified`, or `emergency_override` |
+| `waiting` | `no_show` | Receptionist or nurse action |
+| `waiting` | `cancelled` | Any authorized role |
+| `in_progress` | `paused` | Doctor only |
+| `in_progress` | `completed` | Role matching queue type |
+| `paused` | `in_progress` | Doctor only |
+
+##### PATCH `/queue/:id/status`
+
+**Request Body:**
+```json
+{ "status": "in_progress" }
+```
+
+> **Payment enforcement:** Server blocks the `waiting → in_progress` transition if `paymentStatus` is `pending`. Returns `422 Unprocessable Entity` with payment error unless `emergency_override` is set.
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "status": "in_progress", "calledAt": "2026-04-04T09:15:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422` — Payment not cleared:**
+```json
+{
+  "data": null,
+  "meta": null,
+  "errors": [{ "field": "paymentStatus", "message": "Payment must be cleared before starting consultation" }]
+}
+```
+
+##### PATCH `/queue/:id/assign`
+
+**Request Body:**
+```json
+{ "staffId": "uuid-doctor" }
+```
+
+##### PATCH `/queue/:id/priority`
+
+**Request Body:**
+```json
+{ "priority": "emergency" }
+```
+
+---
+
+#### 21c: Payment & Emergency Override
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/queue/:id/payment` | cashier, receptionist | `ClearQueuePaymentUsecase` |
+| POST | `/queue/:id/emergency-override` | cmo, clinical_lead, hospital_admin | `EmergencyOverridePaymentUsecase` |
+
+##### PATCH `/queue/:id/payment`
+
+**Request Body:**
+```json
+{
+  "paymentStatus": "hmo_verified",
+  "verifiedBy": "uuid-cashier-staff",
+  "reference": "HMO-VERF-2026-0042"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "paymentStatus": "hmo_verified",
+    "paymentVerifiedBy": "uuid-cashier-staff",
+    "paymentVerifiedAt": "2026-04-04T09:12:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/queue/:id/emergency-override`
+
+**Request Body:**
+```json
+{
+  "reason": "Patient in acute distress, cannot delay for payment",
+  "authorizedBy": "uuid-cmo-staff"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "paymentStatus": "emergency_override" },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 21d: Pause & Resume
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/queue/:id/pause` | doctor | `PauseQueueEntryUsecase` |
+| PATCH | `/queue/:id/resume` | doctor | `ResumeQueueEntryUsecase` |
 
 ##### PATCH `/queue/:id/pause`
 
@@ -1978,31 +3033,135 @@ interface QueueStats {
 }
 ```
 
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "status": "paused",
+    "pauseReason": "waiting_lab_results",
+    "pausedAt": "2026-04-04T10:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/queue/:id/resume`
+
+**Request Body:** _(empty — no body required)_
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "status": "in_progress", "pauseReason": null, "pausedAt": null },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 21e: Statistics
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/queue/stats` | nurse, doctor, clinical_lead, hospital_admin, cmo | `FetchAllQueueStatsUsecase` |
+| GET | `/queue/stats/:queueType` | any | `FetchQueueStatsByTypeUsecase` |
+
+##### GET `/queue/stats`
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "triage": {
+      "queueType": "triage",
+      "total": 15,
+      "waiting": 8,
+      "inProgress": 4,
+      "paused": 1,
+      "averageWaitTime": 18,
+      "longestWaitTime": 45,
+      "emergencyCount": 2
+    },
+    "lab": {
+      "queueType": "lab",
+      "total": 10,
+      "waiting": 6,
+      "inProgress": 3,
+      "paused": 0,
+      "averageWaitTime": 12,
+      "longestWaitTime": 28,
+      "emergencyCount": 0
+    }
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
+#### 21f: Real-Time SSE Stream
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/queue/stream/:queueType` | nurse, doctor, pharmacist, lab_tech, receptionist, clinical_lead, hospital_admin, cmo | `StreamQueueEventsByTypeUsecase` |
+
+##### GET `/queue/stream/:queueType`
+
+> **Protocol:** `text/event-stream` (Server-Sent Events). Auth is role-based (same permissions as `GET /queue`). Redis pub/sub channel: `queue:{queueType}` (e.g. `queue:triage`).
+
+**Path param:** `queueType` — one of `triage`, `doctor_new`, `doctor_review`, `lab`, `pharmacy`
+
+**SSE Events:**
+
+| Event | Trigger |
+|-------|---------|
+| `queue_entry_added` | New patient joined the queue |
+| `queue_status_changed` | Patient status updated (called, completed, cancelled, etc.) |
+| `queue_stats_updated` | Stats snapshot after each change |
+| `payment_cleared` | Payment status changed to `cleared` or `hmo_verified` |
+
+**Sample SSE stream:**
+```
+event: queue_entry_added
+data: {"entryId":"uuid","patientName":"Chukwuemeka Obiora","patientMrn":"CF-2026-00142","queueType":"triage","priority":"normal","queueNumber":8,"timestamp":"2026-04-04T09:05:00Z"}
+
+event: queue_status_changed
+data: {"entryId":"uuid","patientName":"Chukwuemeka Obiora","status":"in_progress","queueType":"triage","timestamp":"2026-04-04T09:15:00Z"}
+
+event: queue_stats_updated
+data: {"queueType":"triage","waiting":7,"inProgress":5,"paused":1,"averageWaitTime":17,"emergencyCount":2,"timestamp":"2026-04-04T09:15:01Z"}
+```
+
 ---
 
 ### Feature 22: Vital Signs
 
-**Description:** Records and retrieves patient vital signs (BP, temperature, pulse, SpO2, weight, height, BMI). Generates alert flags for abnormal values. Depends on: Patients, Queue (Tier 2–4).
+**Description:** Records and retrieves patient vital signs. All fields are required (entity non-nullable). BMI is calculated server-side. Vital records are immutable after creation (no PUT/PATCH/DELETE). Alert flags are generated against WHO/clinical thresholds. Depends on: Patients, Episodes, Queue (Tier 2–4).
 
 #### Data Model
 
 ```typescript
-interface VitalSigns {
+interface PatientVital {
   id: string;
   patientId: string;
-  episodeId?: string;
-  recordedBy: string;
+  episodeId: string;              // required; non-nullable FK → Episode
+  heartRate: number;              // BPM
+  celsiusTemperature: number;     // °C
+  systolicBloodPressure: number;  // mmHg
+  diastolicBloodPressure: number; // mmHg
+  kilogramWeight: number;         // kg
+  centimetreHeight: number;       // cm
+  bmi: number;                    // calculated: weight / (height/100)²
+  respiratoryRate: number;        // breaths/min
+  oxygenSaturation: number;       // % (SpO2)
+  recordedBy: string;             // UUID FK → Staff (auto from JWT, non-nullable — added via migration)
+  recordedByName: string;
+  notes?: string | null;          // added via migration
   recordedAt: string;
-  bloodPressureSystolic: number;    // mmHg
-  bloodPressureDiastolic: number;   // mmHg
-  temperature: number;              // Celsius
-  pulse: number;                    // BPM
-  respiratoryRate: number;          // breaths/min
-  oxygenSaturation: number;         // percentage (SpO2)
-  weight: number;                   // kg
-  height: number;                   // cm
-  bmi: number;                      // calculated server-side
-  notes?: string;
 }
 
 interface VitalAlert {
@@ -2013,45 +3172,85 @@ interface VitalAlert {
 }
 ```
 
-#### Endpoints
+> **Entity changes (migration required):** Add `recordedBy` (UUID FK → Staff, non-nullable, auto from JWT) and `notes` (text, nullable) to the `PatientVital` entity.
+> **Immutability:** No PUT, PATCH, or DELETE endpoints. Corrections require a new vital record.
 
-| Method | Path                            | Roles                                                          | Description                                    |
-|--------|---------------------------------|----------------------------------------------------------------|------------------------------------------------|
-| GET    | `/vitals`                       | nurse, doctor, clinical_lead, cmo, hospital_admin              | List vital sign records with filters           |
-| POST   | `/vitals`                       | nurse                                                          | Record new vital signs for a patient           |
-| GET    | `/vitals/:id`                   | nurse, doctor, clinical_lead, cmo                              | Get vital sign record by ID                    |
-| GET    | `/vitals/patient/:patientId`    | nurse, doctor, clinical_lead, cmo, patient                     | Get all vitals for a patient (chronological)   |
-| GET    | `/vitals/patient/:patientId/latest` | any                                                        | Get the most recent vitals for a patient       |
-| GET    | `/vitals/:id/alerts`            | nurse, doctor                                                  | Get alert flags for a specific vitals record   |
+---
+
+#### 22a: Recording Vitals
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/vitals` | nurse, doctor, clinical_lead, cmo, hospital_admin | `FetchAllVitalsUsecase` |
+| POST | `/vitals` | nurse | `RecordPatientVitalsUsecase` |
+| GET | `/vitals/:id` | nurse, doctor, clinical_lead, cmo | `FetchVitalByIdUsecase` |
+
+##### GET `/vitals`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `episodeId` | string | Filter by episode |
+| `patientId` | string | Filter by patient |
+| `dateFrom` | string | Recorded date range start |
+| `dateTo` | string | Recorded date range end |
+| `recordedBy` | string | Filter by recording nurse |
 
 ##### POST `/vitals`
+
+> **Alert thresholds (WHO/clinical standard):**
+
+| Field | Warning | Critical |
+|-------|---------|---------|
+| `systolicBloodPressure` | ≥ 130 mmHg | ≥ 180 mmHg |
+| `diastolicBloodPressure` | ≥ 80 mmHg | ≥ 120 mmHg |
+| `celsiusTemperature` | ≥ 38.0 °C | ≥ 40.0 °C |
+| `oxygenSaturation` | ≤ 94 % | ≤ 90 % |
+| `heartRate` | < 50 or > 100 BPM | < 40 or > 130 BPM |
+| `respiratoryRate` | < 10 or > 20 breaths/min | < 8 or > 30 breaths/min |
 
 **Request Body:**
 ```json
 {
-  "patientId": "pat-001",
-  "episodeId": "ep-001",
-  "bloodPressureSystolic": 140,
-  "bloodPressureDiastolic": 90,
-  "temperature": 37.8,
-  "pulse": 88,
+  "episodeId": "uuid-episode",
+  "celsiusTemperature": 37.8,
+  "systolicBloodPressure": 140,
+  "diastolicBloodPressure": 90,
+  "heartRate": 88,
   "respiratoryRate": 18,
   "oxygenSaturation": 97,
-  "weight": 72.5,
-  "height": 170,
+  "kilogramWeight": 72.5,
+  "centimetreHeight": 170,
   "notes": "Patient anxious at time of measurement"
 }
 ```
+
+> `recordedBy` is auto-populated from the JWT. All numeric fields are required. `notes` is optional.
 
 **Response `201`:**
 ```json
 {
   "data": {
-    "id": "vit-001",
+    "id": "uuid",
+    "episodeId": "uuid-episode",
+    "heartRate": 88,
+    "celsiusTemperature": 37.8,
+    "systolicBloodPressure": 140,
+    "diastolicBloodPressure": 90,
+    "kilogramWeight": 72.5,
+    "centimetreHeight": 170,
     "bmi": 25.09,
+    "respiratoryRate": 18,
+    "oxygenSaturation": 97,
+    "recordedByName": "Ngozi Eze",
+    "notes": "Patient anxious at time of measurement",
+    "recordedAt": "2026-04-04T09:10:00Z",
     "alerts": [
       {
-        "field": "bloodPressureSystolic",
+        "field": "systolicBloodPressure",
         "value": 140,
         "severity": "warning",
         "message": "Stage 1 Hypertension (≥130 mmHg systolic)"
@@ -2064,6 +3263,82 @@ interface VitalAlert {
 ```
 
 ---
+
+#### 22b: Patient Vitals History
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/vitals/patient/:patientId` | nurse, doctor, clinical_lead, cmo | `FetchVitalsByPatientUsecase` |
+| GET | `/vitals/patient/:patientId/latest` | any | `FetchLatestVitalsByPatientUsecase` |
+
+##### GET `/vitals/patient/:patientId`
+
+> Chronological list of all vital records for a patient (cursor-paginated).
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `episodeId` | string | Filter to a specific episode |
+| `dateFrom` | string | Date range start |
+| `dateTo` | string | Date range end |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "episodeId": "uuid-episode",
+      "celsiusTemperature": 37.8,
+      "systolicBloodPressure": 140,
+      "diastolicBloodPressure": 90,
+      "heartRate": 88,
+      "bmi": 25.09,
+      "oxygenSaturation": 97,
+      "recordedAt": "2026-04-04T09:10:00Z",
+      "recordedByName": "Ngozi Eze"
+    }
+  ],
+  "meta": { "cursor": null, "limit": 25 },
+  "errors": null
+}
+```
+
+##### GET `/vitals/patient/:patientId/latest`
+
+**Response `200`:** Single vitals record (same shape as individual record) representing the most recently recorded entry.
+
+---
+
+#### 22c: Alerts
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/vitals/:id/alerts` | nurse, doctor | `FetchVitalAlertsUsecase` |
+
+##### GET `/vitals/:id/alerts`
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "field": "systolicBloodPressure",
+      "value": 140,
+      "severity": "warning",
+      "message": "Stage 1 Hypertension (≥130 mmHg systolic)"
+    }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
+
+---
+
 
 ## Tier 5 — Clinical Documentation
 
@@ -2093,7 +3368,7 @@ interface Consultation {
   notes?: string;
   bundleDeselections: BundleDeselectionRecord[];
   justifications: JustificationEntry[];
-  status: 'draft' | 'in_progress' | 'finalized';
+  status: 'draft' | 'in_progress' | 'finalized' | 'cancelled' | 'auto_closed';
   versions: ConsultationVersion[];
   currentVersion: number;
   createdAt: string;
@@ -2111,30 +3386,235 @@ interface ConsultationVersion {
 }
 ```
 
-#### Endpoints
+#### 23a: Consultation Lifecycle
 
-| Method | Path                               | Roles                                                       | Description                                      |
-|--------|------------------------------------|-------------------------------------------------------------|--------------------------------------------------|
-| GET    | `/consultations`                   | doctor, clinical_lead, cmo, hospital_admin                  | List consultations with filters                  |
-| POST   | `/consultations`                   | doctor                                                      | Start new consultation (status = draft)          |
-| GET    | `/consultations/:id`               | doctor, nurse, clinical_lead, cmo, pharmacist, lab_tech     | Get full consultation                            |
-| PUT    | `/consultations/:id`               | doctor                                                      | Save/update consultation (draft or in-progress)  |
-| PATCH  | `/consultations/:id/finalize`      | doctor                                                      | Finalize consultation (triggers orders/Rx)       |
-| POST   | `/consultations/:id/amend`         | doctor, clinical_lead                                       | Create an amendment version                      |
-| GET    | `/consultations/:id/versions`      | doctor, clinical_lead, cmo                                  | List all versions for audit trail                |
-| GET    | `/consultations/patient/:patientId`| doctor, clinical_lead, cmo, patient                         | All consultations for a patient                  |
-| GET    | `/consultations/episode/:episodeId`| any                                                         | Consultations within an episode                  |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/consultations` | doctor, clinical_lead, cmo, hospital_admin | `FetchConsultationsUsecase` |
+| POST | `/consultations` | doctor | `CreateConsultationUsecase` |
+| GET | `/consultations/:id` | doctor, nurse, clinical_lead, cmo, pharmacist, lab_tech | `FetchConsultationByIdUsecase` |
+| PUT | `/consultations/:id` | doctor | `UpdateConsultationUsecase` |
+| PATCH | `/consultations/:id/finalize` | doctor | `FinalizeConsultationUsecase` |
+| PATCH | `/consultations/:id/cancel` | doctor, clinical_lead, cmo | `CancelConsultationUsecase` |
+
+##### GET `/consultations`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `status` | string | Filter by status: `draft`, `in_progress`, `finalized`, `cancelled` |
+| `doctorId` | string | Filter by assigned doctor |
+| `patientId` | string | Filter by patient |
+| `episodeId` | string | Filter by episode |
+| `dateFrom` | string | Start date filter (ISO 8601) |
+| `dateTo` | string | End date filter (ISO 8601) |
+
+> Doctor sees own consultations only. `clinical_lead` and `cmo` see all.
+
+##### POST `/consultations`
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "doctorId": "uuid-doctor"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-consultation",
+    "patientId": "uuid-patient",
+    "episodeId": "uuid-episode",
+    "doctorId": "uuid-doctor",
+    "status": "draft",
+    "currentVersion": 1,
+    "createdAt": "2026-04-03T09:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+> Only one active (`draft` or `in_progress`) consultation is allowed per episode at a time.
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "CONSULTATION_ALREADY_ACTIVE", "message": "An active consultation already exists for this episode" }]
+}
+```
+
+##### PUT `/consultations/:id`
+
+**Request Body:**
+```json
+{
+  "chiefComplaint": "Persistent headache for 3 days",
+  "historyOfPresentIllness": "Patient reports throbbing right-sided headache with photophobia...",
+  "physicalExamination": "BP 130/85 mmHg, HR 88 bpm. CNS: alert and oriented...",
+  "selectedDiagnoses": [
+    { "code": "G43.9", "description": "Migraine, unspecified", "isPrimary": true }
+  ],
+  "treatmentPlan": "Sumatriptan 50mg stat, bed rest, review in 72 hrs",
+  "followUpDate": "2026-04-07",
+  "notes": "Patient has prior history of migraines"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-consultation", "status": "in_progress", "updatedAt": "2026-04-03T09:30:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+> Updates are only allowed when status is `draft` or `in_progress`.
+
+##### PATCH `/consultations/:id/finalize`
+
+> Enforces required fields before finalizing: `chiefComplaint`, `historyOfPresentIllness`, `physicalExamination`, at least one `selectedDiagnoses` entry, and `treatmentPlan`. On success: status → `finalized` (read-only); linked prescriptions and lab orders are locked; doctor and nurse are notified.
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-consultation", "status": "finalized", "finalizedAt": "2026-04-03T10:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "CONSULTATION_MISSING_REQUIRED_FIELDS", "message": "chiefComplaint, treatmentPlan, and at least one diagnosis are required to finalize" }]
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "CONSULTATION_ALREADY_FINALIZED", "message": "Consultation has already been finalized" }]
+}
+```
+
+##### PATCH `/consultations/:id/cancel`
+
+**Request Body:**
+```json
+{
+  "reason": "Patient left before consultation was completed"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-consultation", "status": "cancelled", "cancelledAt": "2026-04-03T10:15:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "CONSULTATION_ALREADY_CANCELLED", "message": "Consultation has already been cancelled" }]
+}
+```
+
+#### 23b: Amendment & Versioning
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/consultations/:id/amend` | doctor, clinical_lead, cmo | `AmendConsultationUsecase` |
+| GET | `/consultations/:id/versions` | doctor, clinical_lead, cmo | `FetchConsultationVersionsUsecase` |
 
 ##### POST `/consultations/:id/amend`
+
+> Amendment is instant (no approval step). A full snapshot of the pre-amendment state is stored in the versions array with actor and reason. Allowed only on finalized consultations.
 
 **Request Body:**
 ```json
 {
   "reason": "hmo_rejection_fix",
-  "reasonDetail": "Revised diagnosis code per HMO feedback",
-  "snapshot": { "...ConsultationFormData fields..." }
+  "reasonDetail": "Revised diagnosis code per HMO feedback — changed G43.9 to G43.1",
+  "snapshot": {
+    "chiefComplaint": "Persistent headache for 3 days",
+    "historyOfPresentIllness": "Patient reports throbbing right-sided headache with photophobia...",
+    "physicalExamination": "BP 130/85 mmHg, HR 88 bpm...",
+    "selectedDiagnoses": [
+      { "code": "G43.1", "description": "Migraine with aura", "isPrimary": true }
+    ],
+    "treatmentPlan": "Sumatriptan 50mg stat, bed rest, review in 72 hrs"
+  }
 }
 ```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-consultation",
+    "currentVersion": 2,
+    "versions": [
+      {
+        "version": 2,
+        "amendedAt": "2026-04-04T08:00:00Z",
+        "amendedBy": "uuid-doctor",
+        "amendedByName": "Dr. Emeka Okafor",
+        "reason": "hmo_rejection_fix",
+        "reasonDetail": "Revised diagnosis code per HMO feedback"
+      }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### GET `/consultations/:id/versions`
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "version": 1,
+      "amendedAt": "2026-04-03T10:00:00Z",
+      "amendedBy": "uuid-doctor",
+      "amendedByName": "Dr. Emeka Okafor",
+      "reason": "typo",
+      "reasonDetail": null
+    },
+    {
+      "version": 2,
+      "amendedAt": "2026-04-04T08:00:00Z",
+      "amendedBy": "uuid-doctor",
+      "amendedByName": "Dr. Emeka Okafor",
+      "reason": "hmo_rejection_fix",
+      "reasonDetail": "Revised diagnosis code per HMO feedback"
+    }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 23c: Episode & Patient Views
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/consultations/patient/:patientId` | doctor, clinical_lead, cmo, patient | `FetchPatientConsultationsUsecase` |
+| GET | `/consultations/episode/:episodeId` | any | `FetchEpisodeConsultationsUsecase` |
 
 ---
 
@@ -2152,7 +3632,7 @@ interface LabOrder {
   patientMrn: string;
   doctorId: string;
   doctorName: string;
-  episodeId?: string;
+  episodeId: string;              // Required — lab orders must be linked to an episode
   tests: Array<{
     testCode: string;
     testName: string;
@@ -2165,7 +3645,7 @@ interface LabOrder {
     metadata?: Partial<OrderMetadata>;
   }>;
   status: 'ordered' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';
-  priority: 'routine' | 'urgent' | 'stat';
+  priority: 'routine' | 'urgent' | 'stat';  // affects sample queue ordering
   orderedAt: string;
   collectedAt?: string;
   completedAt?: string;
@@ -2179,20 +3659,123 @@ interface LabOrder {
 }
 ```
 
-#### Endpoints
+#### 24a: Order Lifecycle
 
-| Method | Path                                     | Roles                                                      | Description                                      |
-|--------|------------------------------------------|------------------------------------------------------------|--------------------------------------------------|
-| GET    | `/lab/orders`                            | lab_tech, doctor, nurse, clinical_lead, cmo                | List lab orders with filters                     |
-| POST   | `/lab/orders`                            | doctor                                                     | Place a lab order                                |
-| GET    | `/lab/orders/:id`                        | lab_tech, doctor, nurse, clinical_lead, cmo, patient       | Get lab order detail                             |
-| PATCH  | `/lab/orders/:id/collect`                | lab_tech                                                   | Mark sample as collected                         |
-| PATCH  | `/lab/orders/:id/results`                | lab_tech                                                   | Enter test results                               |
-| PATCH  | `/lab/orders/:id/submit`                 | lab_tech                                                   | Submit completed results to ordering doctor      |
-| PATCH  | `/lab/orders/:id/cancel`                 | doctor, lab_tech, clinical_lead                            | Cancel a lab order                               |
-| GET    | `/lab/orders/sample-queue`               | lab_tech, clinical_lead                                    | Get pending sample collection queue              |
-| GET    | `/lab/orders/patient/:patientId`         | doctor, nurse, clinical_lead, cmo, patient                 | All lab orders for a patient                     |
-| GET    | `/lab/orders/episode/:episodeId`         | any                                                        | Lab orders within an episode                     |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/lab/orders` | lab_tech, doctor, nurse, clinical_lead, cmo | `FetchLabOrdersUsecase` |
+| POST | `/lab/orders` | doctor | `CreateLabOrderUsecase` |
+| GET | `/lab/orders/:id` | lab_tech, doctor, nurse, clinical_lead, cmo, patient | `FetchLabOrderByIdUsecase` |
+| PATCH | `/lab/orders/:id/cancel` | doctor, lab_tech, clinical_lead, cmo | `CancelLabOrderUsecase` |
+
+##### GET `/lab/orders`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `status` | string | Filter by status: `ordered`, `sample_collected`, `processing`, `completed`, `cancelled` |
+| `priority` | string | Filter by priority: `routine`, `urgent`, `stat` |
+| `patientId` | string | Filter by patient |
+| `doctorId` | string | Filter by ordering doctor |
+| `episodeId` | string | Filter by episode |
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+
+##### POST `/lab/orders`
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "doctorId": "uuid-doctor",
+  "priority": "urgent",
+  "tests": [
+    { "testCode": "LAB-FBC-001", "testName": "Full Blood Count" },
+    { "testCode": "LAB-BMP-001", "testName": "Basic Metabolic Panel" }
+  ],
+  "notes": "Suspecting anaemia — check haemoglobin closely"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-lab-order",
+    "patientId": "uuid-patient",
+    "episodeId": "uuid-episode",
+    "priority": "urgent",
+    "status": "ordered",
+    "tests": [
+      { "testCode": "LAB-FBC-001", "testName": "Full Blood Count", "result": null },
+      { "testCode": "LAB-BMP-001", "testName": "Basic Metabolic Panel", "result": null }
+    ],
+    "orderedAt": "2026-04-03T09:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/lab/orders/:id/cancel`
+
+**Request Body:**
+```json
+{
+  "reason": "Duplicate order — already processed"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-lab-order", "status": "cancelled", "cancelledAt": "2026-04-03T09:15:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+> Cancelling a paid lab order automatically credits/refunds the associated billing line item.
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "LAB_ORDER_ALREADY_COMPLETED", "message": "Cannot cancel a completed lab order" }]
+}
+```
+
+#### 24b: Sample Collection & Results
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/lab/orders/:id/collect` | lab_tech | `CollectLabSampleUsecase` |
+| PATCH | `/lab/orders/:id/results` | lab_tech | `EnterLabResultsUsecase` |
+| POST | `/lab/orders/:id/results/upload` | lab_tech | `UploadLabResultImageUsecase` |
+| PATCH | `/lab/orders/:id/submit` | lab_tech | `SubmitLabResultsUsecase` |
+
+##### PATCH `/lab/orders/:id/collect`
+
+**Request Body:**
+```json
+{
+  "collectedBy": "uuid-lab-tech",
+  "collectedAt": "2026-04-03T09:20:00Z",
+  "notes": "Sample collected from right antecubital vein"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-lab-order", "status": "sample_collected", "collectedAt": "2026-04-03T09:20:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
 
 ##### PATCH `/lab/orders/:id/results`
 
@@ -2201,17 +3784,95 @@ interface LabOrder {
 {
   "tests": [
     {
-      "testCode": "lab-001",
+      "testCode": "LAB-FBC-001",
       "result": "8.5",
       "unit": "g/dL",
       "normalRange": "12.0–16.0",
       "isAbnormal": true,
       "techNotes": "Hypochromic microcytic cells observed"
+    },
+    {
+      "testCode": "LAB-BMP-001",
+      "result": "4.1",
+      "unit": "mEq/L",
+      "normalRange": "3.5–5.0",
+      "isAbnormal": false,
+      "techNotes": null
     }
   ],
   "notes": "Centrifuge error on first run, repeated"
 }
 ```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-lab-order", "status": "processing", "updatedAt": "2026-04-03T10:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "SAMPLE_NOT_COLLECTED", "message": "Sample must be collected before results can be entered" }]
+}
+```
+
+##### POST `/lab/orders/:id/results/upload`
+
+> Multipart file upload. Accepted formats: JPEG, PNG, PDF. Server stores file and returns a URL appended to the test's `images` array.
+
+**Request:** `multipart/form-data` — field `file` (binary), field `testCode` (string)
+
+**Response `201`:**
+```json
+{
+  "data": { "testCode": "LAB-FBC-001", "imageUrl": "https://storage.clinicflow.ng/labs/uuid-lab-order/fbc-result.jpg" },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/lab/orders/:id/submit`
+
+> Marks results as complete and notifies the referring doctor. No request body required.
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-lab-order", "status": "completed", "submittedAt": "2026-04-03T10:30:00Z", "isSubmittedToDoctor": true },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "LAB_ORDER_ALREADY_COMPLETED", "message": "Results have already been submitted" }]
+}
+```
+
+#### 24c: Queue & Patient Views
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/lab/orders/sample-queue` | lab_tech, clinical_lead | `FetchSampleQueueUsecase` |
+| GET | `/lab/orders/patient/:patientId` | doctor, nurse, clinical_lead, cmo, patient | `FetchPatientLabOrdersUsecase` |
+| GET | `/lab/orders/episode/:episodeId` | any | `FetchEpisodeLabOrdersUsecase` |
+
+##### GET `/lab/orders/sample-queue`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `priority` | string | Filter by priority (`routine`, `urgent`, `stat`) |
+| `limit` | int | Records per page (default `25`) |
+
+> Returns all orders with status `ordered`, sorted by priority (`stat` first, then `urgent`, then `routine`) and then by `orderedAt` ascending.
 
 ---
 
@@ -2230,51 +3891,247 @@ interface Prescription {
   doctorName: string;
   episodeId?: string;
   visitId: string;
-  items: Array<{
-    drugName: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
-    quantity: number;
-    instructions?: string;
-    metadata?: Partial<OrderMetadata>;
-  }>;
-  status: 'pending' | 'dispensed' | 'partially_dispensed' | 'cancelled';
+  items: PrescriptionItem[];
+  status: 'pending' | 'dispensed' | 'partially_dispensed' | 'unfulfillable' | 'cancelled';
   prescribedAt: string;
   dispensedAt?: string;
   dispensedBy?: string;
   notes?: string;
-  dispensedItems?: DispensedItem[];
+  dispenseHistory: DispenseEvent[];   // Per-batch dispense records
   auditLog?: DispenseAuditEntry[];
 }
 
-interface DispenseRequest {
-  items: Array<{
-    drugName: string;
-    dispensedDrugName?: string;
-    prescribedQuantity: number;
-    dispensedQuantity: number;
-    isSubstituted: boolean;
-    substitutionType?: 'generic' | 'therapeutic';
-    substitutionReason?: string;
-    pharmacistNotes?: string;
-  }>;
+interface PrescriptionItem {
+  drugName: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  quantity: number;
+  dispensedQuantity: number;          // Total dispensed so far (across all batches)
+  instructions?: string;
+  isSubstituted?: boolean;
+  substitutionType?: 'generic' | 'therapeutic';
+  substitutionReason?: string;
+  status: 'pending' | 'partially_dispensed' | 'dispensed' | 'unfulfillable';
+}
+
+interface DispenseEvent {
+  id: string;
+  prescriptionItemId: string;
+  dispensedQuantity: number;
+  reason?: string;                    // Optional per-item partial dispense reason
+  dispensedBy: string;
+  dispensedAt: string;
+  batchNumber: number;                // Increments per dispense event per item
 }
 ```
 
-#### Endpoints
+#### 25a: Prescription Lifecycle
 
-| Method | Path                                   | Roles                                                   | Description                                   |
-|--------|----------------------------------------|---------------------------------------------------------|-----------------------------------------------|
-| GET    | `/prescriptions`                       | pharmacist, doctor, clinical_lead, cmo, hospital_admin  | List prescriptions with filters               |
-| POST   | `/prescriptions`                       | doctor                                                  | Create a new prescription                     |
-| GET    | `/prescriptions/:id`                   | pharmacist, doctor, nurse, clinical_lead, cmo, patient  | Get prescription detail                       |
-| PATCH  | `/prescriptions/:id/dispense`          | pharmacist                                              | Dispense prescription (full or partial)       |
-| PATCH  | `/prescriptions/:id/cancel`            | doctor, pharmacist, clinical_lead                       | Cancel a prescription                         |
-| GET    | `/prescriptions/:id/audit`             | pharmacist, clinical_lead, cmo                          | Get dispense audit trail                      |
-| GET    | `/prescriptions/patient/:patientId`    | pharmacist, doctor, clinical_lead, cmo, patient         | All prescriptions for a patient               |
-| GET    | `/prescriptions/episode/:episodeId`    | any                                                     | Prescriptions within an episode               |
-| GET    | `/prescriptions/pending`               | pharmacist                                              | Pending pharmacy queue                        |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/prescriptions` | pharmacist, doctor, clinical_lead, cmo, hospital_admin | `FetchPrescriptionsUsecase` |
+| POST | `/prescriptions` | doctor | `CreatePrescriptionUsecase` |
+| GET | `/prescriptions/:id` | pharmacist, doctor, nurse, clinical_lead, cmo, patient | `FetchPrescriptionByIdUsecase` |
+| PATCH | `/prescriptions/:id/cancel` | doctor, clinical_lead, cmo | `CancelPrescriptionUsecase` |
+
+##### GET `/prescriptions`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `status` | string | Filter by status: `pending`, `dispensed`, `partially_dispensed`, `cancelled` |
+| `patientId` | string | Filter by patient |
+| `doctorId` | string | Filter by prescribing doctor |
+| `pharmacistId` | string | Filter by dispensing pharmacist |
+| `episodeId` | string | Filter by episode |
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+
+##### POST `/prescriptions`
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "items": [
+    {
+      "drugName": "Amoxicillin",
+      "dosage": "500mg",
+      "frequency": "TDS",
+      "duration": "7 days",
+      "quantity": 21,
+      "instructions": "Take with food"
+    },
+    {
+      "drugName": "Paracetamol",
+      "dosage": "1000mg",
+      "frequency": "QID PRN",
+      "duration": "5 days",
+      "quantity": 20,
+      "instructions": "Take for pain or fever above 38°C"
+    }
+  ],
+  "notes": "Patient allergic to penicillin alternatives — use with caution"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-prescription",
+    "patientId": "uuid-patient",
+    "episodeId": "uuid-episode",
+    "status": "pending",
+    "items": [
+      { "drugName": "Amoxicillin", "quantity": 21, "dispensedQuantity": 0, "status": "pending" },
+      { "drugName": "Paracetamol", "quantity": 20, "dispensedQuantity": 0, "status": "pending" }
+    ],
+    "prescribedAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/prescriptions/:id/cancel`
+
+**Request Body:**
+```json
+{
+  "reason": "Patient discharged before dispensing"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-prescription", "status": "cancelled", "cancelledAt": "2026-04-03T11:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "PRESCRIPTION_ALREADY_DISPENSED", "message": "Cannot cancel a fully dispensed prescription" }]
+}
+```
+
+#### 25b: Dispensing
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/prescriptions/:id/dispense` | pharmacist | `DispensePrescriptionUsecase` |
+| PATCH | `/prescriptions/:id/unfulfillable` | pharmacist | `MarkPrescriptionUnfulfillableUsecase` |
+| GET | `/prescriptions/:id/audit` | pharmacist, clinical_lead, cmo | `FetchPrescriptionAuditUsecase` |
+
+##### POST `/prescriptions/:id/dispense`
+
+> Supports both full and partial dispense. Inventory is auto-deducted on each dispense event. For partial dispense, the item stays `partially_dispensed` until full quantity is reached. Each batch creates a new `DispenseEvent` record. Generic/therapeutic substitution is pharmacist-autonomous — recorded in the audit trail with a substitution reason.
+
+**Request Body (partial dispense):**
+```json
+{
+  "items": [
+    {
+      "drugName": "Amoxicillin",
+      "dispensedQuantity": 14,
+      "reason": "Only 14 capsules in stock — remainder to follow tomorrow",
+      "isSubstituted": false
+    },
+    {
+      "drugName": "Paracetamol",
+      "dispensedDrugName": "Ibuprofen",
+      "dispensedQuantity": 20,
+      "isSubstituted": true,
+      "substitutionType": "therapeutic",
+      "substitutionReason": "Paracetamol out of stock; ibuprofen is therapeutic equivalent"
+    }
+  ]
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid-prescription",
+    "status": "partially_dispensed",
+    "items": [
+      { "drugName": "Amoxicillin", "quantity": 21, "dispensedQuantity": 14, "status": "partially_dispensed" },
+      { "drugName": "Paracetamol", "quantity": 20, "dispensedQuantity": 20, "status": "dispensed", "isSubstituted": true }
+    ],
+    "dispenseHistory": [
+      { "batchNumber": 1, "dispensedAt": "2026-04-03T11:00:00Z", "dispensedBy": "uuid-pharmacist" }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "INSUFFICIENT_STOCK", "message": "Insufficient stock for Amoxicillin — available: 3, requested: 14" }]
+}
+```
+
+**Error `404`:**
+```json
+{
+  "errors": [{ "code": "PRESCRIPTION_ITEM_NOT_FOUND", "message": "No prescription item found for drugName: 'Metformin'" }]
+}
+```
+
+##### PATCH `/prescriptions/:id/unfulfillable`
+
+> Used when the pharmacist determines one or more items cannot be dispensed (out of stock, discontinued, contraindicated). Notifies the prescribing doctor.
+
+**Request Body:**
+```json
+{
+  "items": [
+    { "drugName": "Amoxicillin", "reason": "Discontinued — no stock and no reorder pending" }
+  ]
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-prescription", "status": "unfulfillable", "updatedAt": "2026-04-03T11:30:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 25c: Queue & Patient Views
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/prescriptions/pending` | pharmacist | `FetchPendingPrescriptionsUsecase` |
+| GET | `/prescriptions/patient/:patientId` | pharmacist, doctor, clinical_lead, cmo, patient | `FetchPatientPrescriptionsUsecase` |
+| GET | `/prescriptions/episode/:episodeId` | any | `FetchEpisodePrescriptionsUsecase` |
+
+##### GET `/prescriptions/pending`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `patientId` | string | Filter by patient |
+
+> Returns prescriptions with status `pending` or `partially_dispensed`, paginated and sorted by `prescribedAt` ascending.
 
 ---
 
@@ -2284,7 +4141,7 @@ interface DispenseRequest {
 
 ### Feature 26: Billing & Payments
 
-**Description:** Manages bills (invoices), line-item composition, payment processing (cash, card, POS transfer, HMO, split payments), billing codes, and emergency overrides. Supports both registered patients and walk-in customers. Depends on: Patients, Episodes, Services (Tier 1–5).
+**Description:** Manages bills (invoices), line-item composition, payment processing (cash, card, POS, transfer, HMO, split payments), billing codes, and emergency overrides. Supports both registered patients and walk-in customers. Depends on: Patients, Episodes, Services (Tier 1–5).
 
 #### Data Model
 
@@ -2310,21 +4167,18 @@ interface BillItem {
 interface Bill {
   id: string;
   billNumber: string;
-  // patientId is null when isWalkIn = true
-  patientId?: string;
+  patientId?: string;            // null when isWalkIn = true
   patientName?: string;
   patientMrn?: string;
   visitId?: string;
   episodeId?: string;
   items: BillItem[];
-  // Financial totals — stored on the bill for fast reads and receipt generation
   subtotal: number;
   discount: number;
   tax: number;
   total: number;
   amountPaid: number;
   balance: number;
-  // HMO split totals (set when patient has HMO coverage)
   hmoTotalCoverage?: number;
   patientTotalLiability?: number;
   status: 'pending' | 'partial' | 'paid' | 'waived' | 'refunded';
@@ -2333,7 +4187,6 @@ interface Bill {
   department: 'front_desk' | 'lab' | 'pharmacy' | 'nursing' | 'all';
   notes?: string;
   paidAt?: string;
-  // Walk-in support — bills for unregistered patients
   isWalkIn: boolean;
   walkInCustomerName?: string;   // Required when isWalkIn = true
   walkInPhone?: string;
@@ -2377,7 +4230,7 @@ interface BillingCodeEntry {
 interface EmergencyOverride {
   id: string;
   patientId: string;
-  episodeId?: string;             // Episode this override is linked to
+  episodeId?: string;
   reason: string;
   scope: 'consultation' | 'consultation_emergency' | 'full_visit';
   estimatedAmount: number;
@@ -2385,34 +4238,168 @@ interface EmergencyOverride {
   authorizedByRole: UserRole;
   authorizedAt: string;
   status: 'active' | 'cleared' | 'expired';
-  clearedAt?: string;             // When override was cleared (patient paid)
-  clearedBy?: string;             // Staff who cleared it
+  clearedAt?: string;
+  clearedBy?: string;
 }
 ```
 
-#### Endpoints
+#### 26a: Bills
 
-| Method | Path                              | Roles                                            | Description                                    |
-|--------|-----------------------------------|--------------------------------------------------|------------------------------------------------|
-| GET    | `/bills`                          | cashier, hospital_admin, cmo, clinical_lead       | List bills with filters                        |
-| POST   | `/bills`                          | cashier, nurse, receptionist, doctor, lab_tech    | Create a new bill                              |
-| GET    | `/bills/:id`                      | cashier, hospital_admin, cmo, patient             | Get bill detail                                |
-| PUT    | `/bills/:id`                      | cashier, hospital_admin                           | Update bill items/details                      |
-| PATCH  | `/bills/:id/pay`                  | cashier                                           | Process a payment against the bill             |
-| PATCH  | `/bills/:id/waive`                | cmo, hospital_admin                               | Waive a bill                                   |
-| PATCH  | `/bills/:id/refund`               | cmo, hospital_admin                               | Issue a refund                                 |
-| GET    | `/bills/:id/receipt`              | cashier, patient                                  | Generate/retrieve payment receipt              |
-| GET    | `/bills/patient/:patientId`       | cashier, hospital_admin, cmo, patient             | Bills for a patient                            |
-| GET    | `/bills/episode/:episodeId`       | any                                               | Bills within an episode                        |
-| POST   | `/bills/billing-codes`            | nurse, doctor, pharmacist, lab_tech               | Generate a billing code for dept clearance     |
-| GET    | `/bills/billing-codes/:code`      | cashier                                           | Look up a billing code                         |
-| PATCH  | `/bills/billing-codes/:code/pay`  | cashier                                           | Process payment via billing code               |
-| POST   | `/bills/emergency-overrides`      | cmo, clinical_lead, hospital_admin                | Authorize emergency payment override           |
-| GET    | `/bills/emergency-overrides`      | cashier, hospital_admin, cmo, clinical_lead       | List all emergency overrides                   |
-| GET    | `/bills/emergency-overrides/:id`  | cashier, hospital_admin, cmo, clinical_lead       | Get emergency override detail                  |
-| PATCH  | `/bills/emergency-overrides/:id/clear` | cashier, hospital_admin, cmo               | Clear override after patient pays              |
-| GET    | `/payments`                       | cashier, hospital_admin, cmo                      | List all payment records                       |
-| GET    | `/payments/:id`                   | cashier, hospital_admin, cmo, patient             | Get payment detail                             |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/bills` | cashier, hospital_admin, cmo, clinical_lead | `FetchBillsUsecase` |
+| POST | `/bills` | cashier, nurse, receptionist, doctor, lab_tech | `CreateBillUsecase` |
+| GET | `/bills/:id` | cashier, hospital_admin, cmo, patient | `FetchBillByIdUsecase` |
+| PATCH | `/bills/:id` | cashier, hospital_admin | `UpdateBillUsecase` |
+| PATCH | `/bills/:id/waive` | cmo, hospital_admin | `WaiveBillUsecase` |
+| GET | `/bills/patient/:patientId` | cashier, hospital_admin, cmo, patient | `FetchPatientBillsUsecase` |
+| GET | `/bills/episode/:episodeId` | any | `FetchEpisodeBillsUsecase` |
+
+##### GET `/bills`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `status` | string | Filter by status: `pending`, `partial`, `paid`, `waived`, `refunded` |
+| `patientId` | string | Filter by patient |
+| `episodeId` | string | Filter by episode |
+| `department` | string | Filter by billing department |
+| `isWalkIn` | boolean | Filter walk-in bills |
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+
+##### POST `/bills` — Walk-in customer
+
+**Request Body:**
+```json
+{
+  "isWalkIn": true,
+  "walkInCustomerName": "Tunde Bakare",
+  "walkInPhone": "08033001122",
+  "department": "front_desk",
+  "items": [
+    { "serviceId": "uuid-service-malaria-test", "quantity": 1, "description": "Malaria RDT", "unitPrice": 1500 }
+  ]
+}
+```
+
+##### POST `/bills` — HMO patient
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "department": "lab",
+  "items": [
+    {
+      "serviceId": "uuid-service-fbc",
+      "quantity": 1,
+      "description": "Full Blood Count",
+      "unitPrice": 3000,
+      "isOptedOutOfHMO": false
+    }
+  ]
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-bill",
+    "billNumber": "BILL-2026-00143",
+    "patientId": "uuid-patient",
+    "status": "pending",
+    "subtotal": 3000,
+    "hmoTotalCoverage": 2400,
+    "patientTotalLiability": 600,
+    "total": 3000,
+    "amountPaid": 0,
+    "balance": 600,
+    "items": [
+      {
+        "serviceId": "uuid-service-fbc",
+        "description": "Full Blood Count",
+        "unitPrice": 3000,
+        "hmoStatus": "partial",
+        "hmoCoveredAmount": 2400,
+        "patientLiabilityAmount": 600
+      }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/bills/:id` (edit line items)
+
+> Adding line items to a partially or fully paid bill is allowed. Removing already-paid line items is NOT allowed. All edits are audit-logged.
+
+**Request Body:**
+```json
+{
+  "items": [
+    { "serviceId": "uuid-service-chest-xray", "quantity": 1, "description": "Chest X-Ray (PA)", "unitPrice": 8000 }
+  ]
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-bill", "total": 11000, "balance": 10400, "updatedAt": "2026-04-03T12:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "CANNOT_REMOVE_PAID_LINE_ITEM", "message": "Cannot remove Full Blood Count — this line item has already been paid" }]
+}
+```
+
+##### PATCH `/bills/:id/waive`
+
+**Request Body:**
+```json
+{
+  "reason": "Indigent patient — approved for welfare waiver by CMO"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-bill", "status": "waived", "balance": 0, "waivedAt": "2026-04-03T12:30:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "BILL_ALREADY_PAID", "message": "Cannot waive a fully paid bill" }]
+}
+```
+
+#### 26b: Payments & Receipts
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/bills/:id/pay` | cashier | `ProcessPaymentUsecase` |
+| PATCH | `/bills/:id/refund` | cmo, hospital_admin | `ProcessRefundUsecase` |
+| GET | `/bills/:id/receipt` | cashier, patient | `FetchReceiptUsecase` |
+| GET | `/bills/:id/payments` | cashier, hospital_admin, cmo | `FetchBillPaymentsUsecase` |
+| GET | `/payments` | cashier, hospital_admin, cmo | `FetchAllPaymentsUsecase` |
+| GET | `/payments/:id` | cashier, hospital_admin, cmo, patient | `FetchPaymentByIdUsecase` |
 
 ##### PATCH `/bills/:id/pay`
 
@@ -2422,7 +4409,7 @@ interface EmergencyOverride {
   "paymentMethod": "split",
   "paymentSplits": [
     { "method": "cash", "amount": 5000 },
-    { "method": "transfer", "amount": 10000, "referenceNumber": "TRF-20240615-001", "bank": "058" }
+    { "method": "transfer", "amount": 10000, "referenceNumber": "TRF-20260403-001", "bank": "058" }
   ],
   "notes": "Patient paid in two parts"
 }
@@ -2432,15 +4419,133 @@ interface EmergencyOverride {
 ```json
 {
   "data": {
-    "receiptNumber": "RCP-2024-00892",
-    "billId": "bill-001",
+    "receiptNumber": "RCP-2026-00892",
+    "billId": "uuid-bill",
     "totalPaid": 15000,
     "balance": 0,
     "status": "paid",
-    "receiptUrl": "/receipts/RCP-2024-00892.pdf"
+    "receiptUrl": "/receipts/RCP-2026-00892.pdf"
   },
   "meta": null,
   "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "BILL_ALREADY_PAID", "message": "Bill has already been fully paid" }]
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "INSUFFICIENT_PAYMENT_AMOUNT", "message": "Payment amount 5000 is less than the balance due 8500" }]
+}
+```
+
+##### PATCH `/bills/:id/refund`
+
+**Request Body:**
+```json
+{
+  "amount": 15000,
+  "refundMethod": "transfer",
+  "referenceNumber": "REF-20260403-001",
+  "reason": "Duplicate payment — patient paid twice at two different cashier points"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-bill", "status": "refunded", "refundedAmount": 15000, "refundedAt": "2026-04-03T13:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 26c: Billing Codes
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/bills/billing-codes` | nurse, doctor, pharmacist, lab_tech | `GenerateBillingCodeUsecase` |
+| GET | `/bills/billing-codes/:code` | cashier | `FetchBillingCodeUsecase` |
+| PATCH | `/bills/billing-codes/:code/pay` | cashier | `PayViaBillingCodeUsecase` |
+
+> Billing codes serve two purposes: the clearance code a patient presents to unlock a service, and the invoice reference number. Generated after a service is confirmed and valid until paid or expired.
+
+##### POST `/bills/billing-codes`
+
+**Request Body:**
+```json
+{
+  "billId": "uuid-bill",
+  "department": "lab"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "code": "LAB-2026-009921",
+    "billId": "uuid-bill",
+    "department": "lab",
+    "amount": 3000,
+    "status": "generated",
+    "expiresAt": "2026-04-03T18:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 26d: Emergency Overrides
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/bills/emergency-overrides` | cmo, clinical_lead, hospital_admin | `CreateEmergencyOverrideUsecase` |
+| GET | `/bills/emergency-overrides` | cashier, hospital_admin, cmo, clinical_lead | `FetchEmergencyOverridesUsecase` |
+| GET | `/bills/emergency-overrides/:id` | cashier, hospital_admin, cmo, clinical_lead | `FetchEmergencyOverrideByIdUsecase` |
+| PATCH | `/bills/emergency-overrides/:id/clear` | cashier, hospital_admin, cmo | `ClearEmergencyOverrideUsecase` |
+
+> Emergency overrides are auto-triggered when a patient enters a queue with `priority = emergency`. Any doctor can also request an override, which requires CMO or hospital_admin approval.
+
+##### POST `/bills/emergency-overrides`
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "reason": "Trauma case — patient arrived unconscious, no time for pre-payment",
+  "scope": "full_visit",
+  "estimatedAmount": 75000
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-override",
+    "patientId": "uuid-patient",
+    "scope": "full_visit",
+    "estimatedAmount": 75000,
+    "status": "active",
+    "authorizedAt": "2026-04-03T08:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "OVERRIDE_ALREADY_ACTIVE", "message": "An active emergency override already exists for this patient" }]
 }
 ```
 
@@ -2456,75 +4561,311 @@ interface EmergencyOverride {
 interface ClaimItem {
   id: string;
   claimId: string;
-  billItemId?: string;           // The BillItem this is derived from
+  billItemId?: string;
   description: string;
   category: 'consultation' | 'lab' | 'pharmacy' | 'procedure' | 'admission' | 'other';
   quantity: number;
   unitPrice: number;
   claimedAmount: number;
-  isExcluded: boolean;           // Excluded from this submission (e.g. patient self-pay)
-  clinicalJustification?: string; // Required when isOffProtocol = true
-  isOffProtocol: boolean;        // Service not in HMO's approved protocol
+  isExcluded: boolean;
+  clinicalJustification?: string;  // Required when isOffProtocol = true
+  isOffProtocol: boolean;          // Service not in HMO's approved protocol
   status: 'pending' | 'approved' | 'denied';
   denialReason?: string;
 }
 
-interface ClaimDiagnosis {
-  code: string;                  // ICD-10 code e.g. "B50"
-  description: string;
-  isPrimary: boolean;
-}
-
 interface HMOClaim {
   id: string;
-  claimNumber: string;           // e.g. CLM-2024-00142
+  claimNumber: string;
   patientId: string;
   patientName: string;
   hmoProviderId: string;
   hmoProviderName: string;
-  enrollmentId?: string;         // Patient's HMO enrollment ID (denormalized for HMO submission)
+  enrollmentId?: string;
   policyNumber?: string;
   preAuthCode?: string;
   billIds: string[];
   claimItems: ClaimItem[];
-  diagnoses: ClaimDiagnosis[];   // ICD-10 codes; { code, description, isPrimary }[]
-  claimAmount: number;           // Total amount claimed
-  approvedAmount?: number;       // Amount approved by HMO
+  diagnoses: Array<{ code: string; description: string; isPrimary: boolean }>;
+  claimAmount: number;
+  approvedAmount?: number;
   status: 'draft' | 'submitted' | 'processing' | 'approved' | 'denied' | 'paid' | 'withdrawn' | 'retracted';
   submittedAt?: string;
   processedAt?: string;
   denialReason?: string;
   resubmissionNotes?: string;
   documents: ClaimDocument[];
-  versions: ClaimVersion[];      // Amendment history stored as JSONB
+  versions: ClaimVersion[];
   currentVersion: number;
   createdAt: string;
   createdBy: string;
   withdrawnAt?: string;
   withdrawnReason?: 'patient_self_pay' | 'hospital_cancelled' | 'claim_error' | 'treatment_changed';
   retractionNotes?: string;
-  privateBillId?: string;        // Bill created after retraction (patient pays privately)
-  privatePaymentId?: string;
+  privateBillId?: string;          // Auto-created private bill after retraction
 }
 ```
 
-#### Endpoints
+#### 27a: Claim Lifecycle
 
-| Method | Path                                    | Roles                                    | Description                                        |
-|--------|-----------------------------------------|------------------------------------------|----------------------------------------------------|
-| GET    | `/claims`                               | cashier, hospital_admin, cmo             | List HMO claims with filters                       |
-| POST   | `/claims`                               | cashier, hospital_admin                  | Create a new claim (status = draft)                |
-| GET    | `/claims/:id`                           | cashier, hospital_admin, cmo             | Get full claim detail                              |
-| PUT    | `/claims/:id`                           | cashier, hospital_admin                  | Update claim (draft only)                          |
-| PATCH  | `/claims/:id/submit`                    | cashier, hospital_admin                  | Submit claim to HMO                                |
-| PATCH  | `/claims/:id/status`                    | cashier, hospital_admin, cmo             | Update status (processing → approved/denied)       |
-| PATCH  | `/claims/:id/resubmit`                  | cashier, hospital_admin                  | Resubmit denied claim with notes                   |
-| PATCH  | `/claims/:id/withdraw`                  | cashier, hospital_admin                  | Withdraw a submitted claim                         |
-| PATCH  | `/claims/:id/retract`                   | cashier, hospital_admin, cmo             | Retract approved claim (convert to private bill)   |
-| POST   | `/claims/:id/documents`                 | cashier, hospital_admin                  | Upload supporting document                         |
-| DELETE | `/claims/:id/documents/:docId`          | cashier, hospital_admin                  | Remove a document                                  |
-| GET    | `/claims/:id/versions`                  | cashier, hospital_admin, cmo             | Get version history                                |
-| GET    | `/claims/patient/:patientId`            | cashier, hospital_admin, cmo             | Claims for a specific patient                      |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/claims` | cashier, hospital_admin, cmo | `FetchClaimsUsecase` |
+| POST | `/claims` | cashier, hospital_admin | `CreateClaimUsecase` |
+| GET | `/claims/:id` | cashier, hospital_admin, cmo | `FetchClaimByIdUsecase` |
+| PUT | `/claims/:id` | cashier, hospital_admin | `UpdateClaimUsecase` |
+| GET | `/claims/patient/:patientId` | cashier, hospital_admin, cmo | `FetchPatientClaimsUsecase` |
+
+##### GET `/claims`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `status` | string | Filter by status |
+| `hmoProviderId` | string | Filter by HMO provider |
+| `patientId` | string | Filter by patient |
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+
+##### POST `/claims`
+
+> Claim items are auto-populated from the selected bill IDs. Staff may add manual items or add off-protocol items with clinical justification.
+
+**Request Body:**
+```json
+{
+  "patientId": "uuid-patient",
+  "hmoProviderId": "uuid-hmo-hygeia",
+  "billIds": ["uuid-bill-1", "uuid-bill-2"],
+  "diagnoses": [
+    { "code": "J06.9", "description": "Acute upper respiratory infection", "isPrimary": true }
+  ],
+  "preAuthCode": "HYGEIA-PA-2026-00112"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-claim",
+    "claimNumber": "CLM-2026-00142",
+    "patientId": "uuid-patient",
+    "hmoProviderName": "Hygeia HMO",
+    "status": "draft",
+    "claimAmount": 18500,
+    "claimItems": [
+      { "description": "General Consultation", "claimedAmount": 4500, "isOffProtocol": false },
+      { "description": "Full Blood Count", "claimedAmount": 3000, "isOffProtocol": false }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "BILL_ALREADY_CLAIMED", "message": "Bill BILL-2026-00143 has already been included in another claim" }]
+}
+```
+
+##### PUT `/claims/:id` (add off-protocol item)
+
+**Request Body:**
+```json
+{
+  "claimItems": [
+    {
+      "description": "High-resolution CT Brain",
+      "category": "procedure",
+      "quantity": 1,
+      "unitPrice": 45000,
+      "claimedAmount": 45000,
+      "isOffProtocol": true,
+      "clinicalJustification": "CT required to rule out intracranial bleed following trauma"
+    }
+  ]
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-claim", "claimAmount": 63500, "updatedAt": "2026-04-03T14:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 27b: Submission & Status
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/claims/:id/submit` | cashier, hospital_admin | `SubmitClaimUsecase` |
+| PATCH | `/claims/:id/status` | cashier, hospital_admin, cmo | `UpdateClaimStatusUsecase` |
+| POST | `/claims/:id/resubmit` | cashier, hospital_admin | `ResubmitClaimUsecase` |
+| POST | `/claims/:id/withdraw` | cashier, hospital_admin | `WithdrawClaimUsecase` |
+| POST | `/claims/:id/retract` | cashier, hospital_admin, cmo | `RetractClaimUsecase` |
+
+##### POST `/claims/:id/submit`
+
+> Sends the claim to the HMO for processing. Status transitions to `submitted`. No request body required.
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-claim", "status": "submitted", "submittedAt": "2026-04-03T14:30:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "CLAIM_ALREADY_SUBMITTED", "message": "Claim has already been submitted to the HMO" }]
+}
+```
+
+##### PATCH `/claims/:id/status` (HMO webhook / internal simulation)
+
+**Request Body:**
+```json
+{
+  "status": "approved",
+  "approvedAmount": 61000,
+  "processedAt": "2026-04-05T09:00:00Z",
+  "source": "hmo_webhook"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-claim", "status": "approved", "approvedAmount": 61000, "processedAt": "2026-04-05T09:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/claims/:id/resubmit`
+
+> Adds a new version entry to the claim. Does not create a new claim record.
+
+**Request Body:**
+```json
+{
+  "resubmissionNotes": "Updated diagnosis code from J06.9 to J02.9 per HMO auditor feedback"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-claim", "status": "submitted", "currentVersion": 2, "resubmittedAt": "2026-04-06T09:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/claims/:id/withdraw`
+
+**Request Body:**
+```json
+{
+  "withdrawnReason": "patient_self_pay"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-claim", "status": "withdrawn", "withdrawnAt": "2026-04-03T15:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `409`:**
+```json
+{
+  "errors": [{ "code": "CLAIM_ALREADY_WITHDRAWN", "message": "Claim has already been withdrawn" }]
+}
+```
+
+##### POST `/claims/:id/retract`
+
+> Retracts an approved or processing claim. Automatically creates a private bill for the patient to pay out-of-pocket. The `privateBillId` field on the claim is set to the new bill's ID.
+
+**Request Body:**
+```json
+{
+  "retractionNotes": "HMO declined coverage after approval — patient to self-pay"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid-claim",
+    "status": "retracted",
+    "retractionNotes": "HMO declined coverage after approval — patient to self-pay",
+    "privateBillId": "uuid-new-private-bill",
+    "retractedAt": "2026-04-07T10:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "CLAIM_NOT_RETRACTABLE", "message": "Only claims with status approved or processing can be retracted" }]
+}
+```
+
+#### 27c: Documents & Versions
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/claims/:id/documents` | cashier, hospital_admin | `UploadClaimDocumentUsecase` |
+| DELETE | `/claims/:id/documents/:docId` | cashier, hospital_admin | `DeleteClaimDocumentUsecase` |
+| GET | `/claims/:id/versions` | cashier, hospital_admin, cmo | `FetchClaimVersionsUsecase` |
+
+##### POST `/claims/:id/documents`
+
+> Accepted formats: PDF, JPG, PNG. Max 10 MB per file. No limit on document count per claim.
+
+**Request:** `multipart/form-data` — field `file` (binary), field `documentType` (string, e.g. `"pre_auth"`, `"lab_result"`, `"referral_letter"`)
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-doc",
+    "claimId": "uuid-claim",
+    "documentType": "pre_auth",
+    "fileUrl": "https://storage.clinicflow.ng/claims/uuid-claim/pre_auth.pdf",
+    "uploadedAt": "2026-04-03T15:30:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+**Error `422`:**
+```json
+{
+  "errors": [{ "code": "DOCUMENT_TOO_LARGE", "message": "File exceeds maximum allowed size of 10 MB" }]
+}
+```
 
 ---
 
@@ -2534,7 +4875,7 @@ interface HMOClaim {
 
 ### Feature 28: Cashier Shift Management
 
-**Description:** Tracks cashier shifts — opening balance, transactions, closing balance, and variance reporting. Supports multiple stations (main, lab, pharmacy). Depends on: Auth, Bills, Payments (Tier 0–6).
+**Description:** Tracks cashier shifts — opening balance, transactions, closing balance, and variance reporting. Supports multiple stations (reception, pharmacy, nursing_station, imaging, triage) with single-shift enforcement at lab. Depends on: Auth, Bills, Payments (Tier 0–6).
 
 #### Data Model
 
@@ -2548,11 +4889,10 @@ interface CashierShift {
   startedAt: string;
   endedAt?: string;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  // Balance fields (null for non-cashier shifts)
   openingBalance?: number;
   closingBalance?: number;
-  expectedBalance?: number;
-  variance?: number;
+  expectedBalance?: number;          // Sum of all ShiftTransaction.amount during this shift
+  variance?: number;                 // closingBalance - expectedBalance (negative = shortage)
   notes?: string;
   transactions: ShiftTransaction[];
 }
@@ -2570,16 +4910,58 @@ interface ShiftTransaction {
 }
 ```
 
-#### Endpoints
+#### 28a: Shift Lifecycle
 
-| Method | Path                        | Roles                              | Description                              |
-|--------|-----------------------------|------------------------------------|------------------------------------------|
-| GET    | `/shifts`                   | cashier, hospital_admin, cmo       | List shifts with filters                 |
-| POST   | `/shifts`                   | cashier                            | Open a new shift                         |
-| GET    | `/shifts/:id`               | cashier, hospital_admin, cmo       | Get shift detail with transactions       |
-| PATCH  | `/shifts/:id/close`         | cashier                            | Close shift with closing balance         |
-| GET    | `/shifts/active`            | cashier, hospital_admin            | Get current active shift for caller      |
-| GET    | `/shifts/station/:station`  | cashier, hospital_admin, cmo       | Get shifts by station                    |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/shifts` | cashier, hospital_admin, cmo | `FetchShiftsUsecase` |
+| POST | `/shifts` | cashier | `OpenShiftUsecase` |
+| GET | `/shifts/:id` | cashier, hospital_admin, cmo | `FetchShiftByIdUsecase` |
+| PATCH | `/shifts/:id/close` | cashier | `CloseShiftUsecase` |
+| GET | `/shifts/active` | cashier, hospital_admin | `FetchActiveShiftUsecase` |
+| GET | `/shifts/station/:station` | cashier, hospital_admin, cmo | `FetchShiftsByStationUsecase` |
+
+##### GET `/shifts`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `staffId` | string | Filter by staff member |
+| `station` | string | Filter by station |
+| `status` | string | Filter by status: `in_progress`, `completed`, `cancelled` |
+| `date` | string | Filter by shift date (ISO 8601 date) |
+
+##### POST `/shifts`
+
+> At `lab`, only one shift may be in_progress at a time. All other stations allow multiple concurrent shifts.
+
+**Request Body:**
+```json
+{
+  "station": "reception",
+  "openingBalance": 20000
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-shift",
+    "staffId": "uuid-cashier",
+    "staffName": "Ngozi Adeyemi",
+    "station": "reception",
+    "status": "in_progress",
+    "openingBalance": 20000,
+    "startedAt": "2026-04-03T08:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
 
 ##### PATCH `/shifts/:id/close`
 
@@ -2587,7 +4969,52 @@ interface ShiftTransaction {
 ```json
 {
   "closingBalance": 125000,
-  "notes": "2 transactions were card payments"
+  "notes": "2 transactions were card payments, 1 was a transfer"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid-shift",
+    "status": "completed",
+    "openingBalance": 20000,
+    "closingBalance": 125000,
+    "expectedBalance": 128500,
+    "variance": -3500,
+    "endedAt": "2026-04-03T17:00:00Z",
+    "notes": "Shortage of ₦3,500 — under investigation"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 28b: Balance Reporting
+
+> `expectedBalance` = `openingBalance` + sum of all `ShiftTransaction.amount` recorded during the shift.
+> `variance` = `closingBalance` − `expectedBalance`. Negative = shortage; positive = overage.
+> Transactions recorded when no shift is active are flagged as `unassigned_shift` in the payment record.
+
+##### GET `/shifts/station/:station`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `status` | string | Filter by status (default: `in_progress`) |
+| `date` | string | Filter by date (ISO 8601) |
+
+**Response `200` (multiple active shifts at reception):**
+```json
+{
+  "data": [
+    { "id": "uuid-shift-1", "staffName": "Ngozi Adeyemi", "station": "reception", "status": "in_progress", "openingBalance": 20000 },
+    { "id": "uuid-shift-2", "staffName": "Seun Bello", "station": "reception", "status": "in_progress", "openingBalance": 15000 }
+  ],
+  "meta": { "total": 2 },
+  "errors": null
 }
 ```
 
@@ -2595,7 +5022,7 @@ interface ShiftTransaction {
 
 ### Feature 29: Stock Requests
 
-**Description:** Workflow for requesting inventory restocking from any department to the hospital administrator (or escalated to CMO). Supports partial approval and forwarding. Depends on: Inventory, Users (Tier 1).
+**Description:** Workflow for requesting inventory restocking from any department to the hospital administrator (or escalated to CMO). Supports partial approval and info-request hold. Depends on: Inventory, Users (Tier 1).
 
 #### Data Model
 
@@ -2627,17 +5054,140 @@ interface StockRequest {
 }
 ```
 
-#### Endpoints
+#### 29a: Request Lifecycle
 
-| Method | Path                             | Roles                                                              | Description                               |
-|--------|----------------------------------|--------------------------------------------------------------------|-------------------------------------------|
-| GET    | `/stock-requests`                | pharmacist, lab_tech, hospital_admin, cmo, clinical_lead, nurse    | List stock requests with filters          |
-| POST   | `/stock-requests`                | pharmacist, lab_tech, nurse, clinical_lead                         | Create a new stock request                |
-| GET    | `/stock-requests/:id`            | any                                                                | Get stock request detail                  |
-| PATCH  | `/stock-requests/:id/review`     | hospital_admin, cmo                                                | Approve, partially approve, or reject     |
-| PATCH  | `/stock-requests/:id/forward`    | hospital_admin                                                     | Forward to CMO for escalation             |
-| PATCH  | `/stock-requests/:id/fulfill`    | hospital_admin, cmo                                                | Mark as fulfilled (stock delivered)       |
-| PATCH  | `/stock-requests/:id/info`       | hospital_admin                                                     | Request additional information            |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/stock-requests` | pharmacist, lab_tech, hospital_admin, cmo, clinical_lead, nurse | `FetchStockRequestsUsecase` |
+| POST | `/stock-requests` | pharmacist, lab_tech, nurse, clinical_lead | `CreateStockRequestUsecase` |
+| GET | `/stock-requests/:id` | any | `FetchStockRequestByIdUsecase` |
+
+##### GET `/stock-requests`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `status` | string | Filter by status |
+| `urgency` | string | Filter by urgency: `normal`, `urgent` |
+| `requesterDepartment` | string | Filter by requesting department |
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+
+##### POST `/stock-requests`
+
+**Request Body:**
+```json
+{
+  "urgency": "urgent",
+  "reason": "IV fluid stock critically low — enough for 2 days only",
+  "items": [
+    { "inventoryItemId": "uuid-item-iv-fluid", "itemName": "Normal Saline 500ml", "currentStock": 12, "requestedQuantity": 200 },
+    { "inventoryItemId": "uuid-item-cannula", "itemName": "IV Cannula 18G", "currentStock": 8, "requestedQuantity": 100 }
+  ]
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-stock-request",
+    "urgency": "urgent",
+    "status": "pending",
+    "items": [
+      { "itemName": "Normal Saline 500ml", "requestedQuantity": 200 },
+      { "itemName": "IV Cannula 18G", "requestedQuantity": 100 }
+    ],
+    "createdAt": "2026-04-03T09:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 29b: Review & Fulfillment
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/stock-requests/:id/review` | hospital_admin, cmo | `ReviewStockRequestUsecase` |
+| PATCH | `/stock-requests/:id/forward` | hospital_admin | `ForwardStockRequestToCmoUsecase` |
+| PATCH | `/stock-requests/:id/info` | hospital_admin | `RequestStockInfoUsecase` |
+| PATCH | `/stock-requests/:id/fulfill` | hospital_admin, cmo | `FulfillStockRequestUsecase` |
+
+##### PATCH `/stock-requests/:id/review`
+
+**Request Body (partial approval):**
+```json
+{
+  "decision": "partially_approved",
+  "reviewerNotes": "Approving 100 units of saline — cannulas to follow next week",
+  "items": [
+    { "inventoryItemId": "uuid-item-iv-fluid", "approvedQuantity": 100 },
+    { "inventoryItemId": "uuid-item-cannula", "approvedQuantity": 0 }
+  ]
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "id": "uuid-stock-request",
+    "status": "partially_approved",
+    "reviewedAt": "2026-04-03T10:00:00Z",
+    "reviewedByName": "Admin Bola Adekunle",
+    "items": [
+      { "itemName": "Normal Saline 500ml", "requestedQuantity": 200, "approvedQuantity": 100 },
+      { "itemName": "IV Cannula 18G", "requestedQuantity": 100, "approvedQuantity": 0 }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/stock-requests/:id/forward`
+
+> CMO has authority over high-value or controlled items and acts as fallback when the hospital admin is unavailable.
+
+**Request Body:**
+```json
+{
+  "forwardReason": "Request exceeds purchasing threshold — requires CMO sign-off"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-stock-request", "status": "forwarded_to_cmo", "forwardedAt": "2026-04-03T10:30:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/stock-requests/:id/info`
+
+> Places the request on hold pending further documentation from the requester. Requester updates and re-submits.
+
+**Request Body:**
+```json
+{
+  "clarificationNote": "Please provide the current ward census and consumption rate for the past 7 days"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-stock-request", "status": "info_requested", "updatedAt": "2026-04-03T11:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
 
 ---
 
@@ -2677,7 +5227,7 @@ interface LabReferral {
     isAbnormal?: boolean;
   }>;
   status: 'pending' | 'sent' | 'in_transit' | 'received' | 'processing' | 'results_received' | 'completed' | 'cancelled';
-  trackingNumber?: string;
+  trackingNumber?: string;           // Server-generated on creation
   referredBy: string;
   referredByName: string;
   referredAt: string;
@@ -2691,17 +5241,174 @@ interface LabReferral {
 }
 ```
 
-#### Endpoints
+#### 30a: Outbound Referrals
 
-| Method | Path                                    | Roles                                           | Description                                      |
-|--------|-----------------------------------------|-------------------------------------------------|--------------------------------------------------|
-| GET    | `/lab/referrals`                        | lab_tech, clinical_lead, hospital_admin, cmo    | List all referrals                               |
-| POST   | `/lab/referrals`                        | lab_tech, doctor                                | Create outbound referral                         |
-| GET    | `/lab/referrals/:id`                    | lab_tech, doctor, clinical_lead, cmo            | Get referral detail                              |
-| PATCH  | `/lab/referrals/:id/status`             | lab_tech                                        | Update referral status                           |
-| PATCH  | `/lab/referrals/:id/results`            | lab_tech                                        | Receive and record results from partner lab      |
-| POST   | `/lab/referrals/inbound`                | lab_tech                                        | Register an inbound referral from partner lab    |
-| GET    | `/labs/partners/:id/sync`            | lab_tech, hospital_admin                        | Trigger manual sync with partner lab system      |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/lab/referrals` | lab_tech, clinical_lead, hospital_admin, cmo | `FetchLabReferralsUsecase` |
+| POST | `/lab/referrals` | lab_tech, doctor | `CreateOutboundLabReferralUsecase` |
+| GET | `/lab/referrals/:id` | lab_tech, doctor, clinical_lead, cmo | `FetchLabReferralByIdUsecase` |
+| PATCH | `/lab/referrals/:id/status` | lab_tech | `UpdateLabReferralStatusUsecase` |
+
+##### GET `/lab/referrals`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `direction` | string | Filter by direction: `outbound`, `inbound` |
+| `status` | string | Filter by status |
+| `partnerLabId` | string | Filter by partner lab |
+| `patientId` | string | Filter by patient |
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+
+##### POST `/lab/referrals`
+
+> Outbound referral is created by a doctor or lab tech (when in-house lab lacks capability). The server auto-generates the tracking number.
+
+**Request Body:**
+```json
+{
+  "direction": "outbound",
+  "patientId": "uuid-patient",
+  "episodeId": "uuid-episode",
+  "labOrderId": "uuid-lab-order",
+  "partnerLabId": "uuid-partner-lab-synlab",
+  "priority": "urgent",
+  "tests": [
+    { "testCode": "PCR-TB-001", "testName": "TB PCR (Sputum)" }
+  ],
+  "notes": "In-house PCR machine out of service — urgent referral"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-referral",
+    "direction": "outbound",
+    "trackingNumber": "REF-2026-SYNL-00441",
+    "partnerLabName": "SynLab Nigeria",
+    "status": "pending",
+    "priority": "urgent",
+    "referredAt": "2026-04-03T09:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### PATCH `/lab/referrals/:id/status`
+
+**Request Body:**
+```json
+{
+  "status": "in_transit",
+  "notes": "Sample dispatched via courier — ETA 2 hours"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-referral", "status": "in_transit", "updatedAt": "2026-04-03T10:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 30b: Inbound Referrals
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/lab/referrals/inbound` | lab_tech | `RegisterInboundLabReferralUsecase` |
+
+##### POST `/lab/referrals/inbound`
+
+> Registered when an external patient arrives referred from a partner lab for sample collection or further processing.
+
+**Request Body:**
+```json
+{
+  "direction": "inbound",
+  "patientId": "uuid-patient",
+  "partnerLabId": "uuid-partner-lab-external",
+  "externalReferenceNumber": "EXT-REF-20260403-009",
+  "tests": [
+    { "testCode": "LAB-CULT-001", "testName": "Blood Culture & Sensitivity" }
+  ],
+  "priority": "routine",
+  "notes": "Patient referred from Medlab Diagnostics — sample already collected externally"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid-referral",
+    "direction": "inbound",
+    "trackingNumber": "REF-2026-IN-00029",
+    "status": "received",
+    "externalReferenceNumber": "EXT-REF-20260403-009",
+    "createdAt": "2026-04-03T11:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 30c: Results & Sync
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| PATCH | `/lab/referrals/:id/results` | lab_tech | `EnterLabReferralResultsUsecase` |
+| POST | `/lab/referrals/:id/results/upload` | lab_tech | `UploadLabReferralResultUsecase` |
+| POST | `/lab/referrals/:id/sync` | lab_tech, hospital_admin | `SyncLabReferralUsecase` |
+
+##### PATCH `/lab/referrals/:id/results`
+
+**Request Body:**
+```json
+{
+  "tests": [
+    {
+      "testCode": "PCR-TB-001",
+      "result": "MTB detected — RIF sensitive",
+      "unit": null,
+      "normalRange": "Not detected",
+      "isAbnormal": true
+    }
+  ],
+  "notes": "Results confirmed by partner lab pathologist"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-referral", "status": "results_received", "updatedAt": "2026-04-05T09:00:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/lab/referrals/:id/sync`
+
+> Manually triggers a sync with the partner lab's API to pull updated status or results.
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid-referral", "status": "results_received", "lastSyncAt": "2026-04-05T09:05:00Z" },
+  "meta": null,
+  "errors": null
+}
+```
 
 ---
 
@@ -2711,57 +5418,116 @@ interface LabReferral {
 
 ### Feature 31: Notifications
 
-**Description:** Real-time notification delivery (WebSocket push + persistent read state). Covers patient arrival alerts, result notifications, queue warnings, payment confirmations, and emergency alerts. Depends on: Any event-generating feature.
+**Description:** Real-time notification delivery (WebSocket push + persistent read state). Covers patient arrival alerts, result notifications, queue warnings, payment confirmations, and emergency alerts. Notifications persist for 30 days. Depends on: Any event-generating feature.
 
 #### Data Model
 
 ```typescript
 interface Notification {
   id: string;
-  type: 'patient_arrived' | 'results_ready' | 'prescription_ready' | 'consultation_paused' | 'consultation_autoclosed' | 'payment_received' | 'queue_warning' | 'emergency' | 'info' | 'success' | 'error';
+  type: 'patient_arrived' | 'results_ready' | 'prescription_ready' | 'consultation_paused'
+       | 'consultation_autoclosed' | 'payment_received' | 'queue_warning' | 'emergency'
+       | 'info' | 'success' | 'error';
   title: string;
   message: string;
   timestamp: string;
+  expiresAt: string;              // createdAt + 30 days; auto-purged by background cron
   read: boolean;
-  actionUrl?: string;
+  actionUrl?: string;             // Frontend route path e.g. /patients/123/episodes/456
   actionLabel?: string;
   patientId?: string;
   patientName?: string;
-  recipientId: string;      // User ID of recipient
+  recipientId: string;            // Specific user ID — not broadcast to all of a role
   recipientRole: UserRole;
 }
 ```
 
-#### Endpoints
+#### 31a: REST API
 
-| Method | Path                              | Roles | Description                                     |
-|--------|-----------------------------------|-------|-------------------------------------------------|
-| GET    | `/notifications`                  | any   | Get all notifications for current user          |
-| PATCH  | `/notifications/:id/read`         | any   | Mark a notification as read                     |
-| PATCH  | `/notifications/read-all`         | any   | Mark all notifications as read                  |
-| DELETE | `/notifications/:id`              | any   | Delete a notification                           |
-| GET    | `/notifications/unread-count`     | any   | Get unread notification count                   |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/notifications` | any | `FetchNotificationsUsecase` |
+| PATCH | `/notifications/:id/read` | any | `MarkNotificationReadUsecase` |
+| PATCH | `/notifications/read-all` | any | `MarkAllNotificationsReadUsecase` |
+| DELETE | `/notifications/:id` | any | `DeleteNotificationUsecase` |
+| GET | `/notifications/unread-count` | any | `FetchUnreadNotificationCountUsecase` |
 
-#### WebSocket
+##### GET `/notifications`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `read` | boolean | Filter by read status |
+| `type` | string | Filter by notification type |
+
+> Returns notifications for the authenticated user only, sorted by `timestamp` descending, within the 30-day retention window.
+
+##### GET `/notifications/unread-count`
+
+**Response `200`:**
+```json
+{
+  "data": { "count": 7 },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 31b: WebSocket
 
 ```
 wss://api.clinicflow.ng/ws/notifications?token=<jwt>
 ```
 
-Server pushes `Notification` objects as JSON events on the relevant user channel. The client should reconnect with exponential backoff on disconnect.
+> Server pushes events on the authenticated user's channel. Clients should reconnect with exponential backoff on disconnect.
+
+**WebSocket message format:**
+```json
+{
+  "event": "new_notification",
+  "data": {
+    "id": "uuid-notification",
+    "type": "results_ready",
+    "title": "Lab Results Ready",
+    "message": "FBC results for Chukwuemeka Obiora are ready for review",
+    "actionUrl": "/patients/uuid-patient/lab-orders/uuid-lab-order",
+    "timestamp": "2026-04-03T10:30:00Z",
+    "read": false
+  }
+}
+```
+
+> **Architecture note:** Notifications are written to the database first (persistent store). Real-time delivery is decoupled via Redis pub/sub → WebSocket gateway, so DB write latency does not block push. A background cron job purges notifications where `expiresAt < NOW()` daily.
+
+#### 31c: Trigger & Recipient Reference
+
+| Type | Trigger | Recipient(s) |
+|------|---------|--------------|
+| `patient_arrived` | Appointment checked-in or patient joins queue | Doctor and nurse assigned to queue |
+| `results_ready` | Lab tech submits lab order results | Referring doctor |
+| `prescription_ready` | Pharmacist dispenses (full or partial) | Nurse; patient (if portal enabled) |
+| `consultation_paused` | Doctor manually pauses an active consultation | Nurse, receptionist |
+| `consultation_autoclosed` | Episode auto-closes | Treating doctor, clinical_lead |
+| `payment_received` | Cashier records payment | Cashier station, relevant department head |
+| `queue_warning` | Queue length exceeds configured threshold | Clinical lead, department head |
+| `emergency` | Patient with `priority = emergency` enters any queue | All on-duty clinical staff, cmo |
+| `info` / `success` / `error` | System event (frontend toast mirrored server-side) | The performing user |
 
 ---
 
 ### Feature 32: Audit Logging
 
-**Description:** Immutable audit trail for clinical and administrative actions. Records actor, action, entity, timestamp, and before/after snapshots. Write-only from application; read access restricted to CMO and hospital admin. Depends on: Any feature.
+**Description:** Immutable audit trail for clinical and administrative write actions. Records actor, action, entity, timestamp, and before/after snapshots. Read-only via API (CMO and hospital_admin only). No read actions are logged. Depends on: Any feature.
 
 #### Data Model
 
 ```typescript
 interface AuditEntry {
   id: string;
-  action: AuditAction;
+  action: AuditAction;             // SCREAMING_SNAKE_CASE — see reference table below
   entityType: 'consultation' | 'lab_order' | 'prescription' | 'bundle' | 'bill' | 'claim' | 'patient' | 'user' | 'inventory';
   entityId: string;
   patientId?: string;
@@ -2770,36 +5536,73 @@ interface AuditEntry {
   performedByRole: UserRole;
   timestamp: string;
   ipAddress?: string;
-  details?: Record<string, unknown>;    // Before/after snapshot or action context
+  details?: Record<string, unknown>;   // Before/after snapshot or action context
 }
 ```
 
-#### Endpoints
+#### 32a: Endpoints
 
-| Method | Path               | Roles                    | Description                                     |
-|--------|--------------------|--------------------------|-------------------------------------------------|
-| GET    | `/audit`           | cmo, hospital_admin      | Query audit log with filters                    |
-| GET    | `/audit/:id`       | cmo, hospital_admin      | Get single audit entry                          |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/audit` | cmo, hospital_admin | `FetchAuditLogUsecase` |
+| GET | `/audit/:id` | cmo, hospital_admin | `FetchAuditEntryByIdUsecase` |
 
 ##### GET `/audit`
 
 **Query Params:**
 
-| Param        | Type   | Description                                       |
-|--------------|--------|---------------------------------------------------|
-| `entityType` | string | Filter by entity type                             |
-| `entityId`   | string | Filter by entity ID                               |
-| `patientId`  | string | Filter by patient                                 |
-| `performedBy`| string | Filter by actor                                   |
-| `action`     | string | Filter by action                                  |
-| `dateFrom`   | string | Start of date range (ISO 8601)                   |
-| `dateTo`     | string | End of date range (ISO 8601)                     |
+| Param | Type | Description |
+|-------|------|-------------|
+| `cursor` | string | Cursor for next page |
+| `limit` | int | Records per page (default `25`) |
+| `entityType` | string | Filter by entity type |
+| `entityId` | string | Filter by entity ID |
+| `patientId` | string | Filter by patient |
+| `performedBy` | string | Filter by actor user ID |
+| `action` | string | Filter by action constant |
+| `dateFrom` | string | Start of date range (ISO 8601) |
+| `dateTo` | string | End of date range (ISO 8601) |
+
+**Response `200` (single entry example):**
+```json
+{
+  "data": [
+    {
+      "id": "uuid-audit",
+      "action": "CONSULTATION_FINALIZED",
+      "entityType": "consultation",
+      "entityId": "uuid-consultation",
+      "patientId": "uuid-patient",
+      "performedByName": "Dr. Emeka Okafor",
+      "performedByRole": "doctor",
+      "timestamp": "2026-04-03T10:00:00Z",
+      "details": { "status_before": "in_progress", "status_after": "finalized" }
+    }
+  ],
+  "meta": { "cursor": "...", "hasMore": false },
+  "errors": null
+}
+```
+
+#### 32b: Audited Action Reference
+
+| Entity | Actions |
+|--------|---------|
+| `consultation` | `CONSULTATION_CREATED`, `CONSULTATION_UPDATED`, `CONSULTATION_FINALIZED`, `CONSULTATION_AMENDED`, `CONSULTATION_CANCELLED`, `CONSULTATION_AUTOCLOSED` |
+| `lab_order` | `LAB_ORDER_CREATED`, `LAB_ORDER_SAMPLE_COLLECTED`, `LAB_ORDER_RESULTS_ENTERED`, `LAB_ORDER_SUBMITTED`, `LAB_ORDER_CANCELLED` |
+| `prescription` | `PRESCRIPTION_CREATED`, `PRESCRIPTION_DISPENSED`, `PRESCRIPTION_PARTIALLY_DISPENSED`, `PRESCRIPTION_UNFULFILLABLE_FLAGGED`, `PRESCRIPTION_CANCELLED`, `PRESCRIPTION_SUBSTITUTED` |
+| `bill` | `BILL_CREATED`, `BILL_UPDATED`, `BILL_PAID`, `BILL_PARTIALLY_PAID`, `BILL_WAIVED`, `BILL_REFUNDED` |
+| `claim` | `CLAIM_CREATED`, `CLAIM_UPDATED`, `CLAIM_SUBMITTED`, `CLAIM_STATUS_UPDATED`, `CLAIM_RESUBMITTED`, `CLAIM_WITHDRAWN`, `CLAIM_RETRACTED`, `CLAIM_DOCUMENT_UPLOADED` |
+| `patient` | `PATIENT_CREATED`, `PATIENT_UPDATED`, `PATIENT_STATUS_CHANGED`, `PATIENT_HMO_ENROLLED` |
+| `user` | `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_ROLE_CHANGED`, `USER_PERMISSION_GRANTED`, `USER_PERMISSION_REVOKED` |
+| `inventory` | `INVENTORY_CREATED`, `INVENTORY_ADJUSTED`, `INVENTORY_STOCK_DEPLETED` |
+| `bundle` | `BUNDLE_CREATED`, `BUNDLE_UPDATED`, `BUNDLE_STATUS_CHANGED` |
 
 ---
 
 ### Feature 33: Reports & Analytics
 
-**Description:** Aggregated reporting for executive, clinical, billing, pharmacy, lab, nursing, radiology, and surgery dashboards. Reports may be paginated or returned as an embeddable URL for BI tools. Depends on: All features.
+**Description:** Aggregated reporting for executive, clinical, billing, pharmacy, lab, nursing, radiology, and surgery dashboards. Role-gated access. Supports PDF/CSV export and BI embed URLs. Depends on: All features.
 
 #### Data Model
 
@@ -2810,6 +5613,10 @@ interface ReportSummary {
     outstandingPayments: number;
     claimsPending: number;
     collectionRate: number;
+    revenueByDepartment: Record<string, number>;
+    hmoVsCashRatio: { hmo: number; cash: number };
+    claimsAgingBuckets: { '0_30': number; '31_60': number; 'over_60': number };
+    top10ServicesByRevenue: Array<{ serviceName: string; revenue: number }>;
   };
   operational: {
     totalPatientsToday: number;
@@ -2832,39 +5639,113 @@ interface ReportSummary {
 }
 ```
 
-#### Endpoints
+#### 33a: Role-Gated Dashboards
 
-| Method | Path                              | Roles                                    | Description                                           |
-|--------|-----------------------------------|------------------------------------------|-------------------------------------------------------|
-| GET    | `/reports/summary`                | cmo, hospital_admin, clinical_lead       | Overall dashboard summary                             |
-| GET    | `/reports/financial`              | cmo, hospital_admin                      | Revenue, collection rate, outstanding bills           |
-| GET    | `/reports/executive`              | cmo                                      | Executive KPIs (board-level view)                     |
-| GET    | `/reports/claims`                 | cashier, hospital_admin, cmo             | HMO claims report (submission/approval/denial rates)  |
-| GET    | `/reports/consultation`           | doctor, clinical_lead, cmo               | Consultation volumes, diagnoses frequency             |
-| GET    | `/reports/laboratory`             | lab_tech, clinical_lead, cmo             | Lab test volumes, turnaround times, abnormal rates    |
-| GET    | `/reports/pharmacy`               | pharmacist, clinical_lead, cmo           | Dispensing volumes, stock consumption                 |
-| GET    | `/reports/nursing`                | nurse, clinical_lead, cmo                | Triage throughput, vital sign trends                  |
-| GET    | `/reports/radiology`              | clinical_lead, cmo                       | Radiology scan volumes                                |
-| GET    | `/reports/surgery`                | clinical_lead, cmo                       | Surgical procedure volumes                            |
-| GET    | `/reports/embed/:dashboardType`   | cmo, hospital_admin, clinical_lead       | Return embed URL for BI dashboard                     |
-| GET    | `/reports/alerts`                 | cmo, hospital_admin, clinical_lead       | Active report alerts (red/amber/green flags)          |
+> **Role access:** CMO and `hospital_admin` see all dashboards. `clinical_lead` sees clinical, lab, and pharmacy. `cashier` sees billing and financial. `lab_tech` sees lab dashboard only.
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/reports/summary` | cmo, hospital_admin, clinical_lead | `FetchReportSummaryUsecase` |
+| GET | `/reports/financial` | cmo, hospital_admin, cashier | `FetchFinancialReportUsecase` |
+| GET | `/reports/executive` | cmo, hospital_admin | `FetchExecutiveReportUsecase` |
+| GET | `/reports/claims` | cmo, hospital_admin, clinical_lead | `FetchClaimsReportUsecase` |
+| GET | `/reports/consultations` | cmo, hospital_admin, clinical_lead, doctor | `FetchConsultationReportUsecase` |
+| GET | `/reports/laboratory` | cmo, hospital_admin, clinical_lead, lab_tech | `FetchLaboratoryReportUsecase` |
+| GET | `/reports/pharmacy` | cmo, hospital_admin, clinical_lead, pharmacist | `FetchPharmacyReportUsecase` |
+| GET | `/reports/nursing` | cmo, hospital_admin, clinical_lead, nurse | `FetchNursingReportUsecase` |
+| GET | `/reports/radiology` | cmo, hospital_admin | `FetchRadiologyReportUsecase` |
+| GET | `/reports/surgery` | cmo, hospital_admin, clinical_lead | `FetchSurgeryReportUsecase` |
 
 ##### GET `/reports/financial`
 
 **Query Params:**
 
-| Param       | Type   | Description                            |
-|-------------|--------|----------------------------------------|
-| `dateFrom`  | string | Start date (ISO 8601)                  |
-| `dateTo`    | string | End date (ISO 8601)                    |
-| `period`    | string | `day`, `week`, `month`, `year`         |
-| `department`| string | Filter by billing department           |
+| Param | Type | Description |
+|-------|------|-------------|
+| `dateFrom` | string | Start date (ISO 8601) |
+| `dateTo` | string | End date (ISO 8601) |
+| `period` | string | Aggregation period: `day`, `week`, `month`, `year` |
+| `department` | string | Filter by billing department |
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "totalRevenue": 4820000,
+    "outstandingPayments": 350000,
+    "claimsPending": 12,
+    "collectionRate": 0.87,
+    "revenueByDepartment": {
+      "lab": 980000,
+      "pharmacy": 1200000,
+      "front_desk": 2640000
+    },
+    "hmoVsCashRatio": { "hmo": 0.42, "cash": 0.58 },
+    "claimsAgingBuckets": { "0_30": 8, "31_60": 3, "over_60": 1 },
+    "top10ServicesByRevenue": [
+      { "serviceName": "General Consultation", "revenue": 620000 },
+      { "serviceName": "Full Blood Count", "revenue": 310000 }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 33b: Exports & Alerts
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/reports/alerts` | cmo, hospital_admin, clinical_lead | `FetchReportAlertsUsecase` |
+
+##### GET `/reports/alerts`
+
+**Response `200`:**
+```json
+{
+  "data": [
+    { "type": "low_stock", "severity": "red", "message": "Normal Saline 500ml — 12 units remaining", "resourceId": "uuid-inventory-item" },
+    { "type": "overdue_claim", "severity": "amber", "message": "3 claims pending over 30 days", "resourceId": null },
+    { "type": "long_queue_wait", "severity": "amber", "message": "Lab queue average wait time: 47 minutes", "resourceId": null }
+  ],
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 33c: BI Embed URL
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/reports/embed-url` | cmo, hospital_admin | `FetchEmbedUrlUsecase` |
+
+##### GET `/reports/embed-url`
+
+**Query Params:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `dashboard` | string | Dashboard type: `financial`, `clinical`, `operations` |
+| `dateFrom` | string | Start date for dashboard filter |
+| `dateTo` | string | End date for dashboard filter |
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "embedUrl": "https://metabase.clinicflow.ng/embed/dashboard/abc123?token=eyJhbGci...",
+    "expiresAt": "2026-04-03T16:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
 
 ---
 
 ### Feature 34: Permissions Management
 
-**Description:** Runtime permission toggle system. Allows CMO to grant cross-role access (e.g., `hospital_admin` gets clinical access, `clinical_lead` gets financial access). These toggles augment the base RBAC defined in the role matrix. Depends on: Auth, Users (Tier 0–1).
+**Description:** Full RBAC permission management. CMO sets role-level defaults; authorized users can grant or revoke specific permissions for individual users. Effective permissions = role defaults merged with user-level overrides (user override wins). Maintains two legacy toggles for backward compatibility. Depends on: Auth, Users (Tier 0–1).
 
 #### Data Model
 
@@ -2874,10 +5755,30 @@ interface PermissionToggles {
   clinicalLeadFinancialAccess: boolean;   // clinical_lead can view financial_reports + revenue_data
 }
 
-interface RolePermissions {
+interface RolePermission {
   role: UserRole;
   resources: ResourceType[];
-  effectiveResources: ResourceType[];     // base + active toggles applied
+  updatedBy: string;
+  updatedAt: string;
+}
+
+interface UserPermission {
+  id: string;
+  userId: string;
+  resourceType: ResourceType;
+  action: 'view' | 'create' | 'edit' | 'delete';
+  granted: boolean;                       // true = explicit grant; false = explicit revocation
+  grantedBy: string;
+  grantedAt: string;
+}
+
+interface EffectivePermissions {
+  userId: string;
+  role: UserRole;
+  roleResources: ResourceType[];          // From role defaults
+  userGrants: ResourceType[];             // Explicitly granted to this user
+  userRevocations: ResourceType[];        // Explicitly revoked from this user
+  effectiveResources: ResourceType[];     // Final merged result (user override wins)
 }
 
 type ResourceType =
@@ -2886,14 +5787,141 @@ type ResourceType =
   | 'prescriptions' | 'appointments' | 'queue_management' | 'system_settings';
 ```
 
-#### Endpoints
+#### 34a: Role Permissions
 
-| Method | Path                              | Roles | Description                                         |
-|--------|-----------------------------------|-------|-----------------------------------------------------|
-| GET    | `/permissions/toggles`            | cmo   | Get current permission toggle state                 |
-| PATCH  | `/permissions/toggles`            | cmo   | Update permission toggles                           |
-| GET    | `/permissions/roles`              | cmo   | Get effective permissions for all roles             |
-| GET    | `/permissions/roles/:role`        | cmo   | Get effective permissions for a specific role       |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/permissions/roles` | cmo | `FetchRolePermissionsUsecase` |
+| GET | `/permissions/roles/:role` | cmo | `FetchRolePermissionByRoleUsecase` |
+| PUT | `/permissions/roles/:role` | cmo | `UpdateRolePermissionsUsecase` |
+
+##### PUT `/permissions/roles/:role`
+
+**Request Body:**
+```json
+{
+  "resources": ["clinical_records", "patient_emr", "lab_results", "prescriptions", "appointments"]
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "role": "nurse",
+    "resources": ["clinical_records", "patient_emr", "lab_results", "prescriptions", "appointments"],
+    "updatedBy": "uuid-cmo",
+    "updatedAt": "2026-04-03T09:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 34b: User Permissions
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/permissions/users/:userId` | cmo, hospital_admin | `FetchUserPermissionsUsecase` |
+| POST | `/permissions/users/:userId/grant` | cmo, hospital_admin | `GrantUserPermissionUsecase` |
+| DELETE | `/permissions/users/:userId/revoke` | cmo, hospital_admin | `RevokeUserPermissionUsecase` |
+
+##### GET `/permissions/users/:userId`
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "userId": "uuid-user",
+    "grants": [
+      { "resourceType": "financial_reports", "action": "view", "grantedBy": "uuid-cmo", "grantedAt": "2026-04-01T09:00:00Z" }
+    ],
+    "revocations": [
+      { "resourceType": "staff_management", "action": "edit", "grantedBy": "uuid-cmo", "grantedAt": "2026-04-01T09:00:00Z" }
+    ]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### POST `/permissions/users/:userId/grant`
+
+**Request Body:**
+```json
+{
+  "resourceType": "financial_reports",
+  "action": "view"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "userId": "uuid-user",
+    "resourceType": "financial_reports",
+    "action": "view",
+    "granted": true,
+    "grantedBy": "uuid-cmo",
+    "grantedAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+##### DELETE `/permissions/users/:userId/revoke`
+
+**Request Body:**
+```json
+{
+  "resourceType": "staff_management",
+  "action": "edit"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "userId": "uuid-user", "resourceType": "staff_management", "action": "edit", "granted": false },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 34c: Effective Permissions
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/permissions/users/:userId/effective` | cmo, hospital_admin | `FetchEffectivePermissionsUsecase` |
+
+##### GET `/permissions/users/:userId/effective`
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "userId": "uuid-user",
+    "role": "clinical_lead",
+    "roleResources": ["clinical_records", "patient_emr", "lab_results", "prescriptions"],
+    "userGrants": ["financial_reports"],
+    "userRevocations": ["staff_management"],
+    "effectiveResources": ["clinical_records", "patient_emr", "lab_results", "prescriptions", "financial_reports"]
+  },
+  "meta": null,
+  "errors": null
+}
+```
+
+#### 34d: Legacy Toggles
+
+> Kept for backward compatibility. Internally maps to role permission updates.
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/permissions/toggles` | cmo | `FetchPermissionTogglesUsecase` |
+| PATCH | `/permissions/toggles` | cmo | `UpdatePermissionTogglesUsecase` |
 
 ##### PATCH `/permissions/toggles`
 
