@@ -4,7 +4,7 @@ import { HmoProvider } from './hmoProvider.entity';
 import { MedicalService } from './medicalService.entity';
 import { BillItem } from './billItem.entity';
 
-export enum HMOCoverageTypeEnum {
+export enum HMOContractCoverageTypeEnum {
   FULL = 'full',
   PARTIAL_PERCENT = 'partial_percent',
   PARTIAL_FLAT = 'partial_flat',
@@ -13,8 +13,8 @@ export enum HMOCoverageTypeEnum {
 
 @Entity()
 export class HmoContract extends BaseEntity {
-  @Column({ type: 'enum', enum: HMOCoverageTypeEnum })
-  coverageType: HMOCoverageTypeEnum;
+  @Column({ type: 'enum', enum: HMOContractCoverageTypeEnum })
+  coverageType: HMOContractCoverageTypeEnum;
 
   @Column({ type: 'uuid' })
   hmoProviderId: string;

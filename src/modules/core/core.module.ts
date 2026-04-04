@@ -64,6 +64,7 @@ import { State } from './entities/state.entity';
 import { Supplier } from './entities/supplier.entity';
 import { SystemConfig } from './entities/systemConfig.entity';
 import { TestCatalog } from './entities/testCatalog.entity';
+import { StockAdjustment } from './entities/stockAdjustment.entity';
 import { EventLogService } from '@modules/auth/services/eventLog.service';
 
 @Global()
@@ -131,6 +132,7 @@ import { EventLogService } from '@modules/auth/services/eventLog.service';
       Supplier,
       SystemConfig,
       TestCatalog,
+      StockAdjustment,
     ]),
   ],
   providers: [Broker, RequestContextService, ApplicationUtility, EventLogService],

@@ -61,7 +61,7 @@ export class MedicalService extends BaseEntity {
   @Column({
     type: 'enum',
     enum: MedicalServiceStatusEnum,
-    default: MedicalServiceStatusEnum.APPROVED,
+    default: MedicalServiceStatusEnum.PENDING,
   })
   status: MedicalServiceStatusEnum;
 

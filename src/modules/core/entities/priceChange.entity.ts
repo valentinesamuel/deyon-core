@@ -22,7 +22,10 @@ export class PriceChange extends BaseEntity {
   description: string;
 
   @Column({ type: 'numeric', precision: 10, scale: 2 })
-  standardPrice: number;
+  requestedPrice: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2 })
+  currentPrice: number;
 
   @Column({ type: 'uuid' })
   requestedBy: string;

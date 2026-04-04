@@ -23,6 +23,18 @@ import { PatModule } from '@modules/pat/pat.module';
 import { CacheModule } from '@adapters/cache/cache.module';
 import { QueryEngineModule } from '@shared/queryEngine';
 import { HmoModule } from '@modules/hmo/hmo.module';
+import { LabCatalogModule } from '@modules/labCatalog/labCatalog.module';
+import { ProtocolsModule } from '@modules/protocols/protocols.module';
+import { CodingStandardModule } from '@modules/codingStandard/codingStandard.module';
+import { InventoryCategoryModule } from '@modules/inventoryCategory/inventoryCategory.module';
+import { PartnerLabModule } from '@modules/partnerLab/partnerLab.module';
+import { ShiftScheduleModule } from '@modules/shiftSchedule/shiftSchedule.module';
+import { DepartmentModule } from '@modules/department/department.module';
+import { MedicalServiceCategoryModule } from '@modules/medicalServiceCategory/medicalServiceCategory.module';
+import { SupplierModule } from '@modules/supplier/supplier.module';
+import { MedicalServiceModule } from '@modules/medicalService/medicalService.module';
+import { ServiceCodeCatalogModule } from '@modules/serviceCodeCatalog/serviceCodeCatalog.module';
+import { InventoryModule } from '@modules/inventory/inventory.module';
 import * as winston from 'winston';
 import { utilities as nestWinstonModuleUtilities, WinstonModule } from 'nest-winston';
 import { TerminusModule } from '@nestjs/terminus';
@@ -78,6 +90,18 @@ import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interce
     PatModule,
     StaffModule,
     HmoModule,
+    LabCatalogModule,
+    ProtocolsModule,
+    CodingStandardModule,
+    InventoryCategoryModule,
+    PartnerLabModule,
+    ShiftScheduleModule,
+    DepartmentModule,
+    MedicalServiceCategoryModule,
+    SupplierModule,
+    MedicalServiceModule,
+    ServiceCodeCatalogModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [

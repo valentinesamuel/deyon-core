@@ -14,36 +14,44 @@
    - [Feature 2: Reference / Static Data](#feature-2-reference--static-data)
 3. [Tier 1 — Configuration Layer](#tier-1--configuration-layer)
    - [Feature 3: User & Staff Management](#feature-3-user--staff-management)
-   - [Feature 4: HMO Provider Management](#feature-4-hmo-provider-management)
-   - [Feature 5: Service Pricing & Catalog](#feature-5-service-pricing--catalog)
-   - [Feature 6: Lab Test Catalog](#feature-6-lab-test-catalog)
-   - [Feature 7: Inventory Management](#feature-7-inventory-management)
-   - [Feature 8: Protocol Bundles & Clinical Rules](#feature-8-protocol-bundles--clinical-rules)
+   - [Feature 4: Department Management](#feature-4-department-management)
+   - [Feature 5: Medical Service Categories](#feature-5-medical-service-categories)
+   - [Feature 6: Medical Coding Standards & Codes](#feature-6-medical-coding-standards--codes)
+   - [Feature 7: Suppliers](#feature-7-suppliers)
+   - [Feature 8: Inventory Categories](#feature-8-inventory-categories)
+   - [Feature 9: Partner Labs](#feature-9-partner-labs)
+   - [Feature 10: Shift Schedules](#feature-10-shift-schedules)
+   - [Feature 11: Medical Services & Price Approvals](#feature-11-medical-services--price-approvals)
+   - [Feature 12: Service Code Catalog](#feature-12-service-code-catalog)
+   - [Feature 13: Inventory Management](#feature-13-inventory-management)
+   - [Feature 14: HMO Provider Management](#feature-14-hmo-provider-management)
+   - [Feature 15: Lab Test Catalog](#feature-15-lab-test-catalog)
+   - [Feature 16: Protocol Bundles](#feature-16-protocol-bundles)
 4. [Tier 2 — Patient Core](#tier-2--patient-core)
-   - [Feature 9: Patient Management](#feature-9-patient-management)
-   - [Feature 10: Staff Roster & Scheduling](#feature-10-staff-roster--scheduling)
+   - [Feature 17: Patient Management](#feature-17-patient-management)
+   - [Feature 18: Staff Roster & Scheduling](#feature-18-staff-roster--scheduling)
 5. [Tier 3 — Visit Lifecycle](#tier-3--visit-lifecycle)
-   - [Feature 11: Appointments](#feature-11-appointments)
-   - [Feature 12: Episodes](#feature-12-episodes)
+   - [Feature 19: Appointments](#feature-19-appointments)
+   - [Feature 20: Episodes](#feature-20-episodes)
 6. [Tier 4 — Clinical Flow Entry](#tier-4--clinical-flow-entry)
-   - [Feature 13: Queue Management](#feature-13-queue-management)
-   - [Feature 14: Vital Signs](#feature-14-vital-signs)
+   - [Feature 21: Queue Management](#feature-21-queue-management)
+   - [Feature 22: Vital Signs](#feature-22-vital-signs)
 7. [Tier 5 — Clinical Documentation](#tier-5--clinical-documentation)
-   - [Feature 15: Consultations](#feature-15-consultations)
-   - [Feature 16: Lab Orders & Results](#feature-16-lab-orders--results)
-   - [Feature 17: Prescriptions & Dispensing](#feature-17-prescriptions--dispensing)
+   - [Feature 23: Consultations](#feature-23-consultations)
+   - [Feature 24: Lab Orders & Results](#feature-24-lab-orders--results)
+   - [Feature 25: Prescriptions & Dispensing](#feature-25-prescriptions--dispensing)
 8. [Tier 6 — Financial](#tier-6--financial)
-   - [Feature 18: Billing & Payments](#feature-18-billing--payments)
-   - [Feature 19: HMO Claims](#feature-19-hmo-claims)
+   - [Feature 26: Billing & Payments](#feature-26-billing--payments)
+   - [Feature 27: HMO Claims](#feature-27-hmo-claims)
 9. [Tier 7 — Operations](#tier-7--operations)
-   - [Feature 20: Cashier Shift Management](#feature-20-cashier-shift-management)
-   - [Feature 21: Stock Requests](#feature-21-stock-requests)
-   - [Feature 22: Lab Referrals (Partner Labs)](#feature-22-lab-referrals-partner-labs)
+   - [Feature 28: Cashier Shift Management](#feature-28-cashier-shift-management)
+   - [Feature 29: Stock Requests](#feature-29-stock-requests)
+   - [Feature 30: Lab Referrals](#feature-30-lab-referrals)
 10. [Tier 8 — Cross-Cutting](#tier-8--cross-cutting)
-    - [Feature 23: Notifications](#feature-23-notifications)
-    - [Feature 24: Audit Logging](#feature-24-audit-logging)
-    - [Feature 25: Reports & Analytics](#feature-25-reports--analytics)
-    - [Feature 26: Permissions Management](#feature-26-permissions-management)
+    - [Feature 31: Notifications](#feature-31-notifications)
+    - [Feature 32: Audit Logging](#feature-32-audit-logging)
+    - [Feature 33: Reports & Analytics](#feature-33-reports--analytics)
+    - [Feature 34: Permissions Management](#feature-34-permissions-management)
 11. [Hook-to-Endpoint Mapping](#hook-to-endpoint-mapping)
 
 ---
@@ -388,9 +396,739 @@ interface CreateUserRequest {
 
 ---
 
-### Feature 4: HMO Provider Management
+### Feature 4: Department Management
 
-**Description:** Manages Health Maintenance Organizations registered with the facility. Includes service coverage configuration per HMO. Depends on: Auth, Users (Tier 0–1).
+**Description:** Manages hospital departments (General Medicine, Pharmacy, Lab, etc.). Departments are required before Staff can be created. ROOT entity — no upstream dependencies.
+
+#### Data Model
+
+```typescript
+interface Department {
+  id: string;
+  name: string;
+  alias: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/departments` | any | `FetchAllDepartmentsUsecase` |
+| POST | `/departments` | cmo, hospital_admin | `CreateDepartmentUsecase` |
+| GET | `/departments/:id` | any | `FetchDepartmentByIdUsecase` |
+| PUT | `/departments/:id` | cmo, hospital_admin | `UpdateDepartmentUsecase` |
+
+##### POST `/departments`
+
+**Request Body:**
+```json
+{ "name": "General Medicine", "alias": "gen-med" }
+```
+
+**Response `201`:**
+```json
+{
+  "data": { "id": "uuid", "name": "General Medicine", "alias": "gen-med", "createdAt": "2026-04-03T10:00:00Z" },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/departments`
+
+**Query Params:**
+
+| Param    | Type   | Description          |
+|----------|--------|----------------------|
+| `cursor` | string | Cursor for next page |
+| `limit`  | int    | Records per page (default `25`, max `100`) |
+| `search` | string | Filter by name       |
+
+---
+
+### Feature 5: Medical Service Categories
+
+**Description:** Manages the top-level groupings for billable services (e.g. Consultation, Laboratory, Pharmacy, Procedure). MedicalService depends on this — categories must exist before services can be created. ROOT entity — no upstream dependencies.
+
+#### Data Model
+
+```typescript
+interface MedicalServiceCategory {
+  id: string;
+  name: string;   // e.g. "Consultation", "Laboratory", "Pharmacy", "Procedure", "Admission"
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/services/categories` | any | `FetchAllMedicalServiceCategoriesUsecase` |
+| POST | `/services/categories` | cmo, hospital_admin | `CreateMedicalServiceCategoryUsecase` |
+| GET | `/services/categories/:id` | any | `FetchMedicalServiceCategoryByIdUsecase` |
+| PUT | `/services/categories/:id` | cmo, hospital_admin | `UpdateMedicalServiceCategoryUsecase` |
+
+##### POST `/services/categories`
+
+**Request Body:**
+```json
+{ "name": "Laboratory" }
+```
+
+**Response `201`:**
+```json
+{
+  "data": { "id": "uuid", "name": "Laboratory", "createdAt": "2026-04-03T10:00:00Z" },
+  "meta": null, "errors": null
+}
+```
+
+---
+
+### Feature 6: Medical Coding Standards & Codes
+
+**Description:** Manages coding standards (ICD-10-CM, LOINC, NHIS) and their individual codes. Nigerian HMOs require specific code sets for claim submission. MedicalCode depends on CodingStandard. ROOT entity — CodingStandard has no upstream dependencies.
+
+#### Data Model
+
+```typescript
+interface CodingStandard {
+  id: string;
+  name: string;         // e.g. "ICD-10-CM", "LOINC", "NHIS"
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface MedicalCode {
+  id: string;
+  standardId: string;
+  standard: CodingStandard;
+  codeValue: string;    // e.g. "B50.0", "58410-2"
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/coding/standards` | any | `FetchAllCodingStandardsUsecase` |
+| POST | `/coding/standards` | cmo, hospital_admin | `CreateCodingStandardUsecase` |
+| GET | `/coding/standards/:id` | any | `FetchCodingStandardByIdUsecase` |
+| PUT | `/coding/standards/:id` | cmo, hospital_admin | `UpdateCodingStandardUsecase` |
+| GET | `/coding/standards/:id/codes` | any | `FetchCodesByStandardUsecase` |
+| POST | `/coding/standards/:id/codes` | cmo, hospital_admin | `CreateMedicalCodeUsecase` |
+| GET | `/coding/codes/:id` | any | `FetchMedicalCodeByIdUsecase` |
+| PUT | `/coding/codes/:id` | cmo, hospital_admin | `UpdateMedicalCodeUsecase` |
+| DELETE | `/coding/codes/:id` | cmo | `DeleteMedicalCodeUsecase` |
+
+##### POST `/coding/standards`
+
+**Request Body:**
+```json
+{ "name": "ICD-10-CM", "description": "International Classification of Diseases, 10th Revision, Clinical Modification" }
+```
+
+**Response `201`:**
+```json
+{
+  "data": { "id": "uuid", "name": "ICD-10-CM", "description": "...", "createdAt": "2026-04-03T10:00:00Z" },
+  "meta": null, "errors": null
+}
+```
+
+##### POST `/coding/standards/:id/codes`
+
+**Request Body:**
+```json
+{ "codeValue": "B50.0", "description": "Plasmodium falciparum malaria with cerebral complications" }
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "standardId": "uuid-of-icd10-standard",
+    "codeValue": "B50.0",
+    "description": "Plasmodium falciparum malaria with cerebral complications",
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/coding/standards/:id/codes`
+
+**Query Params:**
+
+| Param    | Type   | Description                         |
+|----------|--------|-------------------------------------|
+| `cursor` | string | Cursor for next page                |
+| `limit`  | int    | Records per page (default `25`)     |
+| `search` | string | Filter by codeValue or description  |
+
+---
+
+### Feature 7: Suppliers
+
+**Description:** Manages inventory suppliers (pharmaceutical companies, medical equipment vendors). Required before inventory items can be created. ROOT entity — no upstream dependencies.
+
+#### Data Model
+
+```typescript
+interface Supplier {
+  id: string;
+  name: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  address?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/suppliers` | hospital_admin, cmo, pharmacist | `FetchAllSuppliersUsecase` |
+| POST | `/suppliers` | hospital_admin, cmo | `CreateSupplierUsecase` |
+| GET | `/suppliers/:id` | hospital_admin, cmo, pharmacist | `FetchSupplierByIdUsecase` |
+| PUT | `/suppliers/:id` | hospital_admin, cmo | `UpdateSupplierUsecase` |
+| PATCH | `/suppliers/:id/status` | hospital_admin, cmo | `ToggleSupplierStatusUsecase` |
+
+##### POST `/suppliers`
+
+**Request Body:**
+```json
+{
+  "name": "PharmaCo Nigeria Ltd",
+  "contactPhone": "08012345678",
+  "contactEmail": "sales@pharmaco.ng",
+  "address": "14 Industrial Ave, Lagos"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "PharmaCo Nigeria Ltd",
+    "contactPhone": "08012345678",
+    "contactEmail": "sales@pharmaco.ng",
+    "address": "14 Industrial Ave, Lagos",
+    "isActive": true,
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/suppliers`
+
+**Query Params:**
+
+| Param      | Type    | Description                         |
+|------------|---------|-------------------------------------|
+| `cursor`   | string  | Cursor for next page                |
+| `limit`    | int     | Records per page (default `25`)     |
+| `search`   | string  | Filter by name                      |
+| `isActive` | boolean | Filter by active status             |
+
+---
+
+### Feature 8: Inventory Categories
+
+**Description:** Manages top-level inventory groupings (Antibiotics, Consumables, Equipment, etc.). Required before inventory items can be created. ROOT entity — no upstream dependencies.
+
+#### Data Model
+
+```typescript
+interface InventoryCategory {
+  id: string;
+  name: string;   // e.g. "Antibiotics", "Consumables", "Surgical Equipment"
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/inventory/categories` | hospital_admin, cmo, pharmacist, lab_tech | `FetchAllInventoryCategoriesUsecase` |
+| POST | `/inventory/categories` | hospital_admin, cmo | `CreateInventoryCategoryUsecase` |
+| GET | `/inventory/categories/:id` | hospital_admin, cmo, pharmacist | `FetchInventoryCategoryByIdUsecase` |
+| PUT | `/inventory/categories/:id` | hospital_admin, cmo | `UpdateInventoryCategoryUsecase` |
+
+##### POST `/inventory/categories`
+
+**Request Body:**
+```json
+{ "name": "Antibiotics" }
+```
+
+**Response `201`:**
+```json
+{
+  "data": { "id": "uuid", "name": "Antibiotics", "createdAt": "2026-04-03T10:00:00Z" },
+  "meta": null, "errors": null
+}
+```
+
+---
+
+### Feature 9: Partner Labs
+
+**Description:** Manages external partner laboratories for test referrals. Required before lab referrals can be created. ROOT entity — no upstream dependencies. See Feature 30 for referral operations.
+
+#### Data Model
+
+```typescript
+interface PartnerLab {
+  id: string;
+  name: string;
+  code: string;               // Short unique identifier e.g. "CLINA"
+  address?: string;
+  status: 'active' | 'inactive';
+  contactPhone: string;
+  specializations: string[];  // e.g. ["Microbiology", "Histopathology"]
+  contactEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/labs/partners` | any | `FetchAllPartnerLabsUsecase` |
+| POST | `/labs/partners` | cmo, hospital_admin | `CreatePartnerLabUsecase` |
+| GET | `/labs/partners/:id` | any | `FetchPartnerLabByIdUsecase` |
+| PUT | `/labs/partners/:id` | cmo, hospital_admin | `UpdatePartnerLabUsecase` |
+| PATCH | `/labs/partners/:id/status` | cmo, hospital_admin | `TogglePartnerLabStatusUsecase` |
+
+##### POST `/labs/partners`
+
+**Request Body:**
+```json
+{
+  "name": "Clina-Lancet Laboratories",
+  "code": "CLINA",
+  "address": "15 Burma Road, Apapa, Lagos",
+  "contactPhone": "07012345678",
+  "contactEmail": "referrals@clina-lancet.ng",
+  "specializations": ["Microbiology", "Histopathology", "Molecular Diagnostics"]
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "Clina-Lancet Laboratories",
+    "code": "CLINA",
+    "status": "active",
+    "specializations": ["Microbiology", "Histopathology", "Molecular Diagnostics"],
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/labs/partners`
+
+**Query Params:**
+
+| Param           | Type    | Description                              |
+|-----------------|---------|------------------------------------------|
+| `cursor`        | string  | Cursor for next page                     |
+| `limit`         | int     | Records per page (default `25`)          |
+| `search`        | string  | Filter by name or code                   |
+| `status`        | string  | `active` or `inactive`                   |
+| `specialization`| string  | Filter by specialization                 |
+
+---
+
+### Feature 10: Shift Schedules
+
+**Description:** Manages the recurring weekly shift schedule templates (morning/afternoon/night per day of week). Staff shift assignments reference these templates. ROOT entity — no upstream dependencies.
+
+#### Data Model
+
+```typescript
+interface ShiftSchedule {
+  id: string;
+  timeOfDay: 'morning' | 'afternoon' | 'night';
+  startTime: string;   // HH:mm e.g. "07:00"
+  endTime: string;     // HH:mm e.g. "15:00"
+  day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/shifts/schedules` | cmo, hospital_admin, clinical_lead | `FetchAllShiftSchedulesUsecase` |
+| POST | `/shifts/schedules` | cmo, hospital_admin | `CreateShiftScheduleUsecase` |
+| GET | `/shifts/schedules/:id` | cmo, hospital_admin, clinical_lead | `FetchShiftScheduleByIdUsecase` |
+| PUT | `/shifts/schedules/:id` | cmo, hospital_admin | `UpdateShiftScheduleUsecase` |
+| DELETE | `/shifts/schedules/:id` | cmo | `DeleteShiftScheduleUsecase` |
+
+##### POST `/shifts/schedules`
+
+**Request Body:**
+```json
+{
+  "timeOfDay": "morning",
+  "startTime": "07:00",
+  "endTime": "15:00",
+  "day": "monday"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "timeOfDay": "morning",
+    "startTime": "07:00",
+    "endTime": "15:00",
+    "day": "monday",
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+---
+
+### Feature 11: Medical Services & Price Approvals
+
+**Description:** Manages the hospital's catalog of billable services. All new services start as `pending` and require CMO approval before going live. Depends on: MedicalServiceCategory (Feature 5).
+
+> **Pricing model:** Non-HMO patients pay `MedicalService.defaultPrice`. HMO patients pay `HmoContract.contractedPrice` (falls back to `defaultPrice` if null). See Feature 14 for HMO contract management.
+
+#### Data Model
+
+```typescript
+interface MedicalService {
+  id: string;
+  code: string;                   // Hospital-assigned code e.g. "CONS-001"
+  name: string;
+  description?: string;
+  medicalServiceCategoryId: string;
+  category: MedicalServiceCategory;
+  defaultPrice: number;           // NGN — price for cash/corporate patients
+  isTaxable: boolean;
+  isPremium: boolean;
+  isRestricted: boolean;
+  restrictionReason?: string;
+  department?: 'front_desk' | 'lab' | 'pharmacy' | 'nursing' | 'all';
+  status: 'pending' | 'approved' | 'rejected';  // Starts as pending; CMO approves
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PriceChange {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  serviceCode: string;
+  currentPrice: number;
+  requestedPrice: number;
+  description: string;
+  reason: string;
+  requestedBy: string;
+  requestedByName: string;
+  approvedBy?: string;
+  approvedByName?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  isActive: boolean;
+  createdAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/services` | any | `FetchAllMedicalServicesUsecase` |
+| POST | `/services` | hospital_admin, cmo | `CreateMedicalServiceUsecase` |
+| GET | `/services/:id` | any | `FetchMedicalServiceByIdUsecase` |
+| PUT | `/services/:id` | hospital_admin, cmo | `UpdateMedicalServiceUsecase` |
+| PATCH | `/services/:id/status` | cmo | `ToggleMedicalServiceStatusUsecase` |
+| GET | `/services/approvals` | cmo, hospital_admin | `FetchPendingServiceApprovalsUsecase` |
+| PATCH | `/services/approvals/:id` | cmo | `ReviewMedicalServiceApprovalUsecase` |
+| POST | `/services/price-approvals` | hospital_admin, clinical_lead | `CreatePriceChangeRequestUsecase` |
+| GET | `/services/price-approvals` | cmo, hospital_admin | `FetchAllPriceChangeRequestsUsecase` |
+| PATCH | `/services/price-approvals/:id` | cmo | `ReviewPriceChangeRequestUsecase` |
+| POST | `/services/resolve-price` | doctor, nurse, pharmacist, lab_tech | `ResolvePriceUsecase` |
+
+##### POST `/services`
+
+**Request Body:**
+```json
+{
+  "code": "CONS-001",
+  "name": "General Consultation",
+  "description": "Standard outpatient consultation with a general practitioner",
+  "medicalServiceCategoryId": "uuid-of-consultation-category",
+  "defaultPrice": 5000,
+  "isTaxable": false,
+  "isPremium": false,
+  "isRestricted": false,
+  "department": "front_desk"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "code": "CONS-001",
+    "name": "General Consultation",
+    "status": "pending",
+    "isActive": false,
+    "defaultPrice": 5000,
+    "category": { "id": "uuid", "name": "Consultation" },
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/services`
+
+**Query Params:**
+
+| Param        | Type    | Description                                   |
+|--------------|---------|-----------------------------------------------|
+| `cursor`     | string  | Cursor for next page                          |
+| `limit`      | int     | Records per page (default `25`, max `100`)    |
+| `categoryId` | string  | Filter by medical service category            |
+| `department` | string  | Filter by department                          |
+| `status`     | string  | `pending`, `approved`, `rejected`             |
+| `isActive`   | boolean | Filter active services only                   |
+| `search`     | string  | Search by code or name                        |
+
+##### PATCH `/services/approvals/:id`
+
+**Request Body:**
+```json
+{ "action": "approved", "reviewNotes": "Pricing is appropriate and service is needed" }
+```
+
+**Response `200`:**
+```json
+{
+  "data": { "id": "uuid", "status": "approved", "isActive": true },
+  "meta": null, "errors": null
+}
+```
+
+##### POST `/services/price-approvals`
+
+**Request Body:**
+```json
+{
+  "serviceId": "uuid-of-service",
+  "requestedPrice": 6000,
+  "description": "Annual price review",
+  "reason": "Increase in cost of materials and inflation adjustment"
+}
+```
+
+##### PATCH `/services/price-approvals/:id`
+
+**Request Body:**
+```json
+{ "action": "approved", "reviewNotes": "Pricing aligns with market rates" }
+```
+
+---
+
+### Feature 12: Service Code Catalog
+
+**Description:** Links a MedicalService to a MedicalCode from an external coding standard (ICD-10, LOINC, NHIS). Optionally scoped to a specific HMO provider. The TestCatalog (Feature 15) hangs off of this entity. Depends on: MedicalService (Feature 11) + MedicalCode (Feature 6) + optional HmoProvider (Feature 14).
+
+#### Data Model
+
+```typescript
+interface ServiceCodeCatalog {
+  id: string;
+  serviceId: string;
+  service: MedicalService;
+  medicalCodeId: string;
+  medicalCode: MedicalCode;
+  hmoProviderId?: string;     // Optional: scoped to a specific HMO's code mapping
+  hmoProvider?: HmoProvider;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/services/:serviceId/codes` | any | `FetchServiceCodeCatalogsUsecase` |
+| POST | `/services/:serviceId/codes` | cmo, hospital_admin | `CreateServiceCodeCatalogUsecase` |
+| GET | `/services/:serviceId/codes/:catalogId` | any | `FetchServiceCodeCatalogByIdUsecase` |
+| DELETE | `/services/:serviceId/codes/:catalogId` | cmo | `DeleteServiceCodeCatalogUsecase` |
+
+##### POST `/services/:serviceId/codes`
+
+**Request Body:**
+```json
+{
+  "medicalCodeId": "uuid-of-b50-icd10-code",
+  "hmoProviderId": "uuid-of-hygeia-hmo"
+}
+```
+> `hmoProviderId` is optional. Omit for a standard (non-HMO-specific) code mapping.
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "serviceId": "uuid-of-service",
+    "medicalCode": { "id": "uuid", "codeValue": "B50.0", "description": "Plasmodium falciparum malaria with cerebral complications" },
+    "hmoProvider": { "id": "uuid", "name": "Hygeia HMO", "code": "HYGEIA" },
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+---
+
+### Feature 13: Inventory Management
+
+**Description:** Tracks medicines, consumables, and equipment. Manages stock levels, reorder points, and expiry. Depends on: InventoryCategory (Feature 8), Supplier (Feature 7).
+
+#### Data Model
+
+```typescript
+interface InventoryItem {
+  id: string;
+  name: string;
+  categoryId: string;
+  category: InventoryCategory;
+  supplierId?: string;
+  supplier?: Supplier;
+  unit: string;                // e.g. "tablets", "vials", "units"
+  currentStock: number;
+  reorderLevel: number;
+  unitCost: number;            // NGN
+  expiryDate?: string;         // ISO 8601
+  location?: string;           // e.g. "Pharmacy Store A", "Lab Fridge"
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface StockAdjustment {
+  inventoryItemId: string;
+  adjustmentType: 'restock' | 'dispense' | 'write_off' | 'transfer';
+  quantity: number;            // Positive = add, Negative = remove
+  reason: string;
+  referenceId?: string;        // e.g. prescription ID, stock-request ID
+  performedBy: string;
+}
+```
+
+#### Endpoints
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/inventory` | pharmacist, lab_tech, hospital_admin, cmo | `FetchAllInventoryUsecase` |
+| POST | `/inventory` | hospital_admin, cmo | `CreateInventoryItemUsecase` |
+| GET | `/inventory/:id` | pharmacist, lab_tech, hospital_admin, cmo | `FetchInventoryItemByIdUsecase` |
+| PUT | `/inventory/:id` | hospital_admin, cmo | `UpdateInventoryItemUsecase` |
+| POST | `/inventory/:id/adjust` | pharmacist, lab_tech, hospital_admin | `AdjustInventoryStockUsecase` |
+| GET | `/inventory/low-stock` | pharmacist, hospital_admin, cmo | `FetchLowStockInventoryUsecase` |
+| GET | `/inventory/expiring` | pharmacist, hospital_admin, cmo | `FetchExpiringInventoryUsecase` |
+
+##### POST `/inventory`
+
+**Request Body:**
+```json
+{
+  "name": "Amoxicillin 500mg Capsules",
+  "categoryId": "uuid-of-antibiotics-category",
+  "supplierId": "uuid-of-pharmaco-supplier",
+  "unit": "capsules",
+  "currentStock": 500,
+  "reorderLevel": 100,
+  "unitCost": 50,
+  "expiryDate": "2027-06-30T00:00:00Z",
+  "location": "Pharmacy Store A"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "Amoxicillin 500mg Capsules",
+    "category": { "id": "uuid", "name": "Antibiotics" },
+    "currentStock": 500,
+    "reorderLevel": 100,
+    "unitCost": 50,
+    "location": "Pharmacy Store A",
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/inventory`
+
+**Query Params:**
+
+| Param        | Type    | Description                                 |
+|--------------|---------|---------------------------------------------|
+| `cursor`     | string  | Cursor for next page                        |
+| `limit`      | int     | Records per page (default `25`, max `100`)  |
+| `categoryId` | string  | Filter by category                          |
+| `supplierId` | string  | Filter by supplier                          |
+| `search`     | string  | Search by name                              |
+| `lowStock`   | boolean | Only items at/below reorder level           |
+| `location`   | string  | Filter by storage location                  |
+
+##### GET `/inventory/expiring`
+
+**Query Params:**
+
+| Param  | Type | Description                                      |
+|--------|------|--------------------------------------------------|
+| `days` | int  | Items expiring within N days (default `30`)      |
+
+---
+
+### Feature 14: HMO Provider Management
+
+**Description:** Manages Health Maintenance Organizations registered with the facility. Includes service contract configuration and clinical rule management per HMO. ROOT entity for HmoProvider — no upstream dependencies. HmoContract depends on: HmoProvider + MedicalService (Feature 11). HmoRules depends on: HmoProvider + MedicalService (Feature 11).
 
 #### Data Model
 
@@ -406,299 +1144,345 @@ interface HMOProvider {
   address: string;
   portalUrl?: string;
   relationshipManagerPhone?: string;
-  defaultCopay: number;                 // Default flat NGN copay amount per visit (provider-level fallback)
-  defaultCopayPercentage: number;       // Default copay percentage (0–100) (provider-level fallback)
+  defaultCopay: number;                 // Default flat NGN copay per visit (fallback)
+  defaultCopayPercentage: number;       // Default copay percentage 0–100 (fallback)
   isActive: boolean;
 }
 
-// HmoContract: the canonical HMO service coverage entity.
-// Defines what the HMO has contracted to cover for a specific service.
+// HmoContract: canonical HMO service coverage entity.
 // Pricing model:
-//   - Non-HMO patients pay MedicalService.defaultPrice
-//   - HMO patients pay HmoContract.contractedPrice (falls back to defaultPrice if null)
-//   - HMO covers: coveragePercentage% of contractedPrice (PARTIAL_PERCENT),
-//                 coverageFlatAmount NGN (PARTIAL_FLAT), or 100% (FULL)
-//   - Patient pays the remainder
+//   - HMO patients pay HmoContract.contractedPrice (falls back to MedicalService.defaultPrice if null)
+//   - HMO covers: coveragePercentage% (PARTIAL_PERCENT) | coverageFlatAmount NGN (PARTIAL_FLAT) | 100% (FULL)
+//   - Patient pays remainder
 //   - If no HmoContract exists for a service, HmoProvider.defaultCopay/defaultCopayPercentage applies
 interface HMOContract {
   id: string;
   hmoProviderId: string;
   serviceId: string;
+  service: MedicalService;
   coverageType: 'full' | 'partial_percent' | 'partial_flat' | 'none';
-  contractedPrice?: number;       // HMO-negotiated service price (NGN). Null = use MedicalService.defaultPrice
-  coveragePercentage?: number;    // 0–100. What the HMO covers. Used when coverageType = partial_percent
-  coverageFlatAmount?: number;    // NGN amount the HMO covers. Used when coverageType = partial_flat
-  maxCoveredAmount?: number;      // Cap on HMO coverage for partial coverage types
+  contractedPrice?: number;       // HMO-negotiated price (NGN). Null = use MedicalService.defaultPrice
+  coveragePercentage?: number;    // 0–100. Used when coverageType = partial_percent
+  coverageFlatAmount?: number;    // NGN. Used when coverageType = partial_flat
+  maxCoveredAmount?: number;      // Cap on HMO coverage for partial types
   requiredPreAuthorization: boolean;
   isActive: boolean;
+  createdAt: string;
   updatedAt: string;
 }
 
-interface HMOVerificationRequest {
+interface HMORule {
+  id: string;
   hmoProviderId: string;
-  enrollmentId: string;
-  patientName: string;
+  triggerServiceId: string;        // Which service triggers this rule
+  triggerService: MedicalService;
+  logic: HmoRuleLogicItem[];       // Array of rule conditions (stored as JSONB)
+  errorMessage: string;            // Shown to staff when rule is violated
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Example logic items:
+// { "type": "require_pre_auth", "condition": "always" }
+// { "type": "max_frequency", "value": 2, "period": "year" }
+// { "type": "require_diagnosis", "codes": ["B50", "B51"] }
+type HmoRuleLogicItem = Record<string, unknown>;
+```
+
+#### 14a: HMO Providers
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/hmo/providers` | any | `FetchAllHmoProvidersUsecase` ✅ |
+| POST | `/hmo/providers` | cmo, hospital_admin | `CreateHmoProviderUsecase` ✅ |
+| GET | `/hmo/providers/:id` | any | `FetchHmoProviderByIdUsecase` ✅ |
+| GET | `/hmo/providers/:code/code` | any | `FetchHmoProviderByCodeUsecase` ✅ |
+| PUT | `/hmo/providers/:id` | cmo, hospital_admin | `UpdateHmoProviderUsecase` ✅ |
+| PATCH | `/hmo/providers/:id/status` | cmo, hospital_admin | `UpdateHmoProviderStatusUsecase` ✅ |
+
+##### POST `/hmo/providers`
+
+**Request Body:**
+```json
+{
+  "name": "Hygeia HMO",
+  "code": "HYGEIA",
+  "contactPhone": "09087654321",
+  "contactEmail": "provider@hygeia.ng",
+  "claimsEmail": "claims@hygeia.ng",
+  "retractionEmail": "retractions@hygeia.ng",
+  "address": "Plot 1684, Sanusi Fafunwa Street, Victoria Island, Lagos",
+  "portalUrl": "https://provider.hygeia.ng",
+  "relationshipManagerPhone": "08098765432",
+  "defaultCopay": 2000,
+  "defaultCopayPercentage": 10
 }
 ```
 
-#### Endpoints
+##### GET `/hmo/providers`
 
-| Method | Path                                         | Roles                                    | Description                                    |
-|--------|----------------------------------------------|------------------------------------------|------------------------------------------------|
-| GET    | `/hmo/providers`                             | any                                      | List all HMO providers                         |
-| POST   | `/hmo/providers`                             | cmo, hospital_admin                      | Create HMO provider                            |
-| GET    | `/hmo/providers/:id`                         | any                                      | Get HMO provider detail                        |
-| PUT    | `/hmo/providers/:id`                         | cmo, hospital_admin                      | Update HMO provider                            |
-| PATCH  | `/hmo/providers/:id/status`                  | cmo, hospital_admin                      | Toggle provider active status                  |
-| GET    | `/hmo/providers/:id/coverage`                | any                                      | List service coverage rules for an HMO         |
-| POST   | `/hmo/providers/:id/coverage`                | cmo, hospital_admin                      | Add a coverage rule                            |
-| PUT    | `/hmo/providers/:id/coverage/:coverageId`    | cmo, hospital_admin                      | Update a coverage rule                         |
-| DELETE | `/hmo/providers/:id/coverage/:coverageId`    | cmo, hospital_admin                      | Remove a coverage rule                         |
-| POST   | `/hmo/verify`                                | receptionist, cashier, nurse, doctor     | Verify a patient's HMO enrollment in real-time |
-| GET    | `/hmo/coverage`                              | any                                      | Query all coverage rules across all HMOs       |
+**Query Params:**
+
+| Param      | Type    | Description                         |
+|------------|---------|-------------------------------------|
+| `cursor`   | string  | Cursor for next page                |
+| `limit`    | int     | Records per page (default `25`)     |
+| `search`   | string  | Filter by name or code              |
+| `isActive` | boolean | Filter by active status             |
+
+#### 14b: HMO Contracts
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/hmo/providers/:id/contracts` | any | `FetchHmoContractsByProviderUsecase` |
+| POST | `/hmo/providers/:id/contracts` | cmo, hospital_admin | `CreateHmoContractUsecase` |
+| GET | `/hmo/providers/:id/contracts/:contractId` | any | `FetchHmoContractByIdUsecase` |
+| PUT | `/hmo/providers/:id/contracts/:contractId` | cmo, hospital_admin | `UpdateHmoContractUsecase` |
+| PATCH | `/hmo/providers/:id/contracts/:contractId/status` | cmo, hospital_admin | `ToggleHmoContractStatusUsecase` |
+| DELETE | `/hmo/providers/:id/contracts/:contractId` | cmo | `DeleteHmoContractUsecase` |
+
+##### POST `/hmo/providers/:id/contracts`
+
+**Request Body:**
+```json
+{
+  "serviceId": "uuid-of-general-consultation-service",
+  "coverageType": "partial_percent",
+  "contractedPrice": 4500,
+  "coveragePercentage": 80,
+  "maxCoveredAmount": 3600,
+  "requiredPreAuthorization": false
+}
+```
+
+> For `coverageType: "full"` omit `coveragePercentage`, `coverageFlatAmount`, and `maxCoveredAmount`.
+> For `coverageType: "partial_flat"` provide `coverageFlatAmount` instead of `coveragePercentage`.
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "hmoProvider": { "id": "uuid", "name": "Hygeia HMO", "code": "HYGEIA" },
+    "service": { "id": "uuid", "code": "CONS-001", "name": "General Consultation", "defaultPrice": 5000 },
+    "coverageType": "partial_percent",
+    "contractedPrice": 4500,
+    "coveragePercentage": 80,
+    "coverageFlatAmount": null,
+    "maxCoveredAmount": 3600,
+    "requiredPreAuthorization": false,
+    "isActive": true,
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### GET `/hmo/providers/:id/contracts`
+
+**Query Params:**
+
+| Param      | Type    | Description                              |
+|------------|---------|------------------------------------------|
+| `cursor`   | string  | Cursor for next page                     |
+| `limit`    | int     | Records per page (default `25`)          |
+| `serviceId`| string  | Filter by service                        |
+| `isActive` | boolean | Filter active contracts only             |
+| `coverageType` | string | Filter by coverage type              |
+
+#### 14c: HMO Rules
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/hmo/providers/:id/rules` | cmo, hospital_admin | `FetchHmoRulesByProviderUsecase` |
+| POST | `/hmo/providers/:id/rules` | cmo, hospital_admin | `CreateHmoRuleUsecase` |
+| GET | `/hmo/providers/:id/rules/:ruleId` | cmo, hospital_admin | `FetchHmoRuleByIdUsecase` |
+| PUT | `/hmo/providers/:id/rules/:ruleId` | cmo, hospital_admin | `UpdateHmoRuleUsecase` |
+| DELETE | `/hmo/providers/:id/rules/:ruleId` | cmo | `DeleteHmoRuleUsecase` |
+
+##### POST `/hmo/providers/:id/rules`
+
+**Request Body:**
+```json
+{
+  "triggerServiceId": "uuid-of-mri-service",
+  "errorMessage": "MRI requires pre-authorization from Hygeia HMO before scheduling",
+  "logic": [
+    { "type": "require_pre_auth", "condition": "always" },
+    { "type": "max_frequency", "value": 2, "period": "year" }
+  ]
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "triggerService": { "id": "uuid", "code": "IMG-MRI-001", "name": "MRI Brain with Contrast" },
+    "logic": [
+      { "type": "require_pre_auth", "condition": "always" },
+      { "type": "max_frequency", "value": 2, "period": "year" }
+    ],
+    "errorMessage": "MRI requires pre-authorization from Hygeia HMO before scheduling",
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+#### 14d: HMO Verification
+
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| POST | `/hmo/verify` | receptionist, cashier, nurse, doctor | `VerifyHmoEnrollmentUsecase` |
 
 ##### POST `/hmo/verify`
 
 **Request Body:**
 ```json
 {
-  "hmoProviderId": "hmo-001",
+  "hmoProviderId": "uuid-of-hygeia",
   "enrollmentId": "HYG-2024-88991",
   "patientName": "Chukwuemeka Obiora"
 }
 ```
 
-**Response `200`:**
-```json
-{
-  "data": {
-    "id": "ver-001",
-    "providerId": "hmo-001",
-    "providerName": "Hygeia HMO",
-    "policyNumber": "HYG-POL-001",
-    "enrollmentId": "HYG-2024-88991",
-    "status": "active",
-    "expiryDate": "2025-12-31",
-    "coveredServices": ["consultation", "lab", "pharmacy"],
-    "coPayPercentage": 10,
-    "preAuthCode": "PA-2024-5512",
-    "verifiedAt": "2024-06-15T09:30:00Z"
-  },
-  "meta": null,
-  "errors": null
-}
-```
-
 ---
 
-### Feature 5: Service Pricing & Catalog
+### Feature 15: Lab Test Catalog
 
-**Description:** Manages the hospital's catalog of billable services and their prices. Includes a price-approval workflow. Depends on: Auth, Users (Tier 0–1).
+**Description:** Manages available laboratory tests with reference ranges, methodology, and sample types. TestCatalog depends on ServiceCodeCatalog (Feature 12) — the service code link must exist before a test catalog entry can be created. ReferenceRange depends on TestCatalog.
 
 #### Data Model
 
 ```typescript
-interface ServicePrice {
+interface TestCatalog {
   id: string;
-  code: string;                 // Hospital-assigned code e.g. "CONS-001". Distinct from ServiceCodeCatalog (HMO/coding-standard codes)
-  name: string;
-  description?: string;
-  category: ServiceCategory;    // 'consultation' | 'lab' | 'pharmacy' | 'procedure' | 'admission' | 'other'
-  standardPrice: number;        // NGN — price for cash/corporate patients (MedicalService.defaultPrice)
-  // HMO-specific pricing is managed via HMOContract.contractedPrice per provider, not here
-  isTaxable: boolean;
-  isPremium: boolean;
-  isRestricted: boolean;
-  restrictionReason?: string;
-  department?: 'front_desk' | 'lab' | 'pharmacy' | 'nursing' | 'all';
-  status: 'pending' | 'approved' | 'rejected';  // Approval state for new/changed services
+  serviceCodeId: string;      // FK → ServiceCodeCatalog
+  code: string;               // e.g. "LAB-FBC-001"
+  name: string;               // e.g. "Full Blood Count (FBC)"
+  sampleType: string;         // e.g. "EDTA whole blood"
+  methodology?: string;       // e.g. "Flow cytometry"
+  preparationInstructions?: string;
+  defaultUnit: string;        // e.g. "cells/μL"
   isActive: boolean;
+  referenceRanges: ReferenceRange[];
   createdAt: string;
-  createdBy: string;
   updatedAt: string;
 }
 
-interface PriceApproval {
+interface ReferenceRange {
   id: string;
-  serviceId: string;
-  serviceName: string;
-  serviceCode: string;
-  category: ServiceCategory;
-  oldPrice?: number;
-  newPrice: number;
-  changePercentage?: number;
-  reason: string;
-  requestedBy: string;
-  requestedByName: string;
-  requestedByRole: UserRole;
-  requestedAt: string;
-  status: 'pending' | 'approved' | 'rejected';
-  reviewedBy?: string;
-  reviewedByName?: string;
-  reviewedAt?: string;
-  reviewNotes?: string;
-  rejectionReason?: string;
-  isNewService: boolean;
+  testId: string;
+  gender: 'male' | 'female' | 'both';
+  minAgeYears?: number;       // null = no lower age bound
+  maxAgeYears?: number;       // null = no upper age bound
+  lowerBound: number;
+  upperBound: number;
+  criticalLowerBound?: number;
+  criticalUpperBound?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
 #### Endpoints
 
-| Method | Path                              | Roles                                      | Description                                 |
-|--------|-----------------------------------|--------------------------------------------|---------------------------------------------|
-| GET    | `/services`                       | any                                        | List all services with filters              |
-| POST   | `/services`                       | hospital_admin, cmo                        | Create new service (goes to approval queue) |
-| GET    | `/services/:id`                   | any                                        | Get service detail                          |
-| PUT    | `/services/:id`                   | hospital_admin, cmo                        | Update service (triggers approval if price) |
-| PATCH  | `/services/:id/status`            | cmo                                        | Toggle service active/inactive              |
-| GET    | `/services/price-approvals`       | cmo, hospital_admin                        | List pending price approvals                |
-| POST   | `/services/price-approvals`       | hospital_admin, clinical_lead              | Submit price change request                 |
-| PATCH  | `/services/price-approvals/:id`   | cmo                                        | Approve or reject a price change            |
-| POST   | `/services/resolve-price`         | doctor, nurse, pharmacist, lab_tech        | Resolve prices for a set of items given payer type |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/lab/catalog` | any | `FetchAllTestCatalogsUsecase` |
+| POST | `/lab/catalog` | cmo, hospital_admin, clinical_lead | `CreateTestCatalogUsecase` |
+| GET | `/lab/catalog/:id` | any | `FetchTestCatalogByIdUsecase` |
+| PUT | `/lab/catalog/:id` | cmo, hospital_admin | `UpdateTestCatalogUsecase` |
+| PATCH | `/lab/catalog/:id/status` | cmo, hospital_admin | `ToggleTestCatalogStatusUsecase` |
+| GET | `/lab/catalog/:id/reference-ranges` | any | `FetchReferenceRangesByTestUsecase` |
+| POST | `/lab/catalog/:id/reference-ranges` | cmo, hospital_admin | `CreateReferenceRangeUsecase` |
+| PUT | `/lab/catalog/:id/reference-ranges/:rangeId` | cmo, hospital_admin | `UpdateReferenceRangeUsecase` |
+| DELETE | `/lab/catalog/:id/reference-ranges/:rangeId` | cmo | `DeleteReferenceRangeUsecase` |
 
-##### POST `/services/resolve-price`
+##### POST `/lab/catalog`
 
 **Request Body:**
 ```json
 {
-  "items": [
-    { "itemId": "svc-lab-001", "itemName": "Full Blood Count", "category": "lab" }
-  ],
-  "payerType": "hmo",
-  "hmoProviderId": "hmo-001"
+  "serviceCodeId": "uuid-of-service-code-catalog-entry",
+  "code": "LAB-FBC-001",
+  "name": "Full Blood Count (FBC)",
+  "sampleType": "EDTA whole blood",
+  "methodology": "Flow cytometry",
+  "preparationInstructions": "No fasting required. Collect 3 mL EDTA whole blood.",
+  "defaultUnit": "cells/μL"
 }
 ```
 
-**Response `200`:**
+**Response `201`:**
 ```json
 {
-  "data": [
-    {
-      "itemId": "svc-lab-001",
-      "itemName": "Full Blood Count",
-      "category": "lab",
-      "standardPrice": 5000,
-      "payerPrice": 4500,
-      "coverageStatus": "partial",
-      "patientLiability": 500,
-      "hmoLiability": 4000,
-      "isPremium": false,
-      "isRestricted": false
-    }
-  ],
-  "meta": null,
-  "errors": null
+  "data": {
+    "id": "uuid",
+    "code": "LAB-FBC-001",
+    "name": "Full Blood Count (FBC)",
+    "sampleType": "EDTA whole blood",
+    "defaultUnit": "cells/μL",
+    "isActive": true,
+    "referenceRanges": [],
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
 }
 ```
-
----
-
-### Feature 6: Lab Test Catalog
-
-**Description:** Manages the list of available laboratory tests with reference ranges, methodology, and sample types. Depends on: Auth (Tier 0).
-
-#### Data Model
-
-```typescript
-interface TestCatalogEntry {
-  testCode: string;               // e.g. "lab-001" (hospital's own code)
-  testName: string;               // e.g. "Full Blood Count (FBC)"
-  category: string;               // e.g. "Haematology"
-  defaultUnit: string;            // e.g. "cells/μL"
-  defaultRange: string;           // e.g. "4.5–11.0 x10³/μL"
-  criticalLow?: number;
-  criticalHigh?: number;
-  methodology?: string;           // e.g. "Flow cytometry"
-  preparationInstructions?: string;
-  sampleType?: string;            // e.g. "EDTA whole blood"
-  loincCode?: string;             // LOINC standard code (via ServiceCodeCatalog link)
-  isActive: boolean;
-}
-```
-
-#### Endpoints
-
-| Method | Path                        | Roles                               | Description                              |
-|--------|-----------------------------|-------------------------------------|------------------------------------------|
-| GET    | `/lab/catalog`              | any                                 | List all lab tests                       |
-| POST   | `/lab/catalog`              | cmo, hospital_admin, clinical_lead  | Add test to catalog                      |
-| GET    | `/lab/catalog/:code`        | any                                 | Get test detail by code                  |
-| PUT    | `/lab/catalog/:code`        | cmo, hospital_admin                 | Update test parameters                   |
-| PATCH  | `/lab/catalog/:code/status` | cmo, hospital_admin                 | Activate / deactivate test               |
 
 ##### GET `/lab/catalog`
 
 **Query Params:**
 
-| Param      | Type    | Description                  |
-|------------|---------|------------------------------|
-| `category` | string  | Filter by test category      |
-| `search`   | string  | Search by code or name       |
-| `isActive` | boolean | Filter active tests only     |
+| Param      | Type    | Description                          |
+|------------|---------|--------------------------------------|
+| `cursor`   | string  | Cursor for next page                 |
+| `limit`    | int     | Records per page (default `25`)      |
+| `search`   | string  | Search by code or name               |
+| `isActive` | boolean | Filter active tests only             |
 
----
+##### POST `/lab/catalog/:id/reference-ranges`
 
-### Feature 7: Inventory Management
-
-**Description:** Tracks medicines, consumables, and equipment. Manages stock levels, reorder points, and expiry. Depends on: Auth, Users (Tier 0–1).
-
-#### Data Model
-
-```typescript
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: 'medicine' | 'consumable' | 'equipment' | 'utility';
-  unit: string;                   // e.g. "tablets", "vials", "units"
-  currentStock: number;
-  reorderLevel: number;
-  unitCost: number;               // NGN
-  supplier?: string;
-  expiryDate?: string;            // ISO 8601 date
-  location: string;               // e.g. "Pharmacy Store A", "Lab Fridge"
-  lastRestocked?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface StockAdjustment {
-  inventoryItemId: string;
-  adjustmentType: 'restock' | 'dispense' | 'write_off' | 'transfer';
-  quantity: number;               // Positive = add, Negative = remove
-  reason: string;
-  referenceId?: string;           // e.g. prescription ID, stock-request ID
-  performedBy: string;
+**Request Body:**
+```json
+{
+  "gender": "both",
+  "minAgeYears": 18,
+  "maxAgeYears": null,
+  "lowerBound": 4.5,
+  "upperBound": 11.0,
+  "criticalLowerBound": 2.0,
+  "criticalUpperBound": 30.0
 }
 ```
 
-#### Endpoints
-
-| Method | Path                              | Roles                                         | Description                              |
-|--------|-----------------------------------|-----------------------------------------------|------------------------------------------|
-| GET    | `/inventory`                      | pharmacist, lab_tech, hospital_admin, cmo      | List inventory with filters              |
-| POST   | `/inventory`                      | hospital_admin, cmo                           | Add new inventory item                   |
-| GET    | `/inventory/:id`                  | pharmacist, lab_tech, hospital_admin, cmo      | Get item detail                          |
-| PUT    | `/inventory/:id`                  | hospital_admin, cmo                           | Update item details                      |
-| POST   | `/inventory/:id/adjust`           | pharmacist, lab_tech, hospital_admin           | Adjust stock (restock, dispense, etc.)   |
-| GET    | `/inventory/low-stock`            | pharmacist, hospital_admin, cmo               | List items at or below reorder level     |
-| GET    | `/inventory/expiring`             | pharmacist, hospital_admin, cmo               | List items expiring within N days        |
-
-##### GET `/inventory`
-
-**Query Params:**
-
-| Param      | Type    | Description                              |
-|------------|---------|------------------------------------------|
-| `category` | string  | Filter by category                       |
-| `search`   | string  | Search by name                           |
-| `lowStock` | boolean | Only items at/below reorder level        |
-| `location` | string  | Filter by storage location               |
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "testId": "uuid-of-fbc-catalog",
+    "gender": "both",
+    "minAgeYears": 18,
+    "maxAgeYears": null,
+    "lowerBound": 4.5,
+    "upperBound": 11.0,
+    "criticalLowerBound": 2.0,
+    "criticalUpperBound": 30.0,
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
 
 ---
 
-### Feature 8: Protocol Bundles & Clinical Rules
+### Feature 16: Protocol Bundles
 
-**Description:** Manages clinical decision-support data: protocol bundles (ICD-10-triggered sets of lab tests + medications), ICD-10-to-service mappings, drug–lab conflict rules, and HMO clinical rules. Depends on: Auth, Lab Catalog, Services (Tier 0–1).
+**Description:** Manages clinical decision-support protocol bundles — ICD-10-triggered sets of services (lab tests, medications, procedures). ProtocolBundle depends on MedicalCode (Feature 6). ProtocolBundleItems depend on ProtocolBundle.
 
 #### Data Model
 
@@ -706,79 +1490,86 @@ interface StockAdjustment {
 interface ProtocolBundle {
   id: string;
   name: string;
-  description: string;
-  icd10Codes: string[];
-  labTests: BundleLabItem[];
-  medications: BundleMedItem[];
+  medicalCodeId: string;    // ICD-10 or other code that triggers this bundle
+  medicalCode: MedicalCode;
+  items: ProtocolBundleItem[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface BundleLabItem {
-  testCode: string;
-  testName: string;
-  priority: 'routine' | 'urgent' | 'stat';
-  notes?: string;
-}
-
-interface BundleMedItem {
-  drugName: string;
-  dosage: string;
-  frequency: string;
-  duration: string;
-  quantity: number;
-  instructions: string;
-}
-
-interface ConflictRule {
+interface ProtocolBundleItem {
   id: string;
-  drugNamePattern: string;       // Regex pattern to match drug name
-  conflictingLabTestCode: string;
-  conflictingLabResult: string;  // e.g. "positive", ">7.0"
-  description: string;
-}
-
-interface HMORule {
-  id: string;
-  hmoProviderId: string;
-  hmoProviderName: string;
-  ruleField: 'temperature' | 'bloodPressureSystolic' | 'bloodPressureDiastolic' | 'pulse' | 'oxygenSaturation' | 'labOrder' | 'prescription';
-  condition: 'gte' | 'lte' | 'eq' | 'present';
-  value: number | string;
-  icdCodesApplicable: string[];
-  message: string;
-  severity: 'warning' | 'error';
-}
-
-interface ICD10ServiceMapping {
-  id: string;
-  icd10Code: string;
-  icd10Description: string;
-  approvedServiceIds: string[];
-  approvedServiceNames: string[];
-  bundleId?: string;
+  bundleId: string;
+  serviceId: string;        // Points to the service (lab, pharmacy, procedure, etc.)
+  serviceType: 'consultation' | 'lab' | 'pharmacy' | 'procedure' | 'admission' | 'other';
+  isCompulsory: boolean;    // If false, clinician can opt out
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
 #### Endpoints
 
-| Method | Path                                | Roles                          | Description                                        |
-|--------|-------------------------------------|--------------------------------|----------------------------------------------------|
-| GET    | `/protocols/bundles`                | any                            | List all protocol bundles                          |
-| POST   | `/protocols/bundles`                | cmo, clinical_lead             | Create a new bundle                                |
-| GET    | `/protocols/bundles/:id`            | any                            | Get bundle by ID                                   |
-| PUT    | `/protocols/bundles/:id`            | cmo, clinical_lead             | Update a bundle                                    |
-| DELETE | `/protocols/bundles/:id`            | cmo                            | Delete a bundle                                    |
-| GET    | `/protocols/bundles/by-icd/:code`   | any                            | Get bundles matching an ICD-10 code                |
-| GET    | `/protocols/conflict-rules`         | any                            | List drug–lab conflict rules                       |
-| POST   | `/protocols/conflict-rules`         | cmo, clinical_lead             | Create conflict rule                               |
-| PUT    | `/protocols/conflict-rules/:id`     | cmo, clinical_lead             | Update conflict rule                               |
-| DELETE | `/protocols/conflict-rules/:id`     | cmo                            | Delete conflict rule                               |
-| GET    | `/protocols/hmo-rules`              | any                            | List HMO clinical rules                            |
-| POST   | `/protocols/hmo-rules`              | cmo, hospital_admin            | Create HMO rule                                    |
-| PUT    | `/protocols/hmo-rules/:id`          | cmo, hospital_admin            | Update HMO rule                                    |
-| DELETE | `/protocols/hmo-rules/:id`          | cmo                            | Delete HMO rule                                    |
-| GET    | `/protocols/icd10-mappings`         | any                            | List ICD-10 → approved-service mappings            |
-| POST   | `/protocols/icd10-mappings`         | cmo, clinical_lead             | Create ICD-10 mapping                              |
-| PUT    | `/protocols/icd10-mappings/:id`     | cmo, clinical_lead             | Update ICD-10 mapping                              |
+| Method | Path | Roles | Usecase |
+|--------|------|-------|---------|
+| GET | `/protocols` | any | `FetchAllProtocolBundlesUsecase` |
+| POST | `/protocols` | cmo, hospital_admin, clinical_lead | `CreateProtocolBundleUsecase` |
+| GET | `/protocols/:id` | any | `FetchProtocolBundleByIdUsecase` |
+| PUT | `/protocols/:id` | cmo, hospital_admin | `UpdateProtocolBundleUsecase` |
+| DELETE | `/protocols/:id` | cmo | `DeleteProtocolBundleUsecase` |
+| GET | `/protocols/by-code/:codeValue` | any | `FetchProtocolBundleByCodeUsecase` |
+| POST | `/protocols/:id/items` | cmo, hospital_admin, clinical_lead | `AddProtocolBundleItemUsecase` |
+| DELETE | `/protocols/:id/items/:itemId` | cmo, hospital_admin | `RemoveProtocolBundleItemUsecase` |
+
+##### POST `/protocols`
+
+**Request Body:**
+```json
+{
+  "name": "Malaria Workup Bundle",
+  "medicalCodeId": "uuid-of-b50-icd10-code"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "Malaria Workup Bundle",
+    "medicalCode": { "id": "uuid", "codeValue": "B50", "description": "Plasmodium falciparum malaria" },
+    "items": [],
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
+
+##### POST `/protocols/:id/items`
+
+**Request Body:**
+```json
+{
+  "serviceId": "uuid-of-malaria-rdt-service",
+  "serviceType": "lab",
+  "isCompulsory": true
+}
+```
+
+**Response `201`:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "bundleId": "uuid-of-bundle",
+    "serviceId": "uuid-of-malaria-rdt",
+    "serviceType": "lab",
+    "isCompulsory": true,
+    "createdAt": "2026-04-03T10:00:00Z"
+  },
+  "meta": null, "errors": null
+}
+```
 
 ---
 
@@ -786,7 +1577,7 @@ interface ICD10ServiceMapping {
 
 ---
 
-### Feature 9: Patient Management
+### Feature 17: Patient Management
 
 **Description:** Core patient demographic registry. Supports registration, search, profile editing, and HMO enrollment. MRN is server-generated in `CF-YYYY-NNNNN` format. Depends on: Auth, Reference Data (Tier 0), HMO Providers (Tier 1).
 
@@ -896,7 +1687,7 @@ interface PatientMedicalHistoryEntry {
 
 ---
 
-### Feature 10: Staff Roster & Scheduling
+### Feature 18: Staff Roster & Scheduling
 
 **Description:** Manages weekly duty rosters (shift assignments per staff per day). Separate from user management; this is operational scheduling. Depends on: Auth, Users (Tier 0–1).
 
@@ -953,7 +1744,7 @@ type ShiftType = 'morning' | 'afternoon' | 'night' | 'off';
 
 ---
 
-### Feature 11: Appointments
+### Feature 19: Appointments
 
 **Description:** Manages scheduled patient visits. Supports booking, confirmation, rescheduling, and cancellation. Generates check-in queue entries on arrival. Depends on: Patients, Users (Tier 2).
 
@@ -1008,7 +1799,7 @@ interface Appointment {
 
 ---
 
-### Feature 12: Episodes
+### Feature 20: Episodes
 
 **Description:** An Episode groups all clinical and financial activity for a single visit or care episode. Created at check-in and manually transitioned through statuses by clinical staff. Depends on: Patients, Appointments (Tier 2–3).
 
@@ -1073,7 +1864,7 @@ interface EpisodeTimelineEvent {
 
 ---
 
-### Feature 13: Queue Management
+### Feature 21: Queue Management
 
 **Description:** Real-time queue management across five queues: triage, doctor_new, doctor_review, lab, pharmacy. Includes priority management, payment clearance checks, and consultation pause/resume. Depends on: Patients, Episodes (Tier 2–3).
 
@@ -1189,7 +1980,7 @@ interface QueueStats {
 
 ---
 
-### Feature 14: Vital Signs
+### Feature 22: Vital Signs
 
 **Description:** Records and retrieves patient vital signs (BP, temperature, pulse, SpO2, weight, height, BMI). Generates alert flags for abnormal values. Depends on: Patients, Queue (Tier 2–4).
 
@@ -1278,7 +2069,7 @@ interface VitalAlert {
 
 ---
 
-### Feature 15: Consultations
+### Feature 23: Consultations
 
 **Description:** Full consultation lifecycle — draft, in-progress, finalized, and amendment. Captures chief complaint, HPI, examination, ICD-10 diagnoses, treatment plan, linked prescriptions, and lab orders. Supports versioning for audit. Depends on: Patients, Episodes, Queue, Vitals (Tier 2–4).
 
@@ -1347,7 +2138,7 @@ interface ConsultationVersion {
 
 ---
 
-### Feature 16: Lab Orders & Results
+### Feature 24: Lab Orders & Results
 
 **Description:** Manages lab test ordering, sample collection workflow, result entry, and result submission to doctors. Includes sample queue management and partner-lab referral status tracking. Depends on: Patients, Episodes, Consultations, Lab Catalog (Tier 1–5).
 
@@ -1424,7 +2215,7 @@ interface LabOrder {
 
 ---
 
-### Feature 17: Prescriptions & Dispensing
+### Feature 25: Prescriptions & Dispensing
 
 **Description:** Manages prescription lifecycle from doctor ordering through pharmacist dispensing. Supports partial dispensing, drug substitution (generic/therapeutic), and dispense audit trail. Depends on: Patients, Episodes, Consultations, Inventory (Tier 1–5).
 
@@ -1491,7 +2282,7 @@ interface DispenseRequest {
 
 ---
 
-### Feature 18: Billing & Payments
+### Feature 26: Billing & Payments
 
 **Description:** Manages bills (invoices), line-item composition, payment processing (cash, card, POS transfer, HMO, split payments), billing codes, and emergency overrides. Supports both registered patients and walk-in customers. Depends on: Patients, Episodes, Services (Tier 1–5).
 
@@ -1655,7 +2446,7 @@ interface EmergencyOverride {
 
 ---
 
-### Feature 19: HMO Claims
+### Feature 27: HMO Claims
 
 **Description:** Full HMO claims lifecycle — draft, submission, tracking, approval/denial, resubmission, withdrawal, and retraction. Each claim bundles multiple bills and diagnoses. Includes document upload and multi-version audit trail. Depends on: Bills, HMO Providers, Consultations (Tier 1–6).
 
@@ -1741,7 +2532,7 @@ interface HMOClaim {
 
 ---
 
-### Feature 20: Cashier Shift Management
+### Feature 28: Cashier Shift Management
 
 **Description:** Tracks cashier shifts — opening balance, transactions, closing balance, and variance reporting. Supports multiple stations (main, lab, pharmacy). Depends on: Auth, Bills, Payments (Tier 0–6).
 
@@ -1802,7 +2593,7 @@ interface ShiftTransaction {
 
 ---
 
-### Feature 21: Stock Requests
+### Feature 29: Stock Requests
 
 **Description:** Workflow for requesting inventory restocking from any department to the hospital administrator (or escalated to CMO). Supports partial approval and forwarding. Depends on: Inventory, Users (Tier 1).
 
@@ -1850,7 +2641,7 @@ interface StockRequest {
 
 ---
 
-### Feature 22: Lab Referrals (Partner Labs)
+### Feature 30: Lab Referrals (Partner Labs)
 
 **Description:** Manages outbound and inbound lab referrals to/from partner laboratories. Tracks sample transit, result receipt, and sync status. Depends on: Lab Orders, Patients (Tier 2–5).
 
@@ -1904,17 +2695,13 @@ interface LabReferral {
 
 | Method | Path                                    | Roles                                           | Description                                      |
 |--------|-----------------------------------------|-------------------------------------------------|--------------------------------------------------|
-| GET    | `/lab/partner-labs`                     | lab_tech, clinical_lead, hospital_admin, cmo    | List partner labs                                |
-| POST   | `/lab/partner-labs`                     | hospital_admin, cmo                             | Register a partner lab                           |
-| GET    | `/lab/partner-labs/:id`                 | any                                             | Get partner lab detail                           |
-| PATCH  | `/lab/partner-labs/:id/status`          | hospital_admin, cmo                             | Update connection status                         |
 | GET    | `/lab/referrals`                        | lab_tech, clinical_lead, hospital_admin, cmo    | List all referrals                               |
 | POST   | `/lab/referrals`                        | lab_tech, doctor                                | Create outbound referral                         |
 | GET    | `/lab/referrals/:id`                    | lab_tech, doctor, clinical_lead, cmo            | Get referral detail                              |
 | PATCH  | `/lab/referrals/:id/status`             | lab_tech                                        | Update referral status                           |
 | PATCH  | `/lab/referrals/:id/results`            | lab_tech                                        | Receive and record results from partner lab      |
 | POST   | `/lab/referrals/inbound`                | lab_tech                                        | Register an inbound referral from partner lab    |
-| GET    | `/lab/partner-labs/:id/sync`            | lab_tech, hospital_admin                        | Trigger manual sync with partner lab system      |
+| GET    | `/labs/partners/:id/sync`            | lab_tech, hospital_admin                        | Trigger manual sync with partner lab system      |
 
 ---
 
@@ -1922,7 +2709,7 @@ interface LabReferral {
 
 ---
 
-### Feature 23: Notifications
+### Feature 31: Notifications
 
 **Description:** Real-time notification delivery (WebSocket push + persistent read state). Covers patient arrival alerts, result notifications, queue warnings, payment confirmations, and emergency alerts. Depends on: Any event-generating feature.
 
@@ -1965,7 +2752,7 @@ Server pushes `Notification` objects as JSON events on the relevant user channel
 
 ---
 
-### Feature 24: Audit Logging
+### Feature 32: Audit Logging
 
 **Description:** Immutable audit trail for clinical and administrative actions. Records actor, action, entity, timestamp, and before/after snapshots. Write-only from application; read access restricted to CMO and hospital admin. Depends on: Any feature.
 
@@ -2010,7 +2797,7 @@ interface AuditEntry {
 
 ---
 
-### Feature 25: Reports & Analytics
+### Feature 33: Reports & Analytics
 
 **Description:** Aggregated reporting for executive, clinical, billing, pharmacy, lab, nursing, radiology, and surgery dashboards. Reports may be paginated or returned as an embeddable URL for BI tools. Depends on: All features.
 
@@ -2075,7 +2862,7 @@ interface ReportSummary {
 
 ---
 
-### Feature 26: Permissions Management
+### Feature 34: Permissions Management
 
 **Description:** Runtime permission toggle system. Allows CMO to grant cross-role access (e.g., `hospital_admin` gets clinical access, `clinical_lead` gets financial access). These toggles augment the base RBAC defined in the role matrix. Depends on: Auth, Users (Tier 0–1).
 
@@ -2166,7 +2953,7 @@ This table maps every React Query hook in `src/hooks/queries/` and `src/hooks/mu
 | `useLabQueries.ts`                | `useSampleQueue`              | `GET /lab/orders/sample-queue`                       |
 | `useLabQueries.ts`                | `usePatientLabResults`        | `GET /patients/:id/lab-results`                      |
 | `useLabQueries.ts`                | `useLabCatalog`               | `GET /lab/catalog`                                   |
-| `useLabQueries.ts`                | `usePartnerLabs`              | `GET /lab/partner-labs`                              |
+| `useLabQueries.ts`                | `usePartnerLabs`              | `GET /labs/partners`                              |
 | `useLabQueries.ts`                | `useLabReferrals`             | `GET /lab/referrals`                                 |
 | `usePrescriptionQueries.ts`       | `usePrescriptions`            | `GET /prescriptions`                                 |
 | `usePrescriptionQueries.ts`       | `usePrescription`             | `GET /prescriptions/:id`                             |
@@ -2202,8 +2989,8 @@ This table maps every React Query hook in `src/hooks/queries/` and `src/hooks/mu
 | `useShiftQueries.ts`              | `useStationShifts`            | `GET /shifts/station/:station`                       |
 | `useStockRequestQueries.ts`       | `useStockRequests`            | `GET /stock-requests`                                |
 | `useStockRequestQueries.ts`       | `useStockRequest`             | `GET /stock-requests/:id`                            |
-| `useHmoQueries.ts`                | `useHmoContracts`             | `GET /hmo/providers/:id/coverage`                    |
-| `useHmoQueries.ts`                | `useHmoContract`              | `GET /hmo/providers/:id/coverage/:contractId`        |
+| `useHmoQueries.ts`                | `useHmoContracts`             | `GET /hmo/providers/:id/contracts`                    |
+| `useHmoQueries.ts`                | `useHmoContract`              | `GET /hmo/providers/:id/contracts/:contractId`        |
 | `useBillQueries.ts`               | `useBillingCode`              | `GET /bills/billing-codes/:code`                     |
 | `useBillQueries.ts`               | `useEmergencyOverrides`       | `GET /bills/emergency-overrides`                     |
 | `useBillQueries.ts`               | `useEmergencyOverride`        | `GET /bills/emergency-overrides/:id`                 |
@@ -2268,9 +3055,9 @@ This table maps every React Query hook in `src/hooks/queries/` and `src/hooks/mu
 | `useStockRequestMutations.ts`     | `useReviewStockRequest`       | `PATCH /stock-requests/:id/review`                   |
 | `useStockRequestMutations.ts`     | `useForwardStockRequest`      | `PATCH /stock-requests/:id/forward`                  |
 | `useStockRequestMutations.ts`     | `useFulfillStockRequest`      | `PATCH /stock-requests/:id/fulfill`                  |
-| `useHmoMutations.ts`              | `useCreateHmoContract`        | `POST /hmo/providers/:id/coverage`                   |
-| `useHmoMutations.ts`              | `useUpdateHmoContract`        | `PUT /hmo/providers/:id/coverage/:contractId`        |
-| `useHmoMutations.ts`              | `useDeleteHmoContract`        | `DELETE /hmo/providers/:id/coverage/:contractId`     |
+| `useHmoMutations.ts`              | `useCreateHmoContract`        | `POST /hmo/providers/:id/contracts`                   |
+| `useHmoMutations.ts`              | `useUpdateHmoContract`        | `PUT /hmo/providers/:id/contracts/:contractId`        |
+| `useHmoMutations.ts`              | `useDeleteHmoContract`        | `DELETE /hmo/providers/:id/contracts/:contractId`     |
 | `useBillMutations.ts`             | `useAuthorizeEmergencyOverride` | `POST /bills/emergency-overrides`                  |
 | `useBillMutations.ts`             | `useClearEmergencyOverride`   | `PATCH /bills/emergency-overrides/:id/clear`         |
 | `useBillMutations.ts`             | `usePayBillingCode`           | `PATCH /bills/billing-codes/:code/pay`               |
@@ -2279,4 +3066,4 @@ This table maps every React Query hook in `src/hooks/queries/` and `src/hooks/mu
 
 ---
 
-*Document updated: 2026-04-03 | ClinicFlow v1.1.0*
+*Document updated: 2026-04-03 | ClinicFlow v1.2.0 — Tier 1 full entity redesign*

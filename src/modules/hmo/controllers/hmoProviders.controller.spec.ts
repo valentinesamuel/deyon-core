@@ -1,10 +1,10 @@
 import { mock } from 'vitest-mock-extended';
 import { HmoProvidersController } from './hmoProviders.controller';
 import { Broker } from '@broker/broker';
-import { FetchAllHmoProvidersUsecase } from '../usecases/fetchAllHmoProviders.uc';
-import { FetchHmoProviderByCodeUsecase } from '../usecases/fetchHmoProviderByCode.uc';
-import { CreateHmoProviderUsecase } from '../usecases/createHmoProvider.uc';
-import { UpdateHmoProviderUsecase } from '../usecases/updateHmoProvider.uc';
+import { FetchAllHmoProvidersUsecase } from '../usecases/hmoProviders/fetchAllHmoProviders.uc';
+import { FetchHmoProviderByCodeUsecase } from '../usecases/hmoProviders/fetchHmoProviderByCode.uc';
+import { CreateHmoProviderUsecase } from '../usecases/hmoProviders/createHmoProvider.uc';
+import { UpdateHmoProviderUsecase } from '../usecases/hmoProviders/updateHmoProvider.uc';
 
 describe('HmoProvidersController', () => {
   let controller: HmoProvidersController;

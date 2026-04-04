@@ -3,14 +3,17 @@ import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/c
 import { PERMISSION } from '@shared/constants/permissions';
 import { RequirePermissions } from '@shared/decorators/requirePermission.decorator';
 import { GetAllQueryDto } from '@shared/queryEngine';
-import { FetchAllHmoProvidersUsecase } from '../usecases/fetchAllHmoProviders.uc';
-import { CreateHmoProviderUsecase } from '../usecases/createHmoProvider.uc';
-import { CreateHmoProviderDto } from '../dto/createHmoProvider.dto';
-import { UpdateHmoProviderDto, UpdateHmoProviderStatusDto } from '../dto/updateHmoProvider.dto';
-import { FetchHmoProviderByCodeUsecase } from '../usecases/fetchHmoProviderByCode.uc';
-import { UpdateHmoProviderUsecase } from '../usecases/updateHmoProvider.uc';
-import { FetchHmoProviderByIdUsecase } from '../usecases/fetchHmoProviderById.uc';
-import { UpdateHmoProviderStatusUsecase } from '../usecases/updateHmoProviderStatus.uc';
+import { FetchAllHmoProvidersUsecase } from '../usecases/hmoProviders/fetchAllHmoProviders.uc';
+import { CreateHmoProviderUsecase } from '../usecases/hmoProviders/createHmoProvider.uc';
+import { CreateHmoProviderDto } from '../dto/hmoProvider/createHmoProvider.dto';
+import {
+  UpdateHmoProviderDto,
+  UpdateHmoProviderStatusDto,
+} from '../dto/hmoProvider/updateHmoProvider.dto';
+import { FetchHmoProviderByCodeUsecase } from '../usecases/hmoProviders/fetchHmoProviderByCode.uc';
+import { UpdateHmoProviderUsecase } from '../usecases/hmoProviders/updateHmoProvider.uc';
+import { FetchHmoProviderByIdUsecase } from '../usecases/hmoProviders/fetchHmoProviderById.uc';
+import { UpdateHmoProviderStatusUsecase } from '../usecases/hmoProviders/updateHmoProviderStatus.uc';
 
 @Controller('hmo/providers')
 export class HmoProvidersController {
