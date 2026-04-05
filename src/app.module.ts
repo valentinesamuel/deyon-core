@@ -54,6 +54,9 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
 import { AuditModule } from '@modules/audit/audit.module';
 import { PermissionsMgmtModule } from '@modules/permissionsMgmt/permissionsMgmt.module';
 import { ReportsModule } from '@modules/reports/reports.module';
+import { NigerianBanksModule } from '@modules/nigerianBanks/nigerianBanks.module';
+import { LocationsModule } from '@modules/locations/locations.module';
+import { ConflictRulesModule } from '@modules/conflictRules/conflictRules.module';
 import * as winston from 'winston';
 import { utilities as nestWinstonModuleUtilities, WinstonModule } from 'nest-winston';
 import { TerminusModule } from '@nestjs/terminus';
@@ -139,6 +142,9 @@ import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interce
     AuditModule,
     PermissionsMgmtModule,
     ReportsModule,
+    NigerianBanksModule,
+    LocationsModule,
+    ConflictRulesModule,
   ],
   controllers: [AppController],
   providers: [

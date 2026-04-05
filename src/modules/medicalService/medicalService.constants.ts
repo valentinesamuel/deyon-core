@@ -6,7 +6,7 @@ export const MEDICAL_SERVICE_QUERY_CONFIG: EntityQueryConfig<MedicalService> = {
   allowedFilters: ['id', 'code', 'status', 'isActive', 'medicalServiceCategoryId', 'department'],
   allowedSort: ['name', 'code', 'createdAt'],
   allowedSearch: [{ field: 'name', type: 'fts' }],
-  allowedRelations: [],
+  allowedRelations: ['medicalServiceCategory'],
   allowedFields: [],
   maxRelationDepth: 1,
   cacheTtlSeconds: 30,

@@ -14,6 +14,7 @@ import { RecordPaymentUsecase } from './usecases/recordPayment.uc';
 import { RefundPaymentUsecase } from './usecases/refundPayment.uc';
 import { GenerateBillingCodeUsecase } from './usecases/generateBillingCode.uc';
 import { ValidateBillingCodeUsecase } from './usecases/validateBillingCode.uc';
+import { FetchAllPaymentsUsecase } from './usecases/fetchAllPayments.uc';
 
 @Module({
   controllers: [BillingController, BillingCodeController],
@@ -31,6 +32,7 @@ import { ValidateBillingCodeUsecase } from './usecases/validateBillingCode.uc';
     RefundPaymentUsecase,
     GenerateBillingCodeUsecase,
     ValidateBillingCodeUsecase,
+    FetchAllPaymentsUsecase,
   ],
   exports: [BillingService],
 })

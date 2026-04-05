@@ -14,6 +14,7 @@ import { FetchBillByIdUsecase } from '../usecases/fetchBillById.uc';
 import { AddBillItemsUsecase } from '../usecases/addBillItems.uc';
 import { RecordPaymentUsecase } from '../usecases/recordPayment.uc';
 import { RefundPaymentUsecase } from '../usecases/refundPayment.uc';
+import { FetchAllPaymentsUsecase } from '../usecases/fetchAllPayments.uc';
 
 @ApiTags('Billing')
 @Controller('bills')
@@ -26,6 +27,7 @@ export class BillingController {
     private readonly addBillItemsUsecase: AddBillItemsUsecase,
     private readonly recordPaymentUsecase: RecordPaymentUsecase,
     private readonly refundPaymentUsecase: RefundPaymentUsecase,
+    private readonly fetchAllPaymentsUsecase: FetchAllPaymentsUsecase,
   ) {}
 
   @Post()
@@ -38,6 +40,12 @@ export class BillingController {
   @RequirePermissions([PERMISSION.BILLING.LIST])
   getAllBills(@Query() query: GetAllQueryDto) {
     return this.serviceBroker.runUsecases([this.fetchAllBillsUsecase], { query });
+  }
+
+  @Get('payments')
+  @RequirePermissions([PERMISSION.BILLING.LIST])
+  getAllPayments(@Query() query: GetAllQueryDto) {
+    return this.serviceBroker.runUsecases([this.fetchAllPaymentsUsecase], { query });
   }
 
   @Get(':id')
