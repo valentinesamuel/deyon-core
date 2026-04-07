@@ -2,8 +2,8 @@ import { Episode } from '@modules/core/entities/episode.entity';
 import { EntityQueryConfig } from '@shared/queryEngine';
 
 export const EPISODE_QUERY_CONFIG: EntityQueryConfig<Episode> = {
-  allowedFilters: ['id', 'patientId', 'status', 'episodeNumber', 'isLockedForAudit'],
-  allowedSort: ['createdAt', 'status', 'episodeNumber'],
+  allowedFilters: ['id', 'patientId', 'status', 'type', 'episodeNumber', 'isLockedForAudit'],
+  allowedSort: ['createdAt', 'status', 'type', 'episodeNumber'],
   allowedSearch: [{ field: 'episodeNumber', type: 'fts' }],
   allowedRelations: ['patient', 'vitals', 'logs'],
   allowedFields: [],

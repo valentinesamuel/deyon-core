@@ -54,7 +54,7 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
 import { AuditModule } from '@modules/audit/audit.module';
 import { PermissionsMgmtModule } from '@modules/permissionsMgmt/permissionsMgmt.module';
 import { ReportsModule } from '@modules/reports/reports.module';
-import { NigerianBanksModule } from '@modules/nigerianBanks/nigerianBanks.module';
+import { BanksModule } from '@modules/banks/banks.module';
 import { LocationsModule } from '@modules/locations/locations.module';
 import { ConflictRulesModule } from '@modules/conflictRules/conflictRules.module';
 import * as winston from 'winston';
@@ -142,7 +142,7 @@ import { IdempotencyInterceptor } from '@shared/interceptors/idempotency.interce
     AuditModule,
     PermissionsMgmtModule,
     ReportsModule,
-    NigerianBanksModule,
+    BanksModule,
     LocationsModule,
     ConflictRulesModule,
   ],

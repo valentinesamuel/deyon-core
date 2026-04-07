@@ -16,6 +16,12 @@ export enum EpisodeStatusEnum {
   ARCHIVED = 'archived',
 }
 
+export enum EpisodeTypeEnum {
+  OUTPATIENT = 'outpatient',
+  INPATIENT = 'inpatient',
+  EMERGENCY = 'emergency',
+}
+
 @Entity()
 export class Episode extends BaseEntity {
   @Column({ type: 'uuid' })
@@ -30,6 +36,14 @@ export class Episode extends BaseEntity {
 
   @Column({ type: 'enum', enum: EpisodeStatusEnum })
   status: EpisodeStatusEnum;
+
+  @Column({
+    type: 'enum',
+    enum: EpisodeTypeEnum,
+    nullable: true,
+    default: EpisodeTypeEnum.OUTPATIENT,
+  })
+  type: EpisodeTypeEnum;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
   totalBilled: number;
