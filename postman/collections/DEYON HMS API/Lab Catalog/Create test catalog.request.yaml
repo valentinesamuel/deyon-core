@@ -1,0 +1,22 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/lab/catalog'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Complete Blood Count",
+      "code": "CBC",
+      "category": "Hematology",
+      "description": "Complete blood count test",
+      "price": 5000,
+      "turnaroundTime": "24 hours",
+      "sampleType": "Blood",
+      "instructions": "Fasting not required"
+    }

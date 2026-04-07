@@ -15,7 +15,7 @@ export class LocationsController {
 
   @Get('lgas')
   @Public()
-  getLgas(@Query('stateId') stateId?: string, @Query('country') _country?: string) {
-    return this.locationsService.getLgas(stateId ? parseInt(stateId, 10) : undefined);
+  getLgas(@Query('stateId') stateId?: string) {
+    return this.locationsService.getLgas(stateId);
   }
 }

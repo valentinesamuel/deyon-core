@@ -15,7 +15,7 @@ export class LocationsService {
     return this.stateRepo.find({ select: ['id', 'name', 'shortname'] });
   }
 
-  getLgas(stateId?: number) {
+  getLgas(stateId?: string) {
     if (stateId) {
       return this.lgaRepo.find({
         where: { stateId },

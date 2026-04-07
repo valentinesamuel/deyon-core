@@ -1,0 +1,25 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/lab/catalog/:id'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Updated Complete Blood Count",
+      "code": "CBC-UPD",
+      "category": "Hematology",
+      "description": "Updated complete blood count test",
+      "price": 5500,
+      "turnaroundTime": "12 hours",
+      "sampleType": "Blood",
+      "instructions": "Fasting required for 8 hours"
+    }

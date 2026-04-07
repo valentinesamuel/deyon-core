@@ -7,8 +7,6 @@ headers:
     value: 'Bearer {{token}}'
   - key: Content-Type
     value: application/json
-  - key: X-Idempotency-Key
-    value: '{{$randomUUID}}'
 pathVariables:
   - key: id
     value: '{{$randomUUID}}'
@@ -16,17 +14,13 @@ body:
   type: json
   content: |-
     {
-      "name": "MedSupply Ltd - Updated",
-      "contactPerson": "Jane Smith",
-      "email": "updated@medsupply.com",
-      "phone": "+234-800-123-4568",
-      "address": {
-        "street": "456 Updated Medical Street",
-        "city": "Lagos",
-        "state": "Lagos",
-        "country": "Nigeria",
-        "postalCode": "100002"
-      },
-      "supplierType": "PHARMACEUTICAL",
-      "isActive": true
+      "name": "Updated Supplier Name",
+      "contactPerson": "Jane Doe",
+      "email": "jane@supplier.com",
+      "phone": "+1234567891",
+      "address": "456 Updated Street",
+      "city": "Abuja",
+      "state": "FCT",
+      "country": "Nigeria",
+      "description": "Updated medical supplies supplier"
     }

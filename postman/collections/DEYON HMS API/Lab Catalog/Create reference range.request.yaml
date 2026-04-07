@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/lab/catalog/:id/reference-ranges'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "parameter": "Hemoglobin",
+      "unit": "g/dL",
+      "minValue": 12.0,
+      "maxValue": 16.0,
+      "gender": "Female",
+      "ageGroup": "Adult",
+      "description": "Normal hemoglobin range for adult females"
+    }

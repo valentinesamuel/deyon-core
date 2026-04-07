@@ -1,10 +1,12 @@
 $kind: http-request
-method: GET
-url: '{{baseUrl}}/suppliers/:id'
-order: 2000
+method: DELETE
+url: '{{baseUrl}}/lab/catalog/:id/reference-ranges/:rangeId'
+order: 8000
 headers:
   - key: Authorization
     value: 'Bearer {{token}}'
 pathVariables:
   - key: id
+    value: '{{$randomUUID}}'
+  - key: rangeId
     value: '{{$randomUUID}}'

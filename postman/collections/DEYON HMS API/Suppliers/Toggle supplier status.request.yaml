@@ -1,7 +1,7 @@
 $kind: http-request
-method: GET
-url: '{{baseUrl}}/suppliers/:id'
-order: 2000
+method: PATCH
+url: '{{baseUrl}}/suppliers/:id/status'
+order: 5000
 headers:
   - key: Authorization
     value: 'Bearer {{token}}'

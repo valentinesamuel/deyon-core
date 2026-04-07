@@ -1,29 +1,23 @@
 $kind: http-request
 method: POST
 url: '{{baseUrl}}/suppliers'
-order: 1000
+order: 3000
 headers:
   - key: Authorization
     value: 'Bearer {{token}}'
   - key: Content-Type
     value: application/json
-  - key: X-Idempotency-Key
-    value: '{{$randomUUID}}'
 body:
   type: json
   content: |-
     {
-      "name": "MedSupply Ltd",
+      "name": "Sample Supplier",
       "contactPerson": "John Doe",
-      "email": "contact@medsupply.com",
-      "phone": "+234-800-123-4567",
-      "address": {
-        "street": "123 Medical Street",
-        "city": "Lagos",
-        "state": "Lagos",
-        "country": "Nigeria",
-        "postalCode": "100001"
-      },
-      "supplierType": "PHARMACEUTICAL",
-      "isActive": true
+      "email": "john@supplier.com",
+      "phone": "+1234567890",
+      "address": "123 Supplier Street",
+      "city": "Lagos",
+      "state": "Lagos",
+      "country": "Nigeria",
+      "description": "Medical supplies supplier"
     }

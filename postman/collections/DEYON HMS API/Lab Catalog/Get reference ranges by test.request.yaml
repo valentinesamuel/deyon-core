@@ -1,7 +1,7 @@
 $kind: http-request
 method: GET
-url: '{{baseUrl}}/suppliers/:id'
-order: 2000
+url: '{{baseUrl}}/lab/catalog/:id/reference-ranges'
+order: 5000
 headers:
   - key: Authorization
     value: 'Bearer {{token}}'

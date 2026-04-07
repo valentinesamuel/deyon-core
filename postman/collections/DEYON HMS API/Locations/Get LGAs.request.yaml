@@ -1,0 +1,5 @@
+$kind: http-request
+method: GET
+url: "{{baseUrl}}locations/lgas"
+examples: .resources/Get LGAs.resources/examples
+order: 2000

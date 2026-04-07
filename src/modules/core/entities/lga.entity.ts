@@ -5,8 +5,8 @@ import { Patient } from './patient.entity';
 
 @Entity()
 export class Lga extends GeoBaseEntity {
-  @Column({ type: 'integer' })
-  stateId: number;
+  @Column({ type: 'string' })
+  stateId: string;
 
   // Relations
   @ManyToOne(() => State, (state) => state.lgas)

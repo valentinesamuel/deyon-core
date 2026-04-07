@@ -1,0 +1,10 @@
+$kind: http-request
+method: GET
+url: "{{baseUrl}}/locations/states"
+examples: .resources/Get all states.resources/examples
+order: 1000
+queryParams:
+  - key: country
+    value: ""
+    disabled: true
+    description: Optional country filter
