@@ -1,0 +1,21 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/claims'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: page
+    value: '1'
+  - key: limit
+    value: '10'
+  - key: status
+    value: ''
+    disabled: true
+  - key: hmoId
+    value: ''
+    disabled: true
+  - key: patientId
+    value: ''
+    disabled: true

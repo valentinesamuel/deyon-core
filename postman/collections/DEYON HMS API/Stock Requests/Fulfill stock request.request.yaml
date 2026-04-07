@@ -1,0 +1,27 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/stock-requests/:id/fulfill'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "fulfilledBy": "{{$randomUUID}}",
+      "fulfilledQuantities": [
+        {
+          "inventoryItemId": "{{$randomUUID}}",
+          "fulfilledQuantity": 50
+        }
+      ],
+      "notes": "Stock request fulfilled"
+    }

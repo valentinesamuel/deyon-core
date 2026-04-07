@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/coding-standards/search'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: query
+    value: 'diabetes'
+  - key: type
+    value: 'icd10'
+  - key: limit
+    value: '10'

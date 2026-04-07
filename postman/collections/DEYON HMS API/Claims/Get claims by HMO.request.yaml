@@ -1,0 +1,10 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/claims/hmo/:hmoId'
+order: 11000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+pathVariables:
+  - key: hmoId
+    value: '{{$randomUUID}}'

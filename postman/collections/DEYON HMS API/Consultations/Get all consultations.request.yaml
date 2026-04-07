@@ -1,0 +1,24 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/consultations'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: page
+    value: '1'
+  - key: limit
+    value: '10'
+  - key: patientId
+    value: ''
+    disabled: true
+  - key: doctorId
+    value: ''
+    disabled: true
+  - key: startDate
+    value: ''
+    disabled: true
+  - key: endDate
+    value: ''
+    disabled: true

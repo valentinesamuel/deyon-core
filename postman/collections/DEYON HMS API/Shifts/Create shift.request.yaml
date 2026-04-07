@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/shifts'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "staffId": "{{$randomUUID}}",
+      "departmentId": "{{$randomUUID}}",
+      "shiftType": "DAY",
+      "startTime": "08:00",
+      "endTime": "16:00",
+      "date": "2024-01-15",
+      "isRecurring": false,
+      "notes": "Regular day shift"
+    }

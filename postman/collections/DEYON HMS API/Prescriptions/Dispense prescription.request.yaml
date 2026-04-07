@@ -1,0 +1,22 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/prescriptions/:id/dispense'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "dispensedBy": "{{$randomUUID}}",
+      "dispensedAt": "2024-01-15T14:30:00Z",
+      "notes": "Medication dispensed to patient"
+    }

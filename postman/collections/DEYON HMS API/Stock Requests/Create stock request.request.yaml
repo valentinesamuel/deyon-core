@@ -1,0 +1,27 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/stock-requests'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "departmentId": "{{$randomUUID}}",
+      "requestedBy": "{{$randomUUID}}",
+      "items": [
+        {
+          "inventoryItemId": "{{$randomUUID}}",
+          "requestedQuantity": 50,
+          "urgency": "NORMAL",
+          "reason": "Stock replenishment"
+        }
+      ],
+      "notes": "Monthly stock request for department"
+    }

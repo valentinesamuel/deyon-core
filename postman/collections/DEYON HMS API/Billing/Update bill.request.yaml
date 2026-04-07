@@ -1,0 +1,32 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/billing/:id'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "billItems": [
+        {
+          "serviceId": "{{$randomUUID}}",
+          "quantity": 1,
+          "unitPrice": 6000,
+          "discount": 500,
+          "description": "Updated consultation fee"
+        }
+      ],
+      "totalAmount": 6000,
+      "discountAmount": 500,
+      "netAmount": 5500,
+      "notes": "Updated billing information"
+    }

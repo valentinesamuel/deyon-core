@@ -1,0 +1,26 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/inventory'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "itemName": "Paracetamol 500mg",
+      "itemCode": "PAR500",
+      "category": "MEDICATION",
+      "unitOfMeasure": "TABLETS",
+      "minimumStockLevel": 100,
+      "maximumStockLevel": 1000,
+      "reorderLevel": 200,
+      "unitCost": 50,
+      "supplierId": "{{$randomUUID}}",
+      "description": "Pain relief medication"
+    }

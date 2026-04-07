@@ -1,0 +1,29 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/lab-orders'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "doctorId": "{{$randomUUID}}",
+      "labTests": [
+        {
+          "testCode": "FBC",
+          "testName": "Full Blood Count",
+          "priority": "ROUTINE",
+          "instructions": "Fasting required"
+        }
+      ],
+      "clinicalNotes": "Patient presents with fatigue",
+      "urgency": "ROUTINE"
+    }

@@ -1,0 +1,32 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/vitals/:id'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "vitals": {
+        "bloodPressure": {
+          "systolic": 125,
+          "diastolic": 82
+        },
+        "heartRate": 75,
+        "temperature": 36.7,
+        "respiratoryRate": 18,
+        "oxygenSaturation": 97,
+        "weight": 71.0,
+        "height": 175
+      },
+      "notes": "Updated vitals - slight increase in BP"
+    }

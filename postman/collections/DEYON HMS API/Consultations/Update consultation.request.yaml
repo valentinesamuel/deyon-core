@@ -1,0 +1,30 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/consultations/:id'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "chiefComplaint": "Updated chief complaint",
+      "historyOfPresentIllness": "Updated history",
+      "physicalExamination": "Updated examination findings",
+      "treatmentPlan": "Updated treatment plan",
+      "selectedDiagnoses": [
+        {
+          "code": "R51",
+          "description": "Headache",
+          "isPrimary": true
+        }
+      ]
+    }

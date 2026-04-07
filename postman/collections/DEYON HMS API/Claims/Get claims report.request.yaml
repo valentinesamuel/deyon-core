@@ -1,0 +1,18 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/claims/reports'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: startDate
+    value: '2024-01-01'
+  - key: endDate
+    value: '2024-12-31'
+  - key: hmoId
+    value: ''
+    disabled: true
+  - key: status
+    value: ''
+    disabled: true

@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/notifications'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "recipientId": "{{$randomUUID}}",
+      "recipientType": "STAFF",
+      "title": "Appointment Reminder",
+      "message": "You have an appointment scheduled for tomorrow at 10:00 AM",
+      "type": "APPOINTMENT_REMINDER",
+      "priority": "MEDIUM",
+      "scheduledFor": "2024-01-16T09:00:00Z"
+    }

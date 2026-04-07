@@ -1,0 +1,20 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/claims/:id/status'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "status": "APPROVED"
+    }

@@ -1,0 +1,30 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/lab-results'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "labOrderId": "{{$randomUUID}}",
+      "testResults": [
+        {
+          "testCode": "FBC",
+          "testName": "Full Blood Count",
+          "result": "Normal",
+          "referenceRange": "4.5-11.0 x10^9/L",
+          "unit": "x10^9/L",
+          "status": "NORMAL"
+        }
+      ],
+      "performedBy": "{{$randomUUID}}",
+      "performedAt": "2024-01-15T10:30:00Z",
+      "notes": "All parameters within normal limits"
+    }

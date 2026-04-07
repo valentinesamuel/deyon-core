@@ -1,0 +1,32 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/vitals'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "recordedBy": "{{$randomUUID}}",
+      "vitals": {
+        "bloodPressure": {
+          "systolic": 120,
+          "diastolic": 80
+        },
+        "heartRate": 72,
+        "temperature": 36.5,
+        "respiratoryRate": 16,
+        "oxygenSaturation": 98,
+        "weight": 70.5,
+        "height": 175
+      },
+      "notes": "Patient vitals within normal range"
+    }

@@ -1,0 +1,33 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/billing'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "billItems": [
+        {
+          "serviceId": "{{$randomUUID}}",
+          "quantity": 1,
+          "unitPrice": 5000,
+          "discount": 0,
+          "description": "Consultation fee"
+        }
+      ],
+      "totalAmount": 5000,
+      "discountAmount": 0,
+      "taxAmount": 0,
+      "netAmount": 5000,
+      "paymentMethod": "CASH",
+      "notes": "Regular consultation billing"
+    }

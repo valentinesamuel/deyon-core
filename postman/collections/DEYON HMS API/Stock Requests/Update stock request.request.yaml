@@ -1,0 +1,28 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/stock-requests/:id'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "inventoryItemId": "{{$randomUUID}}",
+          "requestedQuantity": 75,
+          "urgency": "URGENT",
+          "reason": "Updated stock requirement"
+        }
+      ],
+      "notes": "Updated monthly stock request for department"
+    }

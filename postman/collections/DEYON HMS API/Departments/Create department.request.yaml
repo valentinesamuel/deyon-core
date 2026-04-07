@@ -1,0 +1,22 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/departments'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Cardiology",
+      "description": "Heart and cardiovascular system department",
+      "code": "CARD",
+      "headOfDepartmentId": "{{$randomUUID}}",
+      "location": "Building A, Floor 3",
+      "isActive": true
+    }

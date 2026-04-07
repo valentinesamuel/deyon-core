@@ -1,0 +1,22 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/queue'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "serviceType": "CONSULTATION",
+      "departmentId": "{{$randomUUID}}",
+      "priority": "NORMAL",
+      "appointmentId": "{{$randomUUID}}",
+      "notes": "Patient check-in for scheduled appointment"
+    }

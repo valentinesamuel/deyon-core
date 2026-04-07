@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/appointments'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "doctorId": "{{$randomUUID}}",
+      "departmentId": "{{$randomUUID}}",
+      "appointmentDate": "2024-12-31T10:00:00.000Z",
+      "appointmentType": "CONSULTATION",
+      "reason": "Regular checkup",
+      "notes": "Patient requested morning appointment"
+    }

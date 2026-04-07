@@ -1,0 +1,7 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/department-performance'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'

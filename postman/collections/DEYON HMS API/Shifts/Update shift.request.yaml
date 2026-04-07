@@ -1,0 +1,25 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/shifts/:id'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "shiftType": "NIGHT",
+      "startTime": "20:00",
+      "endTime": "08:00",
+      "date": "2024-01-15",
+      "isRecurring": false,
+      "notes": "Updated to night shift"
+    }

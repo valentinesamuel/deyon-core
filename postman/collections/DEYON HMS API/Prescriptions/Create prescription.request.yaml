@@ -1,0 +1,30 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/prescriptions'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "doctorId": "{{$randomUUID}}",
+      "medications": [
+        {
+          "medicationName": "Paracetamol",
+          "dosage": "500mg",
+          "frequency": "3 times daily",
+          "duration": "7 days",
+          "instructions": "Take after meals",
+          "quantity": 21
+        }
+      ],
+      "notes": "Patient advised to complete full course"
+    }

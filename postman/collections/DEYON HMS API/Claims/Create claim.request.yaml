@@ -1,0 +1,30 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/claims'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "hmoId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "claimItems": [
+        {
+          "serviceId": "{{$randomUUID}}",
+          "quantity": 1,
+          "unitPrice": 5000,
+          "description": "Medical consultation"
+        }
+      ],
+      "totalAmount": 5000,
+      "diagnosis": "Routine medical examination",
+      "treatmentDate": "2024-12-31T10:00:00.000Z"
+    }

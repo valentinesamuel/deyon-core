@@ -1,0 +1,27 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/stock-requests/:id/approve'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "approvedBy": "{{$randomUUID}}",
+      "approvedQuantities": [
+        {
+          "inventoryItemId": "{{$randomUUID}}",
+          "approvedQuantity": 50
+        }
+      ],
+      "notes": "Stock request approved"
+    }

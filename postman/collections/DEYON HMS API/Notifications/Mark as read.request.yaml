@@ -1,0 +1,12 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/notifications/:id/read'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'

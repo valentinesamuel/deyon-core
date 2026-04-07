@@ -1,0 +1,33 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/consultations'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "encounterId": "{{$randomUUID}}",
+      "patientId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "appointmentId": "{{$randomUUID}}",
+      "doctorId": "{{$randomUUID}}",
+      "chiefComplaint": "Patient complains of persistent headache for 3 days",
+      "historyOfPresentIllness": "Headache started 3 days ago, worsening in the morning",
+      "physicalExamination": "Blood pressure: 120/80, Temperature: 98.6F, Alert and oriented",
+      "treatmentPlan": "Prescribed pain medication and rest",
+      "selectedDiagnoses": [
+        {
+          "code": "R51",
+          "description": "Headache",
+          "isPrimary": true
+        }
+      ],
+      "followUpDate": "2025-01-15T10:00:00.000Z"
+    }

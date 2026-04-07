@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/episodes'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "departmentId": "{{$randomUUID}}",
+      "episodeType": "OUTPATIENT",
+      "admissionDate": "2024-12-31T10:00:00.000Z",
+      "chiefComplaint": "Patient presenting with chest pain",
+      "admittingDoctorId": "{{$randomUUID}}",
+      "priority": "ROUTINE",
+      "status": "ACTIVE"
+    }

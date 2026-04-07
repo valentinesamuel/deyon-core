@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/episodes/:id/discharge'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "dischargeDate": "2024-12-31T18:00:00.000Z",
+      "dischargeSummary": "Patient recovered well and discharged home",
+      "dischargeInstructions": "Take prescribed medications and follow up in 1 week",
+      "dischargingDoctorId": "{{$randomUUID}}"
+    }

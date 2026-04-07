@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/referrals'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+  - key: X-Idempotency-Key
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "patientId": "{{$randomUUID}}",
+      "episodeId": "{{$randomUUID}}",
+      "referringDoctorId": "{{$randomUUID}}",
+      "referredToDepartmentId": "{{$randomUUID}}",
+      "referredToDoctorId": "{{$randomUUID}}",
+      "reason": "Specialist consultation required",
+      "urgency": "ROUTINE",
+      "clinicalNotes": "Patient requires cardiology consultation for chest pain evaluation",
+      "expectedDate": "2024-01-20"
+    }

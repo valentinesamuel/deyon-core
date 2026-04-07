@@ -1,0 +1,24 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/audit'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: page
+    value: '1'
+  - key: limit
+    value: '10'
+  - key: action
+    value: ''
+    disabled: true
+  - key: userId
+    value: ''
+    disabled: true
+  - key: startDate
+    value: ''
+    disabled: true
+  - key: endDate
+    value: ''
+    disabled: true

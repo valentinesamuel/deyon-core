@@ -1,0 +1,10 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/referrals/doctor/:doctorId'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+pathVariables:
+  - key: doctorId
+    value: '{{$randomUUID}}'

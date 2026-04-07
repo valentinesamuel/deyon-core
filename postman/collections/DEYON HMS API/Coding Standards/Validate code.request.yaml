@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/coding-standards/validate/:type/:code'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+pathVariables:
+  - key: type
+    value: 'icd10'
+  - key: code
+    value: 'J45.9'

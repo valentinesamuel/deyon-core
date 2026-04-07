@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/claims/bulk-export'
+order: 13000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: format
+    value: 'excel'
+  - key: startDate
+    value: '2024-01-01'
+  - key: endDate
+    value: '2024-12-31'
