@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/patients/search'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: query
+    value: 'John Doe'
+  - key: searchBy
+    value: 'name'

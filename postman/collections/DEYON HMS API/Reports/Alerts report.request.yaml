@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/reports/alerts'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+queryParams:
+  - key: type
+    value: ''
+  - key: severity
+    value: ''
+  - key: resolved
+    value: 'false'

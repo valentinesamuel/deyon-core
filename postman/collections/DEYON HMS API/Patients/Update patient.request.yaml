@@ -1,0 +1,21 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/patients/:id'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "firstName": "Updated John",
+      "lastName": "Updated Doe",
+      "phone": "+2348012345680",
+      "address": "456 Updated Street"
+    }

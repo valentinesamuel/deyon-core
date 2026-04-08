@@ -1,18 +1,16 @@
 $kind: http-request
 method: GET
-url: '{{baseUrl}}/vitals'
+url: '{{baseUrl}}/reports/consultations'
 order: 2000
 headers:
   - key: Authorization
     value: 'Bearer {{token}}'
 queryParams:
-  - key: page
-    value: '1'
-  - key: limit
-    value: '10'
-  - key: patientId
-    value: ''
   - key: startDate
-    value: ''
+    value: '2024-01-01'
   - key: endDate
+    value: '2024-12-31'
+  - key: doctorId
+    value: ''
+  - key: department
     value: ''

@@ -1,0 +1,22 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/patients/:id/history'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "type": "MEDICAL_CONDITION",
+      "title": "Hypertension",
+      "description": "Patient diagnosed with high blood pressure",
+      "date": "2024-01-15",
+      "severity": "MODERATE"
+    }

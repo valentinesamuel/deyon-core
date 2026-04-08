@@ -1,0 +1,29 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/patients'
+order: 1000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com",
+      "phone": "+2348012345678",
+      "dateOfBirth": "1990-01-15",
+      "gender": "MALE",
+      "address": "123 Main Street",
+      "city": "Lagos",
+      "state": "Lagos",
+      "country": "Nigeria",
+      "emergencyContact": {
+        "name": "Jane Doe",
+        "phone": "+2348012345679",
+        "relationship": "Spouse"
+      }
+    }

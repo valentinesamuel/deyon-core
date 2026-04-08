@@ -6,6 +6,7 @@ export type NextOfKinMetadata = {
   name: string;
   address: string;
   phoneNumber: string;
+  relationship: string;
 };
 
 export enum PaymentTypeEnum {

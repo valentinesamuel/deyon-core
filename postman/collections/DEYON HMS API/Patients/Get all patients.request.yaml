@@ -1,0 +1,16 @@
+$kind: http-request
+name: Get all patients
+method: GET
+url: "{{baseUrl}}/patients?page=1&limit=10"
+examples: .resources/Get all patients.resources/examples
+order: 2000
+headers:
+  Authorization: Bearer {{token}}
+queryParams:
+  - key: page
+    value: "1"
+  - key: limit
+    value: "10"
+  - key: search
+    value: ""
+    disabled: true

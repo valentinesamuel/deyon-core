@@ -7,26 +7,19 @@ headers:
     value: 'Bearer {{token}}'
   - key: Content-Type
     value: application/json
-  - key: X-Idempotency-Key
-    value: '{{$randomUUID}}'
 body:
   type: json
   content: |-
     {
       "patientId": "{{$randomUUID}}",
-      "episodeId": "{{$randomUUID}}",
-      "recordedBy": "{{$randomUUID}}",
-      "vitals": {
-        "bloodPressure": {
-          "systolic": 120,
-          "diastolic": 80
-        },
-        "heartRate": 72,
-        "temperature": 36.5,
-        "respiratoryRate": 16,
-        "oxygenSaturation": 98,
-        "weight": 70.5,
-        "height": 175
-      },
-      "notes": "Patient vitals within normal range"
+      "temperature": 36.5,
+      "bloodPressureSystolic": 120,
+      "bloodPressureDiastolic": 80,
+      "heartRate": 72,
+      "respiratoryRate": 16,
+      "oxygenSaturation": 98,
+      "weight": 70.5,
+      "height": 175,
+      "bmi": 23.0,
+      "notes": "Normal vital signs"
     }

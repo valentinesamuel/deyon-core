@@ -1,0 +1,12 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/patients/:id/history/:historyId'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+  - key: historyId
+    value: '{{$randomUUID}}'

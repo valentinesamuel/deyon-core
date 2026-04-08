@@ -1,0 +1,81 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/patients?page=1&limit=10"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer {{token}}
+  queryParams:
+    - key: page
+      value: "1"
+    - key: limit
+      value: "10"
+    - key: search
+      value: ""
+      disabled: true
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    - key: content-security-policy
+      value: "default-src 'self';frame-ancestors 'none';base-uri 'self';font-src
+        'self' https: data:;form-action 'self';img-src 'self' data:;object-src
+        'none';script-src 'self';script-src-attr 'none';style-src 'self' https:
+        'unsafe-inline';upgrade-insecure-requests"
+    - key: cross-origin-opener-policy
+      value: same-origin
+    - key: cross-origin-resource-policy
+      value: same-origin
+    - key: origin-agent-cluster
+      value: ?1
+    - key: referrer-policy
+      value: no-referrer
+    - key: strict-transport-security
+      value: max-age=31536000; includeSubDomains; preload
+    - key: x-content-type-options
+      value: nosniff
+    - key: x-dns-prefetch-control
+      value: off
+    - key: x-download-options
+      value: noopen
+    - key: x-frame-options
+      value: SAMEORIGIN
+    - key: x-permitted-cross-domain-policies
+      value: none
+    - key: x-xss-protection
+      value: "0"
+    - key: vary
+      value: Origin
+    - key: access-control-allow-credentials
+      value: "true"
+    - key: access-control-expose-headers
+      value: X-Idempotency-Replayed
+    - key: x-ratelimit-limit
+      value: "10"
+    - key: x-ratelimit-remaining
+      value: "8"
+    - key: x-ratelimit-reset
+      value: "26"
+    - key: content-type
+      value: application/json; charset=utf-8
+    - key: content-length
+      value: "852"
+    - key: etag
+      value: W/"354-TtcwOcYuoFPLv51bOQvdKOC8Hvg"
+    - key: date
+      value: Wed, 08 Apr 2026 07:28:53 GMT
+    - key: connection
+      value: keep-alive
+    - key: keep-alive
+      value: timeout=5
+  body:
+    type: json
+    content: '{"statusCode":200,"success":true,"message":"Request
+      successful","result":{"data":[{"id":"635cb3df-c1e5-4867-b7d4-fe47d1311eff","createdAt":"2026-04-07T19:24:08.154Z","updatedAt":"2026-04-07T19:24:08.154Z","deletedAt":null,"version":1,"mrn":"CF-2026-00001","firstname":"Jana","email":"your.email+fakedata54103@gmail.com","phoneNumber":"08012345678","lastname":"Ariel","middlename":"","dateOfBirth":"2026-04-06T23:00:00.000Z","gender":"male","bloodGroup":"A+","maritalStatus":"single","address":"579
+      Carter
+      Terrace","nationality":"Nigerian","paymentType":"cash","nextOfKin":{"name":"Shane
+      Grimes","address":"397 Skyline
+      Drive","phoneNumber":"08012345678"},"occupation":"Regional Brand
+      Analyst","isActive":true,"lgaId":null}],"meta":{"nextCursor":null,"prevCursor":null,"hasMore":false,"limit":10}},"path":"/api/v1/patients?page=1&limit=10","duration":14}'
+order: 1775633364505
+name: success

@@ -1,9 +1,6 @@
-import { IsString, IsUUID } from 'class-validator';
+import { IsString } from 'class-validator';
 
 export class CreateMedicalCodeDto {
-  @IsUUID()
-  standardId: string;
-
   @IsString()
   codeValue: string;
 

@@ -1,7 +1,8 @@
 $kind: http-request
+name: fetch all staff
 method: GET
-url: "{{baseUrl}}staff?withTotal=true&fields[root]=id,firstName&fields[role]=id\
-  ,name"
+url: "{{baseUrl}}/staff?withTotal=true&fields[root]=id,firstName&fields[role]=i\
+  d,name"
 examples: .resources/fetch all staff.resources/examples
 order: 1000
 headers:
@@ -10,65 +11,6 @@ queryParams:
   - key: withTotal
     value: "true"
     description: Add total records
-  - key: where
-    value: department.name='Finance'
-    disabled: true
-    description: DSL filter expression
-  - key: limit
-    value: "3"
-    disabled: true
-    description: Page size (1–1000, default 20)
-  - key: sort
-    value: -createdAt,lastName
-    disabled: true
-    description: "Comma-separated field:direction. Allowed fields: firstName
-      lastName, email, createdAt, updatedAt, isActive, isApproved"
-  - key: cursor
-    value: ""
-    disabled: true
-    description: Opaque cursor from previous page's meta.nextCursor
-  - key: include
-    value: role,department
-    disabled: true
-    description: "Comma-separated relations to join. Allowed: role, department"
-  - key: groupBy
-    value: roleId
-    disabled: true
-    description: Comma-separated fields to group by
-  - key: having
-    value: avg(version)>=2
-    disabled: true
-    description: DSL aggregate filter (requires groupBy)
-  - key: withDeleted
-    value: "false"
-    disabled: true
-    description: Include soft-deleted records
-  - key: filter[isActive][eq]
-    value: "true"
-    disabled: true
-    description: Bracket-style filter on isActive field
-  - key: filter[role.name][eq]
-    value: Doctor
-    disabled: true
-  - key: filter[roleId][eq]
-    value: "{{roleId}}"
-    disabled: true
-    description: Bracket-style filter on roleId field
-  - key: filter[firstName][eq]
-    value: Peter
-    disabled: true
-    description: Full-text search on firstName
-  - key: search[firstName][tri]
-    value: Ada
-    disabled: true
-    description: Trigram search on email
-  - key: search[email][tri]
-    value: john@
-    disabled: true
-    description: Aggregate function (count) on field
-  - key: aggregate[count]
-    value: roleId
-    disabled: true
   - key: fields[root]
     value: id,firstName
   - key: fields[role]

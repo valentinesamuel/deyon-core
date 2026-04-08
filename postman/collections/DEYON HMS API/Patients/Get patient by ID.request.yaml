@@ -1,0 +1,10 @@
+$kind: http-request
+name: Get patient by ID
+method: GET
+url: "{{baseUrl}}/patients/:id"
+examples: .resources/Get patient by ID.resources/examples
+order: 4000
+headers:
+  Authorization: Bearer {{token}}
+pathVariables:
+  id: 635cb3df-c1e5-4867-b7d4-fe47d1311eff

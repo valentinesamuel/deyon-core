@@ -1,0 +1,20 @@
+$kind: http-request
+method: PATCH
+url: '{{baseUrl}}/patients/:id/hmo'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+pathVariables:
+  - key: id
+    value: '{{$randomUUID}}'
+body:
+  type: json
+  content: |-
+    {
+      "hmoProviderId": "{{$randomUUID}}",
+      "membershipNumber": "HMO123456",
+      "policyNumber": "POL789012"
+    }
