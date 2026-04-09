@@ -5,7 +5,7 @@ export const SERVICE_CODE_CATALOG_QUERY_CONFIG: EntityQueryConfig<ServiceCodeCat
   allowedFilters: ['id', 'serviceId', 'medicalCodeId', 'hmoProviderId'],
   allowedSort: ['createdAt'],
   allowedSearch: [],
-  allowedRelations: [],
+  allowedRelations: ['medicalCode'],
   allowedFields: [],
   maxRelationDepth: 1,
   cacheTtlSeconds: 30,

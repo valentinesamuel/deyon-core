@@ -1,0 +1,20 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/services/:serviceId/codes'
+order: 4277884741613423
+pathVariables:
+  - key: serviceId
+    value: '550e8400-e29b-41d4-a716-446655440000'
+    description: 'Service ID (UUID)'
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "medicalCodeId": "123e4567-e89b-12d3-a456-426614174000",
+      "hmoProviderId": "987fcdeb-51a2-43d7-8f9e-123456789abc"
+    }

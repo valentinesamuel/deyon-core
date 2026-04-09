@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, OneToOne, Unique } from 'typeorm';
 import { BaseEntity } from '@shared/repositories/base.entity';
 import { MedicalCode } from './medicalCode.entity';
 import { MedicalService } from './medicalService.entity';
@@ -7,6 +7,11 @@ import { LabOrderItem } from './labOrderItem.entity';
 import { TestCatalog } from './testCatalog.entity';
 
 @Entity()
+@Unique(['medicalCodeId', 'serviceId', 'hmoProviderId'])
+@Index(['medicalCodeId', 'serviceId'], {
+  unique: true,
+  where: '"hmo_provider_id" IS NULL',
+})
 export class ServiceCodeCatalog extends BaseEntity {
   @Column({ type: 'uuid' })
   medicalCodeId: string;

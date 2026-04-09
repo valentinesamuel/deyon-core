@@ -1,0 +1,26 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/services/:serviceId/codes'
+order: 1775742586249
+pathVariables:
+  - key: serviceId
+    value: '550e8400-e29b-41d4-a716-446655440000'
+    description: 'Service ID (UUID)'
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json
+queryParams:
+  - key: page
+    value: '1'
+    description: 'Page number for pagination'
+    disabled: true
+  - key: limit
+    value: '10'
+    description: 'Number of items per page'
+    disabled: true
+  - key: search
+    value: ''
+    description: 'Search term for filtering'
+    disabled: true

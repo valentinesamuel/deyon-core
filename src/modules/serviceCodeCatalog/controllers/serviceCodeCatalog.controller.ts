@@ -25,10 +25,8 @@ export class ServiceCodeCatalogController {
     @Param('serviceId') serviceId: string,
     @Query() query: GetAllQueryDto,
   ) {
-    return this.serviceBroker.runUsecases([this.fetchAllServiceCodeCatalogsUsecase], {
-      serviceId,
-      query,
-    });
+    query.filter = { ...query.filter, serviceId: { eq: serviceId } };
+    return this.serviceBroker.runUsecases([this.fetchAllServiceCodeCatalogsUsecase], { query });
   }
 
   @Post('')

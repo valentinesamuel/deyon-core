@@ -2,23 +2,30 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { ServiceCodeCatalog } from '@modules/core/entities/serviceCodeCatalog.entity';
-import { QueryInput } from '@shared/queryEngine';
+import { CursorPage, QueryEngineService, QueryInput } from '@shared/queryEngine';
+import { SERVICE_CODE_CATALOG_QUERY_CONFIG } from '../serviceCodeCatalog.constants';
 
-type FetchAllServiceCodeCatalogsParams = { serviceId: string; query: QueryInput };
+type TFetchAllServiceCodeCatalogsParams = { query: QueryInput };
 
 @Injectable()
 export class FetchAllServiceCodeCatalogsUsecase extends Usecase<
-  ServiceCodeCatalog[],
-  FetchAllServiceCodeCatalogsParams
+  CursorPage<ServiceCodeCatalog>,
+  TFetchAllServiceCodeCatalogsParams
 > {
   readonly config = { requiresTransaction: false };
 
+  constructor(private readonly queryEngine: QueryEngineService) {
+    super();
+  }
+
   async execute(
-    em: EntityManager,
-    params: FetchAllServiceCodeCatalogsParams,
-  ): Promise<ServiceCodeCatalog[]> {
-    return em.getRepository(ServiceCodeCatalog).find({
-      where: { serviceId: params.serviceId },
-    });
+    _em: EntityManager,
+    params: TFetchAllServiceCodeCatalogsParams,
+  ): Promise<CursorPage<ServiceCodeCatalog>> {
+    return this.queryEngine.execute(
+      ServiceCodeCatalog,
+      params.query,
+      SERVICE_CODE_CATALOG_QUERY_CONFIG,
+    );
   }
 }

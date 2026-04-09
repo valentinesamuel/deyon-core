@@ -1,0 +1,16 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/services/:serviceId/codes/:catalogId'
+order: 4475786794749466
+pathVariables:
+  - key: serviceId
+    value: '550e8400-e29b-41d4-a716-446655440000'
+    description: 'Service ID (UUID)'
+  - key: catalogId
+    value: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    description: 'Service Code Catalog ID (UUID)'
+headers:
+  - key: Authorization
+    value: 'Bearer {{token}}'
+  - key: Content-Type
+    value: application/json

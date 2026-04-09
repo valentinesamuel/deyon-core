@@ -56,10 +56,9 @@ export class LabCatalogController {
 
   @Get('catalog/:id/reference-ranges')
   @RequirePermissions([PERMISSION.REFERENCE_RANGE.LIST])
-  async getReferenceRangesByTest(@Param('id') id: string) {
-    return this.serviceBroker.runUsecases([this.fetchReferenceRangesByTestUsecase], {
-      testId: id,
-    });
+  async getReferenceRangesByTest(@Param('id') id: string, @Query() query: GetAllQueryDto) {
+    query.filter = { ...query.filter, testId: { eq: id } };
+    return this.serviceBroker.runUsecases([this.fetchReferenceRangesByTestUsecase], { query });
   }
 
   @Post('catalog/:id/reference-ranges')

@@ -1,6 +1,6 @@
 import { HMOContractCoverageTypeEnum } from '@modules/core/entities/hmoContract.entity';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsNumber, IsUUID } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateHmoContractDto {
   @ApiProperty({ example: 'c6b23ca7-c6a7-425b-9320-882fbfa36f23' })
@@ -16,18 +16,22 @@ export class CreateHmoContractDto {
   coverageType: HMOContractCoverageTypeEnum;
 
   @ApiProperty({ example: 12000 })
+  @IsOptional()
   @IsNumber()
   contractedPrice?: number;
 
   @ApiProperty({ example: 30 })
+  @IsOptional()
   @IsNumber()
   coveragePercentage?: number;
 
   @ApiProperty({ example: 1000 })
+  @IsOptional()
   @IsNumber()
   coverageFlatAmount?: number;
 
   @ApiProperty({ example: 1000 })
+  @IsOptional()
   @IsNumber()
   maxCoveredAmount?: number;
 

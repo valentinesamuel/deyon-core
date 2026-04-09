@@ -2,20 +2,26 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { ReferenceRange } from '@modules/core/entities/referenceRange.entity';
+import { CursorPage, QueryEngineService, QueryInput } from '@shared/queryEngine';
+import { REFERENCE_RANGE_QUERY_CONFIG } from '../labCatalog.constants';
 
-type TFetchReferenceRangesByTestParams = { testId: string };
+type TFetchReferenceRangesByTestParams = { query: QueryInput };
 
 @Injectable()
 export class FetchReferenceRangesByTestUsecase extends Usecase<
-  ReferenceRange[],
+  CursorPage<ReferenceRange>,
   TFetchReferenceRangesByTestParams
 > {
   readonly config = { requiresTransaction: false };
 
+  constructor(private readonly queryEngine: QueryEngineService) {
+    super();
+  }
+
   async execute(
-    em: EntityManager,
+    _em: EntityManager,
     params: TFetchReferenceRangesByTestParams,
-  ): Promise<ReferenceRange[]> {
-    return em.getRepository(ReferenceRange).find({ where: { testId: params.testId } });
+  ): Promise<CursorPage<ReferenceRange>> {
+    return this.queryEngine.execute(ReferenceRange, params.query, REFERENCE_RANGE_QUERY_CONFIG);
   }
 }
